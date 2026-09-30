@@ -45,6 +45,14 @@ async function main() {
     .png()
     .toBuffer();
   fs.writeFileSync("assets/icon-foreground.png", fg);
+
+  // Latar ikon adaptif: warna polos sesuai warna tema
+  // (tanpa file ini, capacitor-assets tidak membuat ic_launcher_background dan build Gradle gagal)
+  const bg = await sharp({
+    create: { width: 1024, height: 1024, channels: 4, background: color },
+  }).png().toBuffer();
+  fs.writeFileSync("assets/icon-background.png", bg);
+
   console.log("Ikon siap");
 }
 
