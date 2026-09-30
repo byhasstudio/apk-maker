@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pembuat APK</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#f4f5f7;margin:0;color:#222}
+  main{max-width:480px;margin:0 auto;padding:16px}
+  h1{font-size:1.4rem}
+  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px #0002}
+  .warn{background:#fff3cd;border:1px solid #ffe08a;padding:10px;border-radius:8px;font-size:.85rem}
+  label{display:block;margin:12px 0 4px;font-weight:600;font-size:.9rem}
+  input[type=text],input[type=url],input[type=file]{width:100%;box-sizing:border-box;padding:10px;border:1px solid #bbb;border-radius:8px;font-size:1rem}
+  input[type=color]{width:60px;height:40px;border:none;padding:0}
+  .modes label{display:inline-block;margin-right:16px;font-weight:400}
+  button{width:100%;margin-top:16px;padding:12px;font-size:1rem;border:none;border-radius:8px;background:#1a73e8;color:#fff}
+  button:disabled{background:#999}
+  #status{margin-top:16px;padding:10px;border-radius:8px;background:#eef;display:none}
+  #status.done{background:#dfd}
+  #status.failed{background:#fdd}
+  #dl{display:none;margin-top:10px;text-align:center;padding:12px;background:#0a7d32;color:#fff;border-radius:8px;text-decoration:none}
+  small{color:#666}
+</style>
+</head>
+<body>
+<main>
+  <h1>Pembuat APK</h1>
+  <p class="warn">⚠️ APK dibuat oleh pengguna dan dipakai dengan risiko sendiri. Kami tidak memeriksa isi aplikasi. Jangan memasang APK dari sumber yang tidak Anda percaya. APK ini bertanda tangan debug (bukan untuk Play Store).</p>
+
+  <div class="card">
+    <div class="modes">
+      <label><input type="radio" name="mode" value="url" checked> Dari URL</label>
+      <label><input type="radio" name="mode" value="upload"> Upload HTML/ZIP</label>
+    </div>
+
+    <div id="boxUrl">
+      <label for="siteUrl">URL website (wajib https)</label>
+      <input id="siteUrl" type="url" placeholder="https://contoh.com">
+    </div>
+    <div id="boxFile" style="display:none">
+      <label for="file">File .html atau .zip (maks 10 MB)</label>
+      <input id="file" type="file" accept=".html,.htm,.zip">
+      <small>ZIP harus punya index.html.</small>
+    </div>
+
+    <label for="appName">Nama aplikasi</label>
+    <input id="appName" type="text" maxlength="30" placeholder="Aplikasi Saya">
+
+    <label for="appId">Package ID</label>
+    <input id="appId" type="text" maxlength="60" placeholder="com.nama.aplikasi" autocapitalize="none">
+    <small>Huruf kecil, angka, titik. Contoh: com.budi.toko</small>
+
+    <label for="color">Warna tema</label>
+    <input id="color" type="color" value="#1a73e8">
+
+    <label for="icon">Ikon (opsional, PNG/JPG, maks 1 MB)</label>
+    <input id="icon" type="file" accept="image/png,image/jpeg">
+
+    <div id="ts" style="margin-top:16px"></div>
+    <button id="btn">Buat APK</button>
+
+    <div id="status"></div>
+    <a id="dl" href="#" rel="noopener">⬇ Download APK</a>
+  </div>
+</main>
+
+<script>
+const WORKER_URL = "https://apk-maker.byhasstudio.workers.dev"; // GANTI. Tanpa garis miring di akhir
+const TURNSTILE_SITEKEY = "ISI_SITE_KEY_TURNSTILE";           // GANTI
+
+const $ = id => document.getElementById(id);
+const LABEL = {queued:"⏳ Antre…", building:"🔧 Membangun APK (sekitar 5–10 menit)…", done:"✅ Selesai!", failed:"❌ Gagal"};
+let widgetId = null, timer = null;
+
+window.onTurnstileLoad = () => {
+  widgetId = turnstile.render("#ts", {sitekey: TURNSTILE_SITEKEY});
+};
+
+document.querySelectorAll("input[name=mode]").forEach(r => r.addEventListener("change", () => {
+  const m = document.querySelector("input[name=mode]:checked").value;
+  $("boxUrl").style.display = m === "url" ? "" : "none";
+  $("boxFile").style.display = m === "upload" ? "" : "none";
+}));
+
+function show(cls, text){
+  const s = $("status");
+  s.style.display = "block";
+  s.className = cls;
+  s.textContent = text;
+}
+
+function poll(jobId){
+  const start = Date.now();
+  clearInterval(timer);
+  timer = setInterval(async () => {
+    if (Date.now() - start > 20*60*1000){
+      clearInterval(timer);
+      show("failed", "❌ Waktu habis. Coba lagi nanti.");
+      $("btn").disabled = false;
+      return;
+    }
+    try {
+      const r = await fetch(WORKER_URL + "/api/status/" + jobId);
+      const d = await r.json();
+      show(d.status === "done" ? "done" : d.status === "failed" ? "failed" : "", LABEL[d.status] || d.status);
+      if (d.status === "done" && d.apkUrl && d.apkUrl.startsWith("https://github.com/")){
+        clearInterval(timer);
+        $("dl").href = d.apkUrl;
+        $("dl").style.display = "block";
+        $("btn").disabled = false;
+      } else if (d.status === "failed"){
+        clearInterval(timer);
+        $("btn").disabled = false;
+      }
+    } catch(e) { /* coba lagi di putaran berikut */ }
+  }, 5000);
+}
+
+$("btn").addEventListener("click", async () => {
+  const mode = document.querySelector("input[name=mode]:checked").value;
+  const fd = new FormData();
+  fd.append("mode", mode);
+  fd.append("appName", $("appName").value.trim());
+  fd.append("appId", $("appId").value.trim());
+  fd.append("color", $("color").value);
+
+  if (mode === "url"){
+    const u = $("siteUrl").value.trim();
+    if (!u.startsWith("https://")) return show("failed", "URL harus diawali https://");
+    fd.append("url", u);
+  } else {
+    const f = $("file").files[0];
+    if (!f) return show("failed", "Pilih file dulu.");
+    if (f.size > 10*1024*1024) return show("failed", "File lebih dari 10 MB.");
+    fd.append("file", f);
+  }
+  const ic = $("icon").files[0];
+  if (ic){
+    if (ic.size > 1024*1024) return show("failed", "Ikon lebih dari 1 MB.");
+    fd.append("icon", ic);
+  }
+  const token = turnstile.getResponse(widgetId);
+  if (!token) return show("failed", "Selesaikan verifikasi dulu.");
+  fd.append("cf-turnstile-response", token);
+
+  $("btn").disabled = true;
+  $("dl").style.display = "none";
+  show("", "⏳ Mengirim…");
+  try {
+    const r = await fetch(WORKER_URL + "/api/build", {method:"POST", body: fd});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Permintaan ditolak.");
+    show("", LABEL.queued);
+    poll(d.jobId);
+  } catch(e){
+    show("failed", "❌ " + e.message);
+    $("btn").disabled = false;
+  } finally {
+    turnstile.reset(widgetId);
+  }
+});
+</script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
+</body>
+</html>
