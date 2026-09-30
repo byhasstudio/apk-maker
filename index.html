@@ -14,11 +14,12 @@
   input[type=text],input[type=url],input[type=file]{width:100%;box-sizing:border-box;padding:10px;border:1px solid #bbb;border-radius:8px;font-size:1rem}
   input[type=color]{width:60px;height:40px;border:none;padding:0}
   .modes label{display:inline-block;margin-right:16px;font-weight:400}
-  button{width:100%;margin-top:16px;padding:12px;font-size:1rem;border:none;border-radius:8px;background:#1a73e8;color:#fff}
-  button:disabled{background:#999}
-  #status{margin-top:16px;padding:10px;border-radius:8px;background:#eef;display:none}
+  button{width:100%;margin-top:16px;padding:12px;font-size:1rem;border:none;border-radius:8px;background:#1a73e8;color:#fff;cursor:pointer}
+  button:disabled{background:#999;cursor:not-allowed}
+  #status{margin-top:16px;padding:10px;border-radius:8px;background:#eef;display:none;word-break:break-word}
   #status.done{background:#dfd}
   #status.failed{background:#fdd}
+  #status a{color:inherit}
   #dl{display:none;margin-top:10px;text-align:center;padding:12px;background:#0a7d32;color:#fff;border-radius:8px;text-decoration:none}
   small{color:#666}
 </style>
@@ -46,9 +47,10 @@
 
     <label for="appName">Nama aplikasi</label>
     <input id="appName" type="text" maxlength="30" placeholder="Aplikasi Saya">
+    <small>2–30 karakter: huruf, angka, spasi, titik, garis bawah, strip.</small>
 
     <label for="appId">Package ID</label>
-    <input id="appId" type="text" maxlength="60" placeholder="com.nama.aplikasi" autocapitalize="none">
+    <input id="appId" type="text" maxlength="60" placeholder="com.nama.aplikasi" autocapitalize="none" autocomplete="off" spellcheck="false">
     <small>Huruf kecil, angka, titik. Contoh: com.budi.toko</small>
 
     <label for="color">Warna tema</label>
@@ -60,106 +62,203 @@
     <div id="ts" style="margin-top:16px"></div>
     <button id="btn">Buat APK</button>
 
-    <div id="status"></div>
+    <div id="status" role="status" aria-live="polite"></div>
     <a id="dl" href="#" rel="noopener">⬇ Download APK</a>
   </div>
 </main>
 
 <script>
-const WORKER_URL = "https://apk-maker.byhasstudio.workers.dev"; // GANTI. Tanpa garis miring di akhir
-const TURNSTILE_SITEKEY = "0x4AAAAAAFJAeNGZE9C_NHfh";           // GANTI
+const WORKER_URL = "https://apk-maker.byhasstudio.workers.dev";
+const TURNSTILE_SITEKEY = "0x4AAAAAAFJAeNGZE9C_NHfh";
 
+const API = WORKER_URL.replace(/\/+$/, "");
 const $ = id => document.getElementById(id);
 const LABEL = {queued:"⏳ Antre…", building:"🔧 Membangun APK (sekitar 5–10 menit)…", done:"✅ Selesai!", failed:"❌ Gagal"};
-let widgetId = null, timer = null;
+const POLL_MS = 5000;
+const MAX_WAIT_MS = 30 * 60 * 1000; // workflow maksimal 25 menit
+const JOB_KEY = "apkmaker.job";
+const JAVA_KEYWORDS = new Set(("abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while true false null").split(" "));
+
+let widgetId = null, timer = null, busy = false;
 
 window.onTurnstileLoad = () => {
   widgetId = turnstile.render("#ts", {sitekey: TURNSTILE_SITEKEY});
 };
 
+/* ---------- util ---------- */
+const validName = n => /^[\p{L}\p{N} ._-]{2,30}$/u.test(n);
+function validAppId(id){
+  if (id.length > 60) return false;
+  if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/.test(id)) return false;
+  return !id.split(".").some(p => JAVA_KEYWORDS.has(p));
+}
+function store(v){
+  try { v ? localStorage.setItem(JOB_KEY, JSON.stringify(v)) : localStorage.removeItem(JOB_KEY); } catch(e){}
+}
+function loadJob(){
+  try { return JSON.parse(localStorage.getItem(JOB_KEY) || "null"); } catch(e){ return null; }
+}
+async function readJson(r){
+  try { return await r.json(); } catch(e){ return {}; }
+}
+function setBusy(b){
+  busy = b;
+  $("btn").disabled = b;
+}
+function show(cls, text, linkUrl, linkText){
+  const s = $("status");
+  s.style.display = "block";
+  s.className = cls;
+  s.textContent = text;
+  if (linkUrl && linkUrl.startsWith("https://github.com/")){
+    s.appendChild(document.createTextNode(" "));
+    const a = document.createElement("a");
+    a.href = linkUrl; a.target = "_blank"; a.rel = "noopener";
+    a.textContent = linkText || "Lihat log";
+    s.appendChild(a);
+  }
+}
+function stopPolling(){
+  clearInterval(timer);
+  timer = null;
+  store(null);
+  setBusy(false);
+}
+
+/* ---------- mode ---------- */
 document.querySelectorAll("input[name=mode]").forEach(r => r.addEventListener("change", () => {
   const m = document.querySelector("input[name=mode]:checked").value;
   $("boxUrl").style.display = m === "url" ? "" : "none";
   $("boxFile").style.display = m === "upload" ? "" : "none";
 }));
 
-function show(cls, text){
-  const s = $("status");
-  s.style.display = "block";
-  s.className = cls;
-  s.textContent = text;
-}
+$("appId").addEventListener("input", e => {
+  e.target.value = e.target.value.toLowerCase().replace(/\s+/g, "");
+});
 
-function poll(jobId){
-  const start = Date.now();
+/* ---------- polling ---------- */
+function poll(jobId, startedAt){
+  const start = startedAt || Date.now();
   clearInterval(timer);
-  timer = setInterval(async () => {
-    if (Date.now() - start > 20*60*1000){
-      clearInterval(timer);
+  setBusy(true);
+  store({id: jobId, t: start});
+  let checking = false;
+
+  const tick = async () => {
+    if (checking) return;
+    if (Date.now() - start > MAX_WAIT_MS){
+      stopPolling();
       show("failed", "❌ Waktu habis. Coba lagi nanti.");
-      $("btn").disabled = false;
       return;
     }
+    checking = true;
     try {
-      const r = await fetch(WORKER_URL + "/api/status/" + jobId);
-      const d = await r.json();
-      show(d.status === "done" ? "done" : d.status === "failed" ? "failed" : "", LABEL[d.status] || d.status);
-      if (d.status === "done" && d.apkUrl && d.apkUrl.startsWith("https://github.com/")){
-        clearInterval(timer);
-        $("dl").href = d.apkUrl;
-        $("dl").style.display = "block";
-        $("btn").disabled = false;
-      } else if (d.status === "failed"){
-        clearInterval(timer);
-        $("btn").disabled = false;
+      const r = await fetch(API + "/api/status/" + encodeURIComponent(jobId));
+      const d = await readJson(r);
+      if (r.status === 404){
+        stopPolling();
+        show("failed", "❌ Pekerjaan tidak ditemukan. Coba buat ulang.");
+        return;
       }
-    } catch(e) { /* coba lagi di putaran berikut */ }
-  }, 5000);
+      if (!r.ok || !d.status) return; // coba lagi di putaran berikut
+
+      if (d.status === "done"){
+        if (d.apkUrl && d.apkUrl.startsWith("https://github.com/")){
+          stopPolling();
+          show("done", LABEL.done);
+          $("dl").href = d.apkUrl;
+          $("dl").style.display = "block";
+        } else {
+          stopPolling();
+          show("failed", "❌ Build selesai tetapi link APK tidak valid.");
+        }
+      } else if (d.status === "failed"){
+        stopPolling();
+        show("failed", LABEL.failed + ".", d.runUrl, "Lihat log");
+      } else {
+        show("", LABEL[d.status] || d.status);
+      }
+    } catch(e) {
+      /* jaringan putus sementara, coba lagi */
+    } finally {
+      checking = false;
+    }
+  };
+  tick();
+  timer = setInterval(tick, POLL_MS);
 }
 
+/* ---------- kirim ---------- */
 $("btn").addEventListener("click", async () => {
+  if (busy) return;
   const mode = document.querySelector("input[name=mode]:checked").value;
+  const appName = $("appName").value.trim();
+  const appId = $("appId").value.trim();
+
+  if (!validName(appName)) return show("failed", "Nama aplikasi 2–30 karakter, hanya huruf, angka, spasi, titik, garis bawah, atau strip.");
+  if (!validAppId(appId)) return show("failed", "Package ID tidak valid. Contoh: com.budi.toko (huruf kecil, minimal dua bagian, tanpa kata terlarang Java seperti 'new' atau 'int').");
+
   const fd = new FormData();
   fd.append("mode", mode);
-  fd.append("appName", $("appName").value.trim());
-  fd.append("appId", $("appId").value.trim());
+  fd.append("appName", appName);
+  fd.append("appId", appId);
   fd.append("color", $("color").value);
 
   if (mode === "url"){
     const u = $("siteUrl").value.trim();
-    if (!u.startsWith("https://")) return show("failed", "URL harus diawali https://");
-    fd.append("url", u);
+    let parsed;
+    try { parsed = new URL(u); } catch(e){ return show("failed", "URL tidak valid."); }
+    if (parsed.protocol !== "https:") return show("failed", "URL harus diawali https://");
+    fd.append("url", parsed.href);
   } else {
     const f = $("file").files[0];
     if (!f) return show("failed", "Pilih file dulu.");
+    if (!/\.(html?|zip)$/i.test(f.name)) return show("failed", "File harus .html, .htm, atau .zip.");
     if (f.size > 10*1024*1024) return show("failed", "File lebih dari 10 MB.");
     fd.append("file", f);
   }
   const ic = $("icon").files[0];
   if (ic){
+    if (!/^image\/(png|jpeg)$/.test(ic.type)) return show("failed", "Ikon harus PNG atau JPG.");
     if (ic.size > 1024*1024) return show("failed", "Ikon lebih dari 1 MB.");
     fd.append("icon", ic);
   }
+
+  if (!window.turnstile || widgetId === null) return show("failed", "Verifikasi belum siap. Muat ulang halaman.");
   const token = turnstile.getResponse(widgetId);
   if (!token) return show("failed", "Selesaikan verifikasi dulu.");
   fd.append("cf-turnstile-response", token);
 
-  $("btn").disabled = true;
+  setBusy(true);
   $("dl").style.display = "none";
   show("", "⏳ Mengirim…");
+  let started = false;
   try {
-    const r = await fetch(WORKER_URL + "/api/build", {method:"POST", body: fd});
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || "Permintaan ditolak.");
+    const r = await fetch(API + "/api/build", {method:"POST", body: fd});
+    const d = await readJson(r);
+    if (!r.ok) throw new Error(d.error || ("Permintaan ditolak (" + r.status + ")."));
+    if (!d.jobId) throw new Error("Server tidak mengirim ID pekerjaan.");
     show("", LABEL.queued);
+    started = true;
     poll(d.jobId);
   } catch(e){
     show("failed", "❌ " + e.message);
-    $("btn").disabled = false;
   } finally {
-    turnstile.reset(widgetId);
+    if (!started) setBusy(false);
+    try { turnstile.reset(widgetId); } catch(e){}
   }
 });
+
+/* ---------- lanjutkan pekerjaan jika halaman dimuat ulang ---------- */
+(function resume(){
+  const j = loadJob();
+  if (j && j.id && Date.now() - j.t < MAX_WAIT_MS){
+    show("", "⏳ Melanjutkan pekerjaan sebelumnya…");
+    poll(j.id, j.t);
+  } else {
+    store(null);
+  }
+})();
 </script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
 </body>
