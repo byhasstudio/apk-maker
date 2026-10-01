@@ -21,7 +21,7 @@
   .card{background:var(--card);border-radius:20px;padding:20px;box-shadow:var(--sh)}
   .warn{background:var(--wbg);border:1px solid var(--wbd);padding:12px;border-radius:14px;font-size:.8rem;line-height:1.45;margin:0 0 16px}
   label{display:block;margin:18px 0 6px;font-weight:700;font-size:.85rem}
-  input[type=text],input[type=url],input[type=file],select{width:100%;box-sizing:border-box;padding:12px;border:1.5px solid var(--bd);border-radius:12px;font-size:1rem;background:var(--card);color:var(--fg);transition:border-color .15s,box-shadow .15s}
+  input[type=text],input[type=url],input[type=file],input[type=password],select{width:100%;box-sizing:border-box;padding:12px;border:1.5px solid var(--bd);border-radius:12px;font-size:1rem;background:var(--card);color:var(--fg);transition:border-color .15s,box-shadow .15s}
   input:focus,select:focus{outline:0;border-color:var(--acc);box-shadow:0 0 0 4px #4f6df522}
   input[type=file]::file-selector-button{margin-right:10px;padding:6px 12px;border:0;border-radius:8px;background:var(--trk);color:var(--fg);cursor:pointer}
   .modes{display:flex;gap:4px;background:var(--trk);padding:4px;border-radius:14px}
@@ -84,6 +84,16 @@
   #barFill{background:linear-gradient(90deg,var(--acc),var(--acc2),var(--acc));background-size:200% 100%;animation:shine 1.8s linear infinite;transition:width .9s ease-out}
   #cv:active{cursor:grabbing}
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+  /* ---------- login & riwayat ---------- */
+  button.alt{background:var(--card);color:var(--fg);border:1.5px solid var(--bd);box-shadow:none}
+  button.alt:hover:not(:disabled){box-shadow:0 4px 12px #0002}
+  #userBar{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;padding:8px 12px;background:var(--card);border-radius:14px;box-shadow:var(--sh)}
+  #userBar button{width:auto;margin:0;padding:6px 12px;font-size:.78rem}
+  #aMsg{margin-top:12px;font-size:.85rem;color:#d92d20;min-height:1em}
+  #aForgot{display:block;margin-top:10px;font-size:.8rem;color:var(--acc);text-align:center}
+  .hrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd);font-size:.9rem}
+  .hrow:last-child{border-bottom:0}
+  .hdl{padding:6px 12px;border-radius:10px;background:var(--trk);text-decoration:none;color:var(--fg)}
 </style>
 </head>
 <body>
@@ -96,9 +106,27 @@
   <div id="top"><div><h1>📱 Pembuat APK</h1><p class="sub">Ubah website atau file HTML jadi aplikasi Android dalam beberapa menit.</p></div>
     <div id="themes"><button type="button" data-t="auto">🖥 Auto</button><button type="button" data-t="light">☀️ Terang</button><button type="button" data-t="dark">🌙 Gelap</button></div>
   </div>
+  <div id="userBar"><small id="uMail"></small><button type="button" id="aOut" class="alt">Keluar</button></div>
   <p class="warn">⚠️ APK dibuat oleh pengguna dan dipakai dengan risiko sendiri. Kami tidak memeriksa isi aplikasi. Jangan memasang APK dari sumber yang tidak Anda percaya. APK ini bertanda tangan debug (bukan untuk Play Store).</p>
 
-  <div class="card">
+  <div class="card" id="authCard" style="display:none">
+    <h2 style="margin:0 0 4px;font-size:1.2rem">Masuk untuk melanjutkan</h2>
+    <small>Akun diperlukan untuk membuat aplikasi dan menyimpan riwayat build.</small>
+    <div class="modes" style="margin:14px 0">
+      <label><input type="radio" name="atab" value="in" checked> Masuk</label>
+      <label><input type="radio" name="atab" value="up"> Daftar</label>
+    </div>
+    <label for="aEmail" style="margin-top:0">Email</label>
+    <input id="aEmail" type="text" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="nama@email.com">
+    <label for="aPass">Sandi</label>
+    <input id="aPass" type="password" autocomplete="current-password" placeholder="Minimal 6 karakter">
+    <button type="button" id="aGo">Masuk</button>
+    <button type="button" id="aGoogle" class="alt">🌐 Lanjut dengan Google</button>
+    <a href="#" id="aForgot">Lupa sandi?</a>
+    <div id="aMsg" role="alert"></div>
+  </div>
+
+  <div class="card" id="buildCard" style="display:none">
     <div class="modes" id="tgts" style="margin-bottom:14px">
       <label><input type="radio" name="target" value="apk" checked> 🤖 Android (APK)</label>
       <label><input type="radio" name="target" value="exe"> 🪟 Windows (EXE)</label>
@@ -165,6 +193,12 @@
     <div id="status" role="status" aria-live="polite"></div>
     <div id="bar"><div id="barFill"></div><span id="barTxt">0%</span></div>
     <a id="dl" href="#" rel="noopener">⬇ Download</a>
+  </div>
+
+  <div class="card" id="histCard" style="margin-top:16px;display:none">
+    <b>Riwayat build</b>
+    <div id="hist" style="margin-top:8px"></div>
+    <small>Tautan unduhan aktif sekitar 14 hari.</small>
   </div>
 </main>
 
@@ -415,6 +449,7 @@ function poll(jobId, startedAt){
         if (d.apkUrl && d.apkUrl.startsWith("https://github.com/")){
           stopPolling();
           setBar(100);
+          if (window.fbSaveBuild) window.fbSaveBuild(jobId, {status: "done", url: d.apkUrl});
           show("done", LABEL.done);
           $("dl").href = d.apkUrl;
           $("dl").style.display = "block";
@@ -424,6 +459,7 @@ function poll(jobId, startedAt){
         }
       } else if (d.status === "failed"){
         stopPolling();
+        if (window.fbSaveBuild) window.fbSaveBuild(jobId, {status: "failed"});
         show("failed", LABEL.failed + ".", d.runUrl, "Lihat log");
       } else if (d.status === "building"){
         // angka dari server = batas bawah; di sela laporan, bar merayap pelan agar tidak terlihat macet
@@ -483,18 +519,21 @@ $("btn").addEventListener("click", async () => {
   if (!token) return show("failed", "Selesaikan verifikasi dulu.");
   fd.append("cf-turnstile-response", token);
 
+  const tk = window.fbToken ? await window.fbToken() : null;
+  if (!tk) return show("failed", "Silakan masuk dulu.");
   setBusy(true);
   hideBar();
   $("dl").style.display = "none";
   show("", "⏳ Mengirim…");
   let started = false;
   try {
-    const r = await fetch(API + "/api/build", {method:"POST", body: fd});
+    const r = await fetch(API + "/api/build", {method:"POST", body: fd, headers: {Authorization: "Bearer " + tk}});
     const d = await readJson(r);
     if (!r.ok) throw new Error(d.error || ("Permintaan ditolak (" + r.status + ")."));
     if (!d.jobId) throw new Error("Server tidak mengirim ID pekerjaan.");
     show("", LABEL.queued);
     setBar(2);
+    if (window.fbSaveBuild) window.fbSaveBuild(d.jobId, {name: appName, target, status: "queued"}, true);
     started = true;
     poll(d.jobId);
   } catch(e){
@@ -517,5 +556,99 @@ $("btn").addEventListener("click", async () => {
 })();
 </script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
+<script type="module">
+// ISI dengan konfigurasi web app Firebase-mu (Project settings > Your apps). Nilai ini bukan rahasia.
+const FIREBASE_CONFIG = {
+  apiKey: "ISI_API_KEY",
+  authDomain: "ISI_PROJECT_ID.firebaseapp.com",
+  projectId: "ISI_PROJECT_ID",
+  appId: "ISI_APP_ID"
+};
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, serverTimestamp, collection, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const $ = id => document.getElementById(id);
+const msg = t => { $("aMsg").textContent = t || ""; };
+const ERR = {
+  "auth/invalid-credential": "Email atau sandi salah.", "auth/wrong-password": "Email atau sandi salah.", "auth/user-not-found": "Email atau sandi salah.",
+  "auth/email-already-in-use": "Email sudah terdaftar. Coba masuk.", "auth/weak-password": "Sandi minimal 6 karakter.",
+  "auth/invalid-email": "Format email tidak valid.", "auth/too-many-requests": "Terlalu banyak percobaan. Coba lagi nanti.",
+  "auth/popup-closed-by-user": "Jendela masuk ditutup.", "auth/network-request-failed": "Jaringan bermasalah."
+};
+const errText = e => ERR[e.code] || ("Gagal: " + (e.code || e.message));
+
+if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
+  $("authCard").style.display = "";
+  msg("Firebase belum dikonfigurasi. Isi FIREBASE_CONFIG di index.html.");
+} else {
+  const app = initializeApp(FIREBASE_CONFIG), auth = getAuth(app), db = getFirestore(app);
+  let unsub = null;
+  const isUp = () => document.querySelector("input[name=atab]:checked").value === "up";
+
+  document.querySelectorAll("input[name=atab]").forEach(r => r.addEventListener("change", () => {
+    $("aGo").textContent = isUp() ? "Daftar" : "Masuk";
+    $("aPass").autocomplete = isUp() ? "new-password" : "current-password";
+    msg("");
+  }));
+  $("aGo").addEventListener("click", async () => {
+    const em = $("aEmail").value.trim(), pw = $("aPass").value;
+    if (!em || !pw) return msg("Isi email dan sandi.");
+    $("aGo").disabled = true; msg("");
+    try { isUp() ? await createUserWithEmailAndPassword(auth, em, pw) : await signInWithEmailAndPassword(auth, em, pw); }
+    catch (e) { msg(errText(e)); }
+    $("aGo").disabled = false;
+  });
+  $("aGoogle").addEventListener("click", async () => {
+    try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (e) { msg(errText(e)); }
+  });
+  $("aForgot").addEventListener("click", async e => {
+    e.preventDefault();
+    const em = $("aEmail").value.trim();
+    if (!em) return msg("Isi email dulu.");
+    try { await sendPasswordResetEmail(auth, em); msg("Tautan reset sandi dikirim ke email."); } catch (er) { msg(errText(er)); }
+  });
+  $("aOut").addEventListener("click", () => signOut(auth));
+
+  function renderHist(list) {
+    const el = $("hist"); el.textContent = "";
+    if (!list.length) { const p = document.createElement("small"); p.textContent = "Belum ada riwayat."; el.appendChild(p); return; }
+    const ST = {queued: "antre", building: "membangun", done: "selesai", failed: "gagal"};
+    list.forEach(b => {
+      const row = document.createElement("div"); row.className = "hrow";
+      const t = document.createElement("div");
+      const n = document.createElement("b"); n.textContent = (b.target === "exe" ? "🪟 " : "🤖 ") + (b.name || "-");
+      const s = document.createElement("small");
+      s.textContent = (ST[b.status] || b.status || "") + (b.createdAt && b.createdAt.toDate ? " · " + b.createdAt.toDate().toLocaleString("id-ID") : "");
+      t.append(n, document.createElement("br"), s); row.appendChild(t);
+      if (b.status === "done" && typeof b.url === "string" && b.url.startsWith("https://github.com/")) {
+        const a = document.createElement("a"); a.href = b.url; a.rel = "noopener"; a.className = "hdl"; a.textContent = "⬇"; row.appendChild(a);
+      }
+      el.appendChild(row);
+    });
+  }
+
+  onAuthStateChanged(auth, u => {
+    $("authCard").style.display = u ? "none" : "";
+    $("buildCard").style.display = u ? "" : "none";
+    $("histCard").style.display = u ? "" : "none";
+    $("userBar").style.display = u ? "flex" : "none";
+    if (unsub) { unsub(); unsub = null; }
+    if (u) {
+      $("uMail").textContent = u.email || u.displayName || "";
+      unsub = onSnapshot(query(collection(db, "users", u.uid, "builds"), orderBy("createdAt", "desc"), limit(20)),
+        s => renderHist(s.docs.map(d => Object.assign({id: d.id}, d.data()))), () => {});
+    }
+  });
+
+  window.fbToken = () => auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null);
+  window.fbSaveBuild = (id, data, isNew) => {
+    const u = auth.currentUser; if (!u) return;
+    const extra = isNew ? {createdAt: serverTimestamp()} : {};
+    setDoc(doc(db, "users", u.uid, "builds", id), Object.assign({}, data, extra, {updatedAt: serverTimestamp()}), {merge: true}).catch(() => {});
+  };
+}
+</script>
 </body>
 </html>
