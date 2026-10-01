@@ -60,6 +60,7 @@ jobs:
           [[ "$PERMS" =~ ^[a-z,]*$ ]] || { echo "::error::izin tidak valid"; exit 1; }
           test -f builder/make-config.js || { echo "::error::builder/make-config.js tidak ada di repo"; exit 1; }
           test -f builder/make-icon.js || { echo "::error::builder/make-icon.js tidak ada di repo"; exit 1; }
+          test -f builder/inject-guard.js || { echo "::error::builder/inject-guard.js tidak ada di repo"; exit 1; }
 
       - name: Kabari Worker (mulai membangun)
         run: |
@@ -185,6 +186,13 @@ jobs:
             npm install --no-audit --no-fund @capacitor/local-notifications@6
             npx cap sync android
           fi
+
+      - name: Tanam penjaga status APK
+        run: |
+          set -euo pipefail
+          cp builder/inject-guard.js app/
+          cd app
+          node inject-guard.js
 
       - name: Progress 60%
         run: |
