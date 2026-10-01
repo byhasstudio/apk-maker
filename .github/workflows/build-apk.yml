@@ -22,12 +22,14 @@ on:
       app_id:
         required: true
         type: string
-      color:
-        required: true
-        type: string
       has_icon:
         required: true
         type: string
+      perms:
+        description: "daftar izin, dipisah koma"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -42,8 +44,8 @@ jobs:
       SITE_URL: ${{ inputs.url }}
       APP_NAME: ${{ inputs.app_name }}
       APP_ID: ${{ inputs.app_id }}
-      COLOR: ${{ inputs.color }}
       HAS_ICON: ${{ inputs.has_icon }}
+      PERMS: ${{ inputs.perms }}
       WORKER_URL: ${{ secrets.WORKER_URL }}
       BUILD_SECRET: ${{ secrets.BUILD_SECRET }}
     steps:
@@ -54,8 +56,8 @@ jobs:
           set -euo pipefail
           [[ "$JOB_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "::error::job_id tidak valid"; exit 1; }
           [[ "$MODE" == "url" || "$MODE" == "upload" ]] || { echo "::error::mode tidak valid"; exit 1; }
-          [[ "$COLOR" =~ ^#[0-9a-fA-F]{6}$ ]] || { echo "::error::warna tidak valid"; exit 1; }
           [[ "$HAS_ICON" == "true" || "$HAS_ICON" == "false" ]] || { echo "::error::has_icon tidak valid"; exit 1; }
+          [[ "$PERMS" =~ ^[a-z,]*$ ]] || { echo "::error::izin tidak valid"; exit 1; }
           test -f builder/make-config.js || { echo "::error::builder/make-config.js tidak ada di repo"; exit 1; }
           test -f builder/make-icon.js || { echo "::error::builder/make-icon.js tidak ada di repo"; exit 1; }
 
@@ -146,8 +148,43 @@ jobs:
           cd app
           node make-icon.js
           npx cap add android
-          npx capacitor-assets generate --android --iconBackgroundColor "$COLOR" --iconBackgroundColorDark "$COLOR"
+          npx capacitor-assets generate --android
           npx cap sync android
+
+      - name: Tambah izin aplikasi
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          M = "app/android/app/src/main/AndroidManifest.xml"
+          MAP = {
+            "camera": ["android.permission.CAMERA"],
+            "microphone": ["android.permission.RECORD_AUDIO", "android.permission.MODIFY_AUDIO_SETTINGS"],
+            "location": ["android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION"],
+            "notifications": ["android.permission.POST_NOTIFICATIONS"],
+            "media": ["android.permission.READ_MEDIA_IMAGES", "android.permission.READ_MEDIA_VIDEO", "android.permission.READ_MEDIA_AUDIO"],
+          }
+          want = [p for p in os.environ.get("PERMS", "").split(",") if p in MAP]
+          lines = []
+          for p in want:
+              lines += ['    <uses-permission android:name="%s" />' % x for x in MAP[p]]
+          if "media" in want:
+              lines.append('    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />')
+          if "camera" in want:
+              lines.append('    <uses-feature android:name="android.hardware.camera" android:required="false" />')
+          if "microphone" in want:
+              lines.append('    <uses-feature android:name="android.hardware.microphone" android:required="false" />')
+          if lines:
+              s = open(M, encoding="utf-8").read()
+              assert "</manifest>" in s
+              open(M, "w", encoding="utf-8").write(s.replace("</manifest>", "\n".join(lines) + "\n</manifest>"))
+          print("Izin ditambahkan:", want)
+          PY
+          if [[ ",$PERMS," == *",notifications,"* ]]; then
+            cd app
+            npm install --no-audit --no-fund @capacitor/local-notifications@6
+            npx cap sync android
+          fi
 
       - name: Progress 60%
         run: |
