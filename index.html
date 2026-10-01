@@ -57,11 +57,33 @@
   .perms>label:has(.perm){margin:0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem;cursor:pointer;transition:border-color .15s,background .15s}
   .perms>label:has(.perm:checked){border-color:var(--acc);background:#4f6df514}
   .perms input{margin-right:8px;accent-color:var(--acc)}
-  #gate{position:fixed;inset:0;z-index:99;background:var(--bgimg);background-color:var(--bg);display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:16px}
-  #gate.on{display:flex}
+  #gate{position:fixed;inset:0;z-index:99;background:var(--bgimg);background-color:var(--bg);display:flex;opacity:0;visibility:hidden;transition:opacity .45s ease,visibility .45s;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:16px}
+  #gate.on{opacity:1;visibility:visible}
   #gate h2{margin:0 0 6px;font-size:1.5rem;font-weight:800}
   #gate p{margin:0 0 18px;color:var(--mut);font-size:.95rem}
   #gateTs{min-height:65px}
+  /* ---------- animasi ---------- */
+  html{scroll-behavior:smooth}
+  @keyframes up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+  @keyframes shine{to{background-position:-200% 0}}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  #top{animation:up .55s cubic-bezier(.2,.8,.2,1) both}
+  .warn{animation:up .55s .08s cubic-bezier(.2,.8,.2,1) both}
+  .card{animation:up .55s .16s cubic-bezier(.2,.8,.2,1) both}
+  #gate h2{animation:bob 2.4s ease-in-out infinite}
+  body,.card,.warn,input,select,#ed,#pvw span,#themes,.perms>label,.row button{transition:background-color .35s ease,color .35s ease,border-color .35s ease,box-shadow .35s ease,transform .2s ease}
+  .modes label{transition:background .25s ease,color .25s ease,box-shadow .25s ease}
+  button:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 10px 24px #4f6df555}
+  button:active:not(:disabled){transform:scale(.97)}
+  .row button:hover:not(:disabled),#themes button:hover:not(:disabled){box-shadow:none;transform:none;filter:brightness(1.08)}
+  .perms>label:hover{border-color:var(--acc)}
+  .perms>label:active{transform:scale(.97)}
+  #pvw span:hover{transform:translateY(-3px)}
+  #ed.on,#status,#bar,#dl{animation:pop .4s cubic-bezier(.2,.8,.2,1) both}
+  #barFill{background:linear-gradient(90deg,var(--acc),var(--acc2),var(--acc));background-size:200% 100%;animation:shine 1.8s linear infinite;transition:width .9s ease-out}
+  #cv:active{cursor:grabbing}
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
