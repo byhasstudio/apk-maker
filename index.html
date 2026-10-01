@@ -94,6 +94,11 @@
   .hrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd);font-size:.9rem}
   .hrow:last-child{border-bottom:0}
   .hdl{padding:6px 12px;border-radius:10px;background:var(--trk);text-decoration:none;color:var(--fg)}
+  .crow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)}
+  .crow:last-child{border-bottom:0}
+  .crow code{flex:1;font-size:.72rem;word-break:break-all;overflow-wrap:anywhere;user-select:all}
+  .crow button{width:auto;margin:0;padding:6px 12px;font-size:.78rem}
+  .agrid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
 </style>
 </head>
 <body>
@@ -124,6 +129,21 @@
     <button type="button" id="aGoogle" class="alt">🌐 Lanjut dengan Google</button>
     <a href="#" id="aForgot">Lupa sandi?</a>
     <div id="aMsg" role="alert"></div>
+  </div>
+
+  <div class="card" id="adminCard" style="display:none;margin-bottom:16px">
+    <b>Panel Admin: buat kode verifikasi</b>
+    <div class="agrid">
+      <div><label for="cCount">Jumlah kode (1–50)</label><input id="cCount" type="text" inputmode="numeric" value="5"></div>
+      <div><label for="cUses">Dipakai berapa build</label><input id="cUses" type="text" inputmode="numeric" value="1"></div>
+      <div><label for="cLen">Panjang kode (32–200)</label><input id="cLen" type="text" inputmode="numeric" value="100"></div>
+      <div><label for="cDays">Berlaku (hari, 0 = tanpa batas)</label><input id="cDays" type="text" inputmode="numeric" value="30"></div>
+    </div>
+    <button type="button" id="cGo">Buat kode</button>
+    <div id="cMsg" role="alert" style="margin-top:12px;font-size:.85rem;color:#d92d20;min-height:1em"></div>
+    <div id="cOut" style="margin-top:8px"></div>
+    <button type="button" id="cAll" class="alt" style="display:none">Salin semua</button>
+    <small id="cNote" style="display:none;margin-top:8px">Kode hanya tampil sekali. Salin sebelum menutup halaman.</small>
   </div>
 
   <div class="card" id="buildCard" style="display:none">
@@ -186,6 +206,11 @@
       <label><input type="checkbox" class="perm" value="location"> 📍 Lokasi</label>
       <label><input type="checkbox" class="perm" value="notifications"> 🔔 Notifikasi</label>
       <label><input type="checkbox" class="perm" value="media"> 🖼 Foto, video &amp; audio (galeri)</label>
+    </div>
+    <div id="codeBox">
+    <label for="buildCode">Kode verifikasi</label>
+    <input id="buildCode" type="text" maxlength="200" placeholder="Tempel kode dari admin" autocomplete="off" autocapitalize="none" spellcheck="false">
+    <small>Kode didapat dari admin. Tiap kode hanya berlaku sesuai jatah yang diberikan.</small>
     </div>
     <div id="ts" style="margin-top:16px"></div>
     <button id="btn">Buat APK</button>
@@ -491,7 +516,11 @@ $("btn").addEventListener("click", async () => {
   if (!validName(appName)) return show("failed", "Nama aplikasi 2–30 karakter, hanya huruf, angka, spasi, titik, garis bawah, atau strip.");
   if (target === "apk" && !validAppId(appId)) return show("failed", "Package ID tidak valid. Contoh: com.budi.toko (huruf kecil, minimal dua bagian, tanpa kata terlarang Java seperti 'new' atau 'int').");
 
+  const code = $("buildCode").value.trim();
+  if (!code && !window.isAdmin) return show("failed", "Masukkan kode verifikasi dari admin.");
+
   const fd = new FormData();
+  fd.append("code", code);
   fd.append("mode", mode);
   fd.append("appName", appName);
   fd.append("appId", appId);
@@ -535,6 +564,7 @@ $("btn").addEventListener("click", async () => {
     setBar(2);
     if (window.fbSaveBuild) window.fbSaveBuild(d.jobId, {name: appName, target, status: "queued"}, true);
     started = true;
+    $("buildCode").value = "";
     poll(d.jobId);
   } catch(e){
     show("failed", "❌ " + e.message);
@@ -629,7 +659,12 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     });
   }
 
+  const ADMIN_EMAIL = "romand94901@gmail.com"; // hanya untuk tampilan; pemeriksaan sebenarnya ada di Worker
   onAuthStateChanged(auth, u => {
+    const adm = !!(u && u.emailVerified && (u.email || "").toLowerCase() === ADMIN_EMAIL);
+    window.isAdmin = adm;
+    $("adminCard").style.display = adm ? "" : "none";
+    $("codeBox").style.display = adm ? "none" : "";
     $("authCard").style.display = u ? "none" : "";
     $("buildCard").style.display = u ? "" : "none";
     $("histCard").style.display = u ? "" : "none";
@@ -640,6 +675,40 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
       unsub = onSnapshot(query(collection(db, "users", u.uid, "builds"), orderBy("createdAt", "desc"), limit(20)),
         s => renderHist(s.docs.map(d => Object.assign({id: d.id}, d.data()))), () => {});
     }
+  });
+
+  const copy = async t => {
+    try { await navigator.clipboard.writeText(t); return true; }
+    catch (_) {
+      const ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select(); let ok = false;
+      try { ok = document.execCommand("copy"); } catch (_) {}
+      ta.remove(); return ok;
+    }
+  };
+  $("cGo").addEventListener("click", async () => {
+    const out = $("cOut"), m = $("cMsg"); m.textContent = "";
+    const tk = await window.fbToken(); if (!tk) { m.textContent = "Silakan masuk dulu."; return; }
+    $("cGo").disabled = true; $("cGo").textContent = "Membuat…";
+    try {
+      const r = await fetch(API + "/api/admin/codes", {
+        method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tk},
+        body: JSON.stringify({count: $("cCount").value, uses: $("cUses").value, length: $("cLen").value, days: $("cDays").value})
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || ("Ditolak (" + r.status + ")."));
+      out.textContent = "";
+      d.codes.forEach(c => {
+        const row = document.createElement("div"); row.className = "crow";
+        const cd = document.createElement("code"); cd.textContent = c;
+        const b = document.createElement("button"); b.type = "button"; b.className = "alt"; b.textContent = "Salin";
+        b.addEventListener("click", async () => { b.textContent = (await copy(c)) ? "Tersalin ✓" : "Gagal"; setTimeout(() => b.textContent = "Salin", 1500); });
+        row.append(cd, b); out.appendChild(row);
+      });
+      $("cAll").style.display = ""; $("cNote").style.display = "block";
+      $("cAll").onclick = async () => { $("cAll").textContent = (await copy(d.codes.join("\n"))) ? "Tersalin ✓" : "Gagal"; setTimeout(() => $("cAll").textContent = "Salin semua", 1500); };
+    } catch (e) { m.textContent = "❌ " + e.message; }
+    $("cGo").disabled = false; $("cGo").textContent = "Buat kode";
   });
 
   window.fbToken = () => auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null);
