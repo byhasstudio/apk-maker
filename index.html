@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pembuat APK</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>">
 <style>
   body{font-family:system-ui,sans-serif;background:#f4f5f7;margin:0;color:#222}
   main{max-width:480px;margin:0 auto;padding:16px}
@@ -20,11 +21,24 @@
   #status.done{background:#dfd}
   #status.failed{background:#fdd}
   #status a{color:inherit}
+  #bar{display:none;position:relative;margin-top:10px;height:22px;background:#e3e6ea;border-radius:11px;overflow:hidden}
+  #barFill{height:100%;width:0;background:#1a73e8;transition:width 1s linear}
+  #barTxt{position:absolute;inset:0;text-align:center;font-size:.8rem;line-height:22px;font-weight:600;color:#111}
   #dl{display:none;margin-top:10px;text-align:center;padding:12px;background:#0a7d32;color:#fff;border-radius:8px;text-decoration:none}
   small{color:#666}
+  #gate{position:fixed;inset:0;z-index:99;background:#f4f5f7;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:16px}
+  #gate.on{display:flex}
+  #gate h2{margin:0 0 6px;font-size:1.3rem}
+  #gate p{margin:0 0 18px;color:#555;font-size:.95rem}
+  #gateTs{min-height:65px}
 </style>
 </head>
 <body>
+<div id="gate" role="dialog" aria-label="Verifikasi">
+  <h2>Pembuat APK</h2>
+  <p>Selesaikan verifikasi singkat untuk melanjutkan.</p>
+  <div id="gateTs"></div>
+</div>
 <main>
   <h1>Pembuat APK</h1>
   <p class="warn">⚠️ APK dibuat oleh pengguna dan dipakai dengan risiko sendiri. Kami tidak memeriksa isi aplikasi. Jangan memasang APK dari sumber yang tidak Anda percaya. APK ini bertanda tangan debug (bukan untuk Play Store).</p>
@@ -63,6 +77,7 @@
     <button id="btn">Buat APK</button>
 
     <div id="status" role="status" aria-live="polite"></div>
+    <div id="bar"><div id="barFill"></div><span id="barTxt">0%</span></div>
     <a id="dl" href="#" rel="noopener">⬇ Download APK</a>
   </div>
 </main>
@@ -79,10 +94,33 @@ const MAX_WAIT_MS = 30 * 60 * 1000; // workflow maksimal 25 menit
 const JOB_KEY = "apkmaker.job";
 const JAVA_KEYWORDS = new Set(("abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while true false null").split(" "));
 
-let widgetId = null, timer = null, busy = false;
+let widgetId = null, timer = null, busy = false, shownPct = 0;
+
+const GATE_KEY = "apkmaker.gate";
+function gateDone(){
+  try { return sessionStorage.getItem(GATE_KEY) === "1"; } catch(e){ return false; }
+}
+function gateMark(){
+  try { sessionStorage.setItem(GATE_KEY, "1"); } catch(e){}
+}
+
+// Layar verifikasi muncul begitu halaman dibuka, sekali per tab.
+if (!gateDone()) $("gate").classList.add("on");
 
 window.onTurnstileLoad = () => {
+  // widget untuk tombol Buat APK (tetap diperiksa server saat build)
   widgetId = turnstile.render("#ts", {sitekey: TURNSTILE_SITEKEY});
+
+  // widget untuk layar verifikasi awal
+  if (!gateDone()){
+    turnstile.render("#gateTs", {
+      sitekey: TURNSTILE_SITEKEY,
+      callback: () => {
+        gateMark();
+        setTimeout(() => $("gate").classList.remove("on"), 600);
+      }
+    });
+  }
 };
 
 /* ---------- util ---------- */
@@ -105,7 +143,23 @@ function setBusy(b){
   busy = b;
   $("btn").disabled = b;
 }
+
+/* ---------- progress bar ---------- */
+function setBar(p){
+  shownPct = Math.max(shownPct, p);
+  $("bar").style.display = "block";
+  $("barFill").style.width = shownPct + "%";
+  $("barTxt").textContent = Math.floor(shownPct) + "%";
+}
+function hideBar(){
+  shownPct = 0;
+  $("bar").style.display = "none";
+  $("barFill").style.width = "0";
+  $("barTxt").textContent = "0%";
+}
+
 function show(cls, text, linkUrl, linkText){
+  if (cls === "failed") hideBar();
   const s = $("status");
   s.style.display = "block";
   s.className = cls;
@@ -165,6 +219,7 @@ function poll(jobId, startedAt){
       if (d.status === "done"){
         if (d.apkUrl && d.apkUrl.startsWith("https://github.com/")){
           stopPolling();
+          setBar(100);
           show("done", LABEL.done);
           $("dl").href = d.apkUrl;
           $("dl").style.display = "block";
@@ -175,7 +230,13 @@ function poll(jobId, startedAt){
       } else if (d.status === "failed"){
         stopPolling();
         show("failed", LABEL.failed + ".", d.runUrl, "Lihat log");
+      } else if (d.status === "building"){
+        // angka dari server = batas bawah; di sela laporan, bar merayap pelan agar tidak terlihat macet
+        const base = typeof d.progress === "number" ? d.progress : 10;
+        setBar(Math.max(base, Math.min(shownPct + 0.7, base + 20, 97)));
+        show("", "🔧 " + (d.step || "Membangun APK") + "…");
       } else {
+        setBar(3);
         show("", LABEL[d.status] || d.status);
       }
     } catch(e) {
@@ -230,6 +291,7 @@ $("btn").addEventListener("click", async () => {
   fd.append("cf-turnstile-response", token);
 
   setBusy(true);
+  hideBar();
   $("dl").style.display = "none";
   show("", "⏳ Mengirim…");
   let started = false;
@@ -239,6 +301,7 @@ $("btn").addEventListener("click", async () => {
     if (!r.ok) throw new Error(d.error || ("Permintaan ditolak (" + r.status + ")."));
     if (!d.jobId) throw new Error("Server tidak mengirim ID pekerjaan.");
     show("", LABEL.queued);
+    setBar(2);
     started = true;
     poll(d.jobId);
   } catch(e){
