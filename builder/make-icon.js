@@ -1,11 +1,12 @@
-// Ikon 100% dari gambar pengguna (sudah di-crop/diedit di halaman web, dikirim 512x512).
-// Tanpa ikon (atau ikon rusak) dibuat ikon huruf pertama nama aplikasi.
+// Ikon dari gambar pengguna. Gambar tidak dipotong: dimuat utuh (contain) di atas
+// latar blur dari gambar yang sama. Ikon adaptif memakai zona aman agar tidak terpotong topeng launcher.
 const sharp = require("sharp");
 const fs = require("fs");
 
 const name = (process.env.APP_NAME || "A").trim() || "A";
 const hasIcon = process.env.HAS_ICON === "true";
 const CLEAR = { r: 0, g: 0, b: 0, alpha: 0 };
+const SIZE = 1024;
 
 const esc = s => s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[c]));
 function hslHex(h, s, l) {
@@ -18,19 +19,19 @@ async function letterIcon() {
   let hue = 0;
   for (const ch of name) hue = (hue * 31 + ch.codePointAt(0)) % 360;
   const letter = esc([...name][0].toUpperCase());
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024">
-    <rect width="1024" height="1024" fill="${hslHex(hue, 0.6, 0.42)}"/>
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}">
+    <rect width="${SIZE}" height="${SIZE}" fill="${hslHex(hue, 0.6, 0.42)}"/>
     <text x="512" y="720" font-size="560" font-family="DejaVu Sans, Arial, sans-serif" font-weight="bold"
           fill="#ffffff" text-anchor="middle">${letter}</text></svg>`;
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
+// Gambar utuh tanpa dipotong; sisa ruang (jika tidak persegi) diisi versi blur gambar itu sendiri.
 async function userIcon() {
-  return sharp("icon-src.bin", { limitInputPixels: 50_000_000 })
-    .rotate()
-    .resize(1024, 1024, { fit: "cover" })
-    .png()
-    .toBuffer();
+  const src = await sharp("icon-src.bin", { limitInputPixels: 50_000_000 }).rotate().png().toBuffer();
+  const bg = await sharp(src).resize(SIZE, SIZE, { fit: "cover" }).blur(40).png().toBuffer();
+  const fg = await sharp(src).resize(SIZE, SIZE, { fit: "inside" }).png().toBuffer();
+  return sharp(bg).composite([{ input: fg, gravity: "center" }]).png().toBuffer();
 }
 
 async function main() {
@@ -43,15 +44,16 @@ async function main() {
   if (!base) base = await letterIcon();
   fs.writeFileSync("assets/icon-only.png", base);
 
-  // Ikon adaptif: seluruh gambar ditaruh persis di area yang terlihat (72/108 dari kanvas),
-  // jadi tampil utuh tanpa warna tambahan. Latar dibiarkan transparan.
+  // Ikon adaptif: gambar diperkecil ke zona aman (~49%) supaya tidak terpotong topeng bulat/squircle.
+  const INNER = 500, PAD = (SIZE - INNER) / 2;
   const fg = await sharp(base)
-    .resize(683, 683)
-    .extend({ top: 170, bottom: 171, left: 170, right: 171, background: CLEAR })
+    .resize(INNER, INNER)
+    .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: CLEAR })
     .png().toBuffer();
   fs.writeFileSync("assets/icon-foreground.png", fg);
 
-  const bg = await sharp({ create: { width: 1024, height: 1024, channels: 4, background: CLEAR } }).png().toBuffer();
+  // Latar adaptif: gambar yang sama di-blur, jadi menyatu dengan ikon.
+  const bg = await sharp(base).blur(40).png().toBuffer();
   fs.writeFileSync("assets/icon-background.png", bg);
   console.log("Ikon siap");
 }
