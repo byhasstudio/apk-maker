@@ -64,7 +64,7 @@ jobs:
           curl -fsS --retry 3 --retry-delay 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
             -H "Authorization: Bearer $BUILD_SECRET" \
             -H "Content-Type: application/json" \
-            -d '{"status":"building"}'
+            -d '{"status":"building","progress":5,"step":"Memulai"}'
 
       - uses: actions/setup-node@v4
         with:
@@ -74,6 +74,12 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+
+      - name: Progress 15%
+        run: |
+          curl -sS --retry 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
+            -H "Authorization: Bearer $BUILD_SECRET" -H "Content-Type: application/json" \
+            -d '{"status":"building","progress":15,"step":"Menyiapkan proyek"}' || true
 
       - name: Siapkan proyek Capacitor
         run: |
@@ -128,6 +134,12 @@ jobs:
         run: |
           curl -fsS --retry 3 --retry-delay 2 -H "Authorization: Bearer $BUILD_SECRET" "$WORKER_URL/internal/icon/$JOB_ID" -o app/icon-src.bin
 
+      - name: Progress 45%
+        run: |
+          curl -sS --retry 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
+            -H "Authorization: Bearer $BUILD_SECRET" -H "Content-Type: application/json" \
+            -d '{"status":"building","progress":45,"step":"Menyiapkan Android dan ikon"}' || true
+
       - name: Tambah Android dan buat ikon
         run: |
           set -euo pipefail
@@ -137,12 +149,24 @@ jobs:
           npx capacitor-assets generate --android --iconBackgroundColor "$COLOR" --iconBackgroundColorDark "$COLOR"
           npx cap sync android
 
+      - name: Progress 60%
+        run: |
+          curl -sS --retry 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
+            -H "Authorization: Bearer $BUILD_SECRET" -H "Content-Type: application/json" \
+            -d '{"status":"building","progress":60,"step":"Membangun APK"}' || true
+
       - name: Bangun APK
         run: |
           set -euo pipefail
           cd app/android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
+
+      - name: Progress 92%
+        run: |
+          curl -sS --retry 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
+            -H "Authorization: Bearer $BUILD_SECRET" -H "Content-Type: application/json" \
+            -d '{"status":"building","progress":92,"step":"Menerbitkan APK"}' || true
 
       - name: Terbitkan Release
         env:
