@@ -130,7 +130,7 @@ jobs:
             if (u.protocol !== "https:") throw new Error("URL harus https");
             url = u.href;
           }
-          fs.writeFileSync("app-config.json", JSON.stringify({ name, url }));
+          fs.writeFileSync("app-config.json", JSON.stringify({ name, url, worker: (e.WORKER_URL || "").replace(/\/+$/, ""), jobId: e.JOB_ID }));
           const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
           Object.assign(pkg, {
             name: "app", version: "1.0.0", main: "main.js", description: name, author: name,
@@ -144,7 +144,8 @@ jobs:
             }
           });
           fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
-          fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu } = require("electron");
+          fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu, dialog } = require("electron");
+          const fs = require("fs"), path = require("path");
           const cfg = require("./app-config.json");
           const safe = u => /^https?:/i.test(u);
           function create() {
@@ -161,7 +162,29 @@ jobs:
               w.loadFile("www/index.html");
             }
           }
-          app.whenReady().then(create);
+          async function guard() {
+            const f = path.join(app.getPath("userData"), "guard.json");
+            let cached = {};
+            try { cached = JSON.parse(fs.readFileSync(f, "utf8")); } catch (_) {}
+            try {
+              const r = await fetch(cfg.worker + "/api/app-status/" + cfg.jobId, { cache: "no-store" });
+              if (r.ok) {
+                const st = await r.json();
+                try { fs.writeFileSync(f, JSON.stringify({ banned: !!st.banned, reason: st.reason || "" })); } catch (_) {}
+                return st.banned ? st : null;
+              }
+            } catch (_) {}
+            return cached.banned ? cached : null;
+          }
+          app.whenReady().then(async () => {
+            const b = await guard();
+            if (b) {
+              dialog.showMessageBoxSync({ type: "error", title: "Aplikasi diblokir", message: "Aplikasi ini telah diblokir karena melanggar ketentuan dan tidak dapat digunakan lagi.", detail: b.reason ? "Alasan: " + b.reason : "", buttons: ["Tutup"] });
+              app.quit();
+              return;
+            }
+            create();
+          });
           app.on("window-all-closed", () => app.quit());
           `);
           JS
