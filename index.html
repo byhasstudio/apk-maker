@@ -102,14 +102,7 @@
   .mrow{padding:10px 0;border-bottom:1px solid var(--bd);font-size:.88rem}
   .mrow:last-child{border-bottom:0}
   .mtop{display:flex;justify-content:space-between;align-items:center;gap:8px}
-  .mbtns{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;max-width:150px}
-  #terms{position:fixed;inset:0;z-index:90;background:#000a;display:none;align-items:center;justify-content:center;padding:16px}
-  #terms.on{display:flex}
-  #terms .tbox{background:var(--card);border-radius:20px;padding:20px;max-width:480px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--sh)}
-  #terms .tbody{overflow:auto;font-size:.85rem;line-height:1.55;margin:10px 0;padding-right:4px}
-  #terms .tbody li{margin-bottom:6px}
-  #terms label.tchk{display:flex;gap:10px;align-items:flex-start;margin:6px 0 0;font-weight:600;font-size:.85rem;cursor:pointer}
-  #terms label.tchk input{margin-top:3px;accent-color:var(--acc)}
+  .mbtns{display:flex;gap:6px;flex-shrink:0}
   .mbtns button,.mbtns a{width:auto;margin:0;padding:6px 10px;font-size:.75rem;border-radius:10px}
   .mrow details{margin-top:6px;font-size:.78rem;color:var(--mut)}
   .mrow summary{cursor:pointer}
@@ -123,27 +116,6 @@
   <h2>📱 Pembuat APK</h2>
   <p>Selesaikan verifikasi singkat untuk melanjutkan.</p>
   <div id="gateTs"></div>
-</div>
-<div id="terms" role="dialog" aria-modal="true" aria-label="Ketentuan dan persyaratan">
-  <div class="tbox">
-    <h2 style="margin:0;font-size:1.2rem">Ketentuan dan Persyaratan</h2>
-    <div class="tbody">
-      <p style="margin:0 0 8px">Sebelum memakai layanan ini, baca dan setujui hal berikut:</p>
-      <ol style="margin:0;padding-left:20px">
-        <li>Kamu bertanggung jawab penuh atas isi website/file yang kamu ubah menjadi aplikasi.</li>
-        <li>Dilarang membuat aplikasi untuk malware, penipuan/phishing, judi, konten dewasa atau ilegal, pelanggaran hak cipta, atau hal lain yang melanggar hukum.</li>
-        <li>Admin dapat memblokir akunmu dan/atau aplikasi (APK/EXE) yang kamu buat kapan saja. Aplikasi yang diblokir menampilkan pemberitahuan dan tidak bisa dibuka lagi.</li>
-        <li>Setiap aplikasi yang dibuat memuat komponen yang menghubungi server kami saat dibuka, hanya untuk memeriksa apakah aplikasi masih diizinkan.</li>
-        <li>File yang kamu upload disimpan sampai 90 hari dan dapat diakses admin untuk keperluan pemeriksaan pelanggaran.</li>
-        <li>APK bertanda tangan debug (bukan untuk Play Store) dan EXE tidak bertanda tangan digital. Dipakai dengan risiko sendiri, tanpa jaminan apa pun.</li>
-        <li>Pelanggaran dapat berakibat pemblokiran permanen tanpa pemberitahuan lebih dulu.</li>
-      </ol>
-    </div>
-    <label class="tchk"><input type="checkbox" id="tChk"> Saya sudah membaca dan menyetujui ketentuan dan persyaratan di atas.</label>
-    <button type="button" id="tGo" disabled>Setuju dan lanjutkan</button>
-    <button type="button" id="tOut" class="alt">Tidak setuju (keluar)</button>
-    <div id="tMsg" role="alert" style="margin-top:8px;font-size:.85rem;color:#d92d20;min-height:1em"></div>
-  </div>
 </div>
 <main>
   <div id="top"><div><h1>📱 Pembuat APK</h1><p class="sub">Ubah website atau file HTML jadi aplikasi Android dalam beberapa menit.</p></div>
@@ -162,11 +134,22 @@
     <label for="aEmail" style="margin-top:0">Email</label>
     <input id="aEmail" type="text" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="nama@email.com">
     <label for="aPass">Sandi</label>
-    <input id="aPass" type="password" autocomplete="current-password" placeholder="Minimal 6 karakter">
+    <input id="aPass" type="password" autocomplete="current-password" placeholder="Minimal 8 karakter, huruf + angka">
     <button type="button" id="aGo">Masuk</button>
     <button type="button" id="aGoogle" class="alt">🌐 Lanjut dengan Google</button>
     <a href="#" id="aForgot">Lupa sandi?</a>
     <div id="aMsg" role="alert"></div>
+  </div>
+
+  <div class="card" id="otpCard" style="display:none">
+    <h2 style="margin:0 0 4px;font-size:1.2rem">Verifikasi email</h2>
+    <small id="oInfo"></small>
+    <label for="oCode">Kode 6 digit</label>
+    <input id="oCode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456">
+    <button type="button" id="oGo">Verifikasi</button>
+    <button type="button" id="oResend" class="alt" disabled>Kirim ulang kode</button>
+    <a href="#" id="oCancel" style="display:block;margin-top:10px;font-size:.8rem;color:var(--acc);text-align:center">Batal</a>
+    <div id="oMsg" role="alert" style="margin-top:12px;font-size:.85rem;color:#d92d20;min-height:1em"></div>
   </div>
 
   <div class="card" id="adminCard" style="display:none;margin-bottom:16px">
@@ -193,8 +176,6 @@
     <button type="button" id="mMore" class="alt" style="display:none">Muat lebih banyak</button>
     <b style="display:block;margin-top:18px">Akun diblokir</b>
     <div id="mBans" style="margin-top:6px"></div>
-    <b style="display:block;margin-top:18px">APK/EXE diblokir</b>
-    <div id="mAppBans" style="margin-top:6px"></div>
   </div>
 
   <div class="card" id="buildCard" style="display:none">
@@ -647,13 +628,13 @@ const FIREBASE_CONFIG = {
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut, sendPasswordResetEmail, fetchSignInMethodsForEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, serverTimestamp, collection, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
 const msg = t => { $("aMsg").textContent = t || ""; };
 const ERR = {
-  "auth/invalid-credential": "Email atau sandi salah.", "auth/wrong-password": "Email atau sandi salah.", "auth/user-not-found": "Email atau sandi salah.",
+  "auth/invalid-credential": "Sandi salah.", "auth/wrong-password": "Sandi salah.", "auth/user-not-found": "Email belum terdaftar. Silakan daftar dulu.",
   "auth/email-already-in-use": "Email sudah terdaftar. Coba masuk.", "auth/weak-password": "Sandi minimal 6 karakter.",
   "auth/invalid-email": "Format email tidak valid.", "auth/too-many-requests": "Terlalu banyak percobaan. Coba lagi nanti.",
   "auth/popup-closed-by-user": "Jendela masuk ditutup.", "auth/network-request-failed": "Jaringan bermasalah."
@@ -668,28 +649,122 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
   let unsub = null;
   const isUp = () => document.querySelector("input[name=atab]:checked").value === "up";
 
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  let pending = null, claiming = false, cdTimer = null;
+  const omsg = t => { $("oMsg").textContent = t || ""; };
+  const fail = m => { throw new Error(m); };
+  const showErr = (fn, e) => fn(e && e.code ? errText(e) : (e && e.message) || "Terjadi kesalahan.");
+
+  async function postJson(path, body, tk) {
+    const h = {"Content-Type": "application/json"}; if (tk) h.Authorization = "Bearer " + tk;
+    const r = await fetch(API + path, {method: "POST", headers: h, body: JSON.stringify(body || {})});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) fail(j.error || "Permintaan gagal.");
+    return j;
+  }
+  function startCooldown(sec) {
+    clearInterval(cdTimer);
+    const b = $("oResend"); let n = sec; b.disabled = true; b.textContent = "Kirim ulang (" + n + ")";
+    cdTimer = setInterval(() => {
+      n--;
+      if (n <= 0) { clearInterval(cdTimer); b.disabled = false; b.textContent = "Kirim ulang kode"; }
+      else b.textContent = "Kirim ulang (" + n + ")";
+    }, 1000);
+  }
+  async function sendOtp(email) { await postJson("/api/auth/send-otp", {email}); startCooldown(60); }
+  function openOtp(p) {
+    pending = p;
+    $("oInfo").textContent = "Kode 6 digit sudah dikirim ke " + p.email + ". Cek Kotak Masuk atau Spam.";
+    $("oCode").value = ""; omsg("");
+    $("authCard").style.display = "none"; $("otpCard").style.display = "";
+  }
+  async function isVerified(u) {
+    if (u.emailVerified) return true;
+    try {
+      const r = await fetch(API + "/api/auth/status", {headers: {Authorization: "Bearer " + await u.getIdToken()}});
+      return !!(await r.json()).verified;
+    } catch (_) { return false; }
+  }
+
   document.querySelectorAll("input[name=atab]").forEach(r => r.addEventListener("change", () => {
     $("aGo").textContent = isUp() ? "Daftar" : "Masuk";
     $("aPass").autocomplete = isUp() ? "new-password" : "current-password";
     msg("");
   }));
+
   $("aGo").addEventListener("click", async () => {
-    const em = $("aEmail").value.trim(), pw = $("aPass").value;
+    const em = $("aEmail").value.trim().toLowerCase(), pw = $("aPass").value;
     if (!em || !pw) return msg("Isi email dan sandi.");
+    if (!EMAIL_RE.test(em)) return msg("Format email tidak valid.");
     $("aGo").disabled = true; msg("");
-    try { isUp() ? await createUserWithEmailAndPassword(auth, em, pw) : await signInWithEmailAndPassword(auth, em, pw); }
-    catch (e) { msg(errText(e)); }
+    try {
+      const methods = await fetchSignInMethodsForEmail(auth, em);
+      if (isUp()) {
+        if (methods.length) fail("Email sudah terdaftar. Silakan masuk.");
+        if (pw.length < 8 || !/[A-Za-z]/.test(pw) || !/\d/.test(pw)) fail("Sandi minimal 8 karakter, berisi huruf dan angka.");
+        await sendOtp(em);
+        openOtp({email: em, pw, mode: "signup"});
+      } else {
+        if (!methods.length) fail("Email belum terdaftar. Silakan daftar dulu.");
+        if (!methods.includes("password")) fail("Email ini terdaftar lewat Google. Pakai tombol Lanjut dengan Google.");
+        await signInWithEmailAndPassword(auth, em, pw);
+      }
+    } catch (e) { showErr(msg, e); }
     $("aGo").disabled = false;
   });
+
   $("aGoogle").addEventListener("click", async () => {
-    try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (e) { msg(errText(e)); }
+    try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (e) { showErr(msg, e); }
   });
+
   $("aForgot").addEventListener("click", async e => {
     e.preventDefault();
-    const em = $("aEmail").value.trim();
+    const em = $("aEmail").value.trim().toLowerCase();
     if (!em) return msg("Isi email dulu.");
-    try { await sendPasswordResetEmail(auth, em); msg("Tautan reset sandi dikirim ke email."); } catch (er) { msg(errText(er)); }
+    if (!EMAIL_RE.test(em)) return msg("Format email tidak valid.");
+    try {
+      const methods = await fetchSignInMethodsForEmail(auth, em);
+      if (!methods.length) fail("Email belum terdaftar.");
+      if (!methods.includes("password")) fail("Email ini terdaftar lewat Google, tidak punya sandi.");
+      await sendPasswordResetEmail(auth, em); msg("Tautan reset sandi dikirim ke email.");
+    } catch (er) { showErr(msg, er); }
   });
+
+  $("oResend").addEventListener("click", async () => {
+    if (!pending) return;
+    omsg(""); $("oResend").disabled = true;
+    try { await sendOtp(pending.email); omsg("Kode baru dikirim."); }
+    catch (e) { showErr(omsg, e); $("oResend").disabled = false; }
+  });
+
+  $("oCancel").addEventListener("click", async e => {
+    e.preventDefault(); pending = null; clearInterval(cdTimer);
+    if (auth.currentUser) await signOut(auth); else await apply(null);
+  });
+
+  $("oGo").addEventListener("click", async () => {
+    const code = $("oCode").value.trim();
+    if (!pending) return;
+    if (!/^\d{6}$/.test(code)) return omsg("Masukkan 6 digit kode.");
+    $("oGo").disabled = true; omsg("");
+    try {
+      await postJson("/api/auth/verify-otp", {email: pending.email, code});
+      if (pending.mode === "signup") {
+        claiming = true;
+        await createUserWithEmailAndPassword(auth, pending.email, pending.pw);
+        pending = {email: pending.email, mode: "existing"};
+      }
+      const tk = await auth.currentUser.getIdToken();
+      await postJson("/api/auth/claim", {}, tk);
+      pending = null; claiming = false; $("oCode").value = "";
+      await apply(auth.currentUser);
+    } catch (e) {
+      claiming = false; showErr(omsg, e);
+      if (auth.currentUser) await apply(auth.currentUser);
+    }
+    $("oGo").disabled = false;
+  });
+
   $("aOut").addEventListener("click", () => signOut(auth));
 
   function renderHist(list) {
@@ -711,25 +786,32 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
   }
 
   const ADMIN_EMAIL = "romand94901@gmail.com"; // hanya untuk tampilan; pemeriksaan sebenarnya ada di Worker
-  onAuthStateChanged(auth, u => {
-    const adm = !!(u && u.emailVerified && (u.email || "").toLowerCase() === ADMIN_EMAIL);
+  async function apply(u) {
+    const ok = !!u && await isVerified(u);
+    const adm = !!(ok && u.emailVerified && (u.email || "").toLowerCase() === ADMIN_EMAIL);
     window.isAdmin = adm;
     $("adminCard").style.display = adm ? "" : "none";
     $("monCard").style.display = adm ? "" : "none";
-    if (adm) { loadJobs(true); loadBans(); loadAppBans(); }
-    if (u) checkTerms(); else $("terms").classList.remove("on");
+    if (adm) { loadJobs(true); loadBans(); }
     $("codeBox").style.display = adm ? "none" : "";
-    $("authCard").style.display = u ? "none" : "";
-    $("buildCard").style.display = u ? "" : "none";
-    $("histCard").style.display = u ? "" : "none";
-    $("userBar").style.display = u ? "flex" : "none";
+    $("authCard").style.display = (!u && !pending) ? "" : "none";
+    $("otpCard").style.display = (!ok && (u || pending)) ? "" : "none";
+    $("buildCard").style.display = ok ? "" : "none";
+    $("histCard").style.display = ok ? "" : "none";
+    $("userBar").style.display = ok ? "flex" : "none";
     if (unsub) { unsub(); unsub = null; }
-    if (u) {
+    if (ok) {
+      pending = null;
       $("uMail").textContent = u.email || u.displayName || "";
       unsub = onSnapshot(query(collection(db, "users", u.uid, "builds"), orderBy("createdAt", "desc"), limit(20)),
         s => renderHist(s.docs.map(d => Object.assign({id: d.id}, d.data()))), () => {});
+    } else if (u && (!pending || pending.email !== u.email)) {
+      // akun lama / belum terverifikasi: kirim kode otomatis
+      openOtp({email: u.email, mode: "existing"});
+      sendOtp(u.email).catch(e => showErr(omsg, e));
     }
-  });
+  }
+  onAuthStateChanged(auth, u => { if (!claiming) apply(u); });
 
   const copy = async t => {
     try { await navigator.clipboard.writeText(t); return true; }
@@ -796,65 +878,6 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     } catch (e) { $("mMsg").textContent = "❌ " + e.message; }
   }
 
-  async function doAppBan(jobId, name, ban) {
-    let reason = "";
-    if (ban) {
-      reason = prompt("Blokir APK/EXE \"" + (name || jobId) + "\"?\nAlasan (tampil di pop up aplikasi, boleh kosong):");
-      if (reason === null) return;
-    } else if (!confirm("Buka blokir APK/EXE \"" + (name || jobId) + "\"?")) return;
-    try {
-      await admApi(ban ? "/api/admin/app-ban" : "/api/admin/app-unban", { jobId, name, reason });
-      await Promise.all([loadJobs(true), loadAppBans()]);
-    } catch (e) { $("mMsg").textContent = "❌ " + e.message; }
-  }
-
-  async function downloadSrc(j, btn) {
-    const old = btn.textContent; btn.disabled = true; btn.textContent = "…";
-    try {
-      const tk = await window.fbToken();
-      const r = await fetch(API + "/api/admin/src/" + encodeURIComponent(j.jobId), { headers: { Authorization: "Bearer " + tk } });
-      if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.error || ("Ditolak (" + r.status + ")")); }
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(await r.blob());
-      a.download = (j.srcName || (j.name || "sumber") + ".bin").replace(/[^\w.\- ]+/g, "_");
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    } catch (e) { $("mMsg").textContent = "❌ " + e.message; }
-    btn.disabled = false; btn.textContent = old;
-  }
-
-  async function loadAppBans() {
-    const out = $("mAppBans"); out.textContent = "";
-    try {
-      const d = await admApi("/api/admin/appbans");
-      if (!d.appBans.length) { out.appendChild(el("small", "", "Tidak ada APK/EXE yang diblokir.")); return; }
-      d.appBans.forEach(b => {
-        const row = el("div", "hrow");
-        const t = el("div"); t.append(el("b", "", b.name || b.jobId), el("br"),
-          el("small", "", (b.email ? b.email + " · " : "") + (b.reason ? b.reason + " · " : "") + (b.at ? mt(b.at) : "")));
-        const bt = el("button", "alt", "Buka blokir"); bt.type = "button";
-        bt.style.cssText = "width:auto;margin:0;padding:6px 10px;font-size:.75rem";
-        bt.addEventListener("click", () => doAppBan(b.jobId, b.name, false));
-        row.append(t, bt); out.appendChild(row);
-      });
-    } catch (e) { $("mMsg").textContent = "❌ " + e.message; }
-  }
-
-  // ---------- Ketentuan & persyaratan (wajib setuju setelah login pertama) ----------
-  async function checkTerms() {
-    $("tMsg").textContent = "";
-    try { const d = await admApi("/api/terms"); if (d.accepted) { $("terms").classList.remove("on"); return; } } catch (e) {}
-    $("tChk").checked = false; $("tGo").disabled = true; $("terms").classList.add("on");
-  }
-  $("tChk").addEventListener("change", () => { $("tGo").disabled = !$("tChk").checked; });
-  $("tGo").addEventListener("click", async () => {
-    if (!$("tChk").checked) return;
-    $("tGo").disabled = true; $("tMsg").textContent = "";
-    try { await admApi("/api/terms/accept", {}); $("terms").classList.remove("on"); }
-    catch (e) { $("tMsg").textContent = "❌ " + e.message; $("tGo").disabled = false; }
-  });
-  $("tOut").addEventListener("click", () => { $("terms").classList.remove("on"); signOut(auth); });
-
   function jobRow(j) {
     const row = el("div", "mrow");
     const top = el("div", "mtop");
@@ -862,19 +885,11 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     info.append(el("b", "", (j.target === "exe" ? "🪟 " : "🤖 ") + (j.name || "-")), el("br"));
     info.append(el("small", "", (j.email || j.uid) + " · " + (MST[j.status] || j.status || "-") + " · " + mt(j.createdAt)));
     if (j.banned) { info.append(el("br"), el("small", "mban", "🚫 akun diblokir")); }
-    if (j.appBanned) { info.append(el("br"), el("small", "mban", "🚫 APK/EXE diblokir")); }
     const btns = el("div", "mbtns");
     if (j.status === "done" && typeof j.apkUrl === "string" && j.apkUrl.startsWith("https://github.com/")) {
       const a = el("a", "hdl", "⬇ Unduh"); a.href = j.apkUrl; a.rel = "noopener"; btns.appendChild(a);
     }
-    if (j.hasSrc) {
-      const sb = el("button", "alt", "⬇ Sumber"); sb.type = "button";
-      sb.addEventListener("click", () => downloadSrc(j, sb)); btns.appendChild(sb);
-    }
-    const ab = el("button", "alt", j.appBanned ? "Buka blokir APK" : "Blokir APK");
-    ab.type = "button"; ab.addEventListener("click", () => doAppBan(j.jobId, j.name, !j.appBanned));
-    btns.appendChild(ab);
-    const bb = el("button", "alt", j.banned ? "Buka blokir akun" : "Blokir akun");
+    const bb = el("button", "alt", j.banned ? "Buka blokir" : "Blokir");
     bb.type = "button"; bb.addEventListener("click", () => doBan(j.uid, j.email, !j.banned));
     btns.appendChild(bb);
     top.append(info, btns);
@@ -884,7 +899,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
       kv("Target", j.target || "-"), kv("Mode", j.mode === "url" ? "URL website" : "Upload file"),
       kv("URL", j.url || "-"), kv("Package ID", j.appId || "-"),
       kv("Izin", (j.perms && j.perms.length) ? j.perms.join(", ") : "tidak ada"),
-      kv("Ikon kustom", j.hasIcon ? "ya" : "tidak"), kv("File sumber", j.hasSrc ? (j.srcName || "ada") : "tidak ada"),
+      kv("Ikon kustom", j.hasIcon ? "ya" : "tidak"),
       kv("Job ID", j.jobId), kv("UID", j.uid)
     );
     if (j.runUrl && j.runUrl.startsWith("https://github.com/")) {
@@ -925,7 +940,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
       });
     } catch (e) { $("mMsg").textContent = "❌ " + e.message; }
   }
-  $("mLoad").addEventListener("click", () => { loadJobs(true); loadBans(); loadAppBans(); });
+  $("mLoad").addEventListener("click", () => { loadJobs(true); loadBans(); });
   $("mMore").addEventListener("click", () => loadJobs(false));
 
   window.fbToken = () => auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null);
