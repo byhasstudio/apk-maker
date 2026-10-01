@@ -1,0 +1,222 @@
+name: Build EXE
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: "ID pekerjaan"
+        required: true
+        type: string
+      mode:
+        description: "url atau upload"
+        required: true
+        type: string
+      url:
+        description: "URL website (mode url)"
+        required: false
+        type: string
+        default: ""
+      app_name:
+        required: true
+        type: string
+      has_icon:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      JOB_ID: ${{ inputs.job_id }}
+      MODE: ${{ inputs.mode }}
+      SITE_URL: ${{ inputs.url }}
+      APP_NAME: ${{ inputs.app_name }}
+      HAS_ICON: ${{ inputs.has_icon }}
+      WORKER_URL: ${{ secrets.WORKER_URL }}
+      BUILD_SECRET: ${{ secrets.BUILD_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cek input dasar
+        run: |
+          set -euo pipefail
+          [[ "$JOB_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "::error::job_id tidak valid"; exit 1; }
+          [[ "$MODE" == "url" || "$MODE" == "upload" ]] || { echo "::error::mode tidak valid"; exit 1; }
+          [[ "$HAS_ICON" == "true" || "$HAS_ICON" == "false" ]] || { echo "::error::has_icon tidak valid"; exit 1; }
+          test -f builder/make-icon.js || { echo "::error::builder/make-icon.js tidak ada di repo"; exit 1; }
+
+      - name: Kabari Worker (mulai membangun)
+        run: |
+          curl -fsS --retry 3 --retry-delay 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
+            -H "Authorization: Bearer $BUILD_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{"status":"building","progress":5,"step":"Memulai"}'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Progress 15%
+        run: |
+          curl -sS --retry 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
+            -H "Authorization: Bearer $BUILD_SECRET" -H "Content-Type: application/json" \
+            -d '{"status":"building","progress":15,"step":"Menyiapkan proyek"}' || true
+
+      - name: Siapkan proyek Electron
+        run: |
+          set -euo pipefail
+          mkdir app && cd app
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund electron@31 electron-builder@24 sharp
+          cp ../builder/make-icon.js .
+          mkdir www build
+
+      - name: Mode upload - unduh dan siapkan file
+        if: ${{ inputs.mode == 'upload' }}
+        run: |
+          set -euo pipefail
+          cd app
+          curl -fsS --retry 3 --retry-delay 2 -H "Authorization: Bearer $BUILD_SECRET" "$WORKER_URL/internal/file/$JOB_ID" -o upload.bin
+          if [ "$(head -c 2 upload.bin)" = "PK" ]; then
+            mkdir tmp_unzip
+            unzip -q upload.bin -d tmp_unzip
+            rm -rf tmp_unzip/__MACOSX
+            if [ -f tmp_unzip/index.html ]; then
+              SRC=tmp_unzip
+            else
+              COUNT=$(find tmp_unzip -mindepth 1 -maxdepth 1 | wc -l)
+              DIR=$(find tmp_unzip -mindepth 1 -maxdepth 1 -type d | head -n 1)
+              if [ "$COUNT" -eq 1 ] && [ -n "$DIR" ] && [ -f "$DIR/index.html" ]; then
+                SRC="$DIR"
+              else
+                echo "::error::ZIP tidak punya index.html di root (atau di satu folder pembungkus)"
+                exit 1
+              fi
+            fi
+            cp -a "$SRC"/. www/
+          else
+            cp upload.bin www/index.html
+          fi
+          find www -type l -delete
+          test -f www/index.html
+          rm -rf upload.bin tmp_unzip
+
+      - name: Unduh ikon (jika ada)
+        if: ${{ inputs.has_icon == 'true' }}
+        run: |
+          curl -fsS --retry 3 --retry-delay 2 -H "Authorization: Bearer $BUILD_SECRET" "$WORKER_URL/internal/icon/$JOB_ID" -o app/icon-src.bin
+
+      - name: Buat konfigurasi dan ikon
+        run: |
+          set -euo pipefail
+          cd app
+          node make-icon.js
+          cp assets/icon-only.png build/icon.png
+          node - <<'JS'
+          const fs = require("fs");
+          const e = process.env;
+          const name = (e.APP_NAME || "").trim();
+          if (!/^[\p{L}\p{N} ._-]{2,30}$/u.test(name)) throw new Error("Nama aplikasi tidak valid");
+          let url = "";
+          if (e.MODE === "url") {
+            const u = new URL(e.SITE_URL || "");
+            if (u.protocol !== "https:") throw new Error("URL harus https");
+            url = u.href;
+          }
+          fs.writeFileSync("app-config.json", JSON.stringify({ name, url }));
+          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          Object.assign(pkg, {
+            name: "app", version: "1.0.0", main: "main.js", description: name, author: name,
+            build: {
+              appId: "com.apkmaker.app", productName: name,
+              directories: { output: "dist", buildResources: "build" },
+              files: ["main.js", "app-config.json", "www/**/*"],
+              win: { target: "portable", icon: "build/icon.png" },
+              artifactName: "app.${ext}"
+            }
+          });
+          fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
+          fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu } = require("electron");
+          const cfg = require("./app-config.json");
+          const safe = u => /^https?:/i.test(u);
+          function create() {
+            Menu.setApplicationMenu(null);
+            const w = new BrowserWindow({ width: 1100, height: 760, title: cfg.name, autoHideMenuBar: true,
+              webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
+            if (cfg.url) {
+              w.loadURL(cfg.url);
+              w.webContents.setWindowOpenHandler(({ url }) => { if (safe(url)) shell.openExternal(url); return { action: "deny" }; });
+              w.webContents.on("will-navigate", (ev, u) => {
+                try { if (new URL(u).hostname !== new URL(cfg.url).hostname) { ev.preventDefault(); if (safe(u)) shell.openExternal(u); } } catch (_) { ev.preventDefault(); }
+              });
+            } else {
+              w.loadFile("www/index.html");
+            }
+          }
+          app.whenReady().then(create);
+          app.on("window-all-closed", () => app.quit());
+          `);
+          JS
+
+      - name: Progress 40%
+        run: |
+          curl -sS --retry 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
+            -H "Authorization: Bearer $BUILD_SECRET" -H "Content-Type: application/json" \
+            -d '{"status":"building","progress":40,"step":"Membangun EXE"}' || true
+
+      - name: Bangun EXE
+        run: |
+          set -euo pipefail
+          cd app
+          npx electron-builder --win portable --x64 --publish never
+          test -f dist/app.exe
+
+      - name: Progress 92%
+        run: |
+          curl -sS --retry 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
+            -H "Authorization: Bearer $BUILD_SECRET" -H "Content-Type: application/json" \
+            -d '{"status":"building","progress":92,"step":"Menerbitkan EXE"}' || true
+
+      - name: Terbitkan Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SAFE=$(printf '%s' "$APP_NAME" | tr -cs 'A-Za-z0-9' '-' | sed 's/^-//; s/-$//')
+          [ -n "$SAFE" ] || SAFE=app
+          mkdir -p out
+          cp app/dist/app.exe "out/$SAFE.exe"
+          gh release delete "job-$JOB_ID" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag >/dev/null 2>&1 || true
+          gh release create "job-$JOB_ID" "out/$SAFE.exe" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "EXE $SAFE" \
+            --notes "EXE dibuat otomatis oleh pengguna. Tidak bertanda tangan digital; pakai dengan risiko sendiri."
+          echo "APK_URL=https://github.com/$GITHUB_REPOSITORY/releases/download/job-$JOB_ID/$SAFE.exe" >> "$GITHUB_ENV"
+
+      - name: Kabari Worker (selesai)
+        run: |
+          curl -fsS --retry 3 --retry-delay 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
+            -H "Authorization: Bearer $BUILD_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"status\":\"done\",\"apkUrl\":\"$APK_URL\"}"
+
+      - name: Kabari Worker (gagal)
+        if: ${{ failure() }}
+        run: |
+          curl -sS --retry 3 --retry-delay 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
+            -H "Authorization: Bearer $BUILD_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"status\":\"failed\",\"runUrl\":\"https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"}" || true
+
+      - name: Hapus file sementara
+        if: ${{ always() }}
+        run: |
+          curl -sS -X DELETE "$WORKER_URL/internal/file/$JOB_ID" \
+            -H "Authorization: Bearer $BUILD_SECRET" || true
