@@ -99,6 +99,16 @@
   .crow code{flex:1;font-size:.72rem;word-break:break-all;overflow-wrap:anywhere;user-select:all}
   .crow button{width:auto;margin:0;padding:6px 12px;font-size:.78rem}
   .agrid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+  .mrow{padding:10px 0;border-bottom:1px solid var(--bd);font-size:.88rem}
+  .mrow:last-child{border-bottom:0}
+  .mtop{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .mbtns{display:flex;gap:6px;flex-shrink:0}
+  .mbtns button,.mbtns a{width:auto;margin:0;padding:6px 10px;font-size:.75rem;border-radius:10px}
+  .mrow details{margin-top:6px;font-size:.78rem;color:var(--mut)}
+  .mrow summary{cursor:pointer}
+  .mdet{margin-top:4px;line-height:1.5;word-break:break-all;overflow-wrap:anywhere}
+  .mdet b{color:var(--fg)}
+  .mban{color:#d92d20;font-weight:700}
 </style>
 </head>
 <body>
@@ -144,6 +154,17 @@
     <div id="cOut" style="margin-top:8px"></div>
     <button type="button" id="cAll" class="alt" style="display:none">Salin semua</button>
     <small id="cNote" style="display:none;margin-top:8px">Kode hanya tampil sekali. Salin sebelum menutup halaman.</small>
+  </div>
+
+  <div class="card" id="monCard" style="display:none;margin-bottom:16px">
+    <b>Panel Admin: pantau build pengguna</b>
+    <small style="display:block;margin-top:4px">Lihat build semua pengguna, unduh hasilnya, cek konfigurasi, dan blokir akun yang melanggar.</small>
+    <div class="row"><button type="button" id="mLoad" class="alt">🔄 Muat ulang</button></div>
+    <div id="mMsg" role="alert" style="margin-top:10px;font-size:.85rem;color:#d92d20;min-height:1em"></div>
+    <div id="mList" style="margin-top:6px"></div>
+    <button type="button" id="mMore" class="alt" style="display:none">Muat lebih banyak</button>
+    <b style="display:block;margin-top:18px">Akun diblokir</b>
+    <div id="mBans" style="margin-top:6px"></div>
   </div>
 
   <div class="card" id="buildCard" style="display:none">
@@ -664,6 +685,8 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     const adm = !!(u && u.emailVerified && (u.email || "").toLowerCase() === ADMIN_EMAIL);
     window.isAdmin = adm;
     $("adminCard").style.display = adm ? "" : "none";
+    $("monCard").style.display = adm ? "" : "none";
+    if (adm) { loadJobs(true); loadBans(); }
     $("codeBox").style.display = adm ? "none" : "";
     $("authCard").style.display = u ? "none" : "";
     $("buildCard").style.display = u ? "" : "none";
@@ -710,6 +733,102 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     } catch (e) { m.textContent = "❌ " + e.message; }
     $("cGo").disabled = false; $("cGo").textContent = "Buat kode";
   });
+
+
+  // ---------- Panel admin: pantau build & blokir akun ----------
+  async function admApi(path, body) {
+    const tk = await window.fbToken();
+    if (!tk) throw new Error("Silakan masuk dulu.");
+    const opt = body === undefined
+      ? { headers: { Authorization: "Bearer " + tk } }
+      : { method: "POST", headers: { Authorization: "Bearer " + tk, "Content-Type": "application/json" }, body: JSON.stringify(body) };
+    const r = await fetch(API + path, opt);
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || ("Ditolak (" + r.status + ")."));
+    return d;
+  }
+  const mt = t => new Date(t).toLocaleString("id-ID");
+  const MST = { queued: "antre", building: "membangun", done: "selesai", failed: "gagal" };
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const kv = (k, v) => { const d = el("div"); d.append(el("b", "", k + ": "), document.createTextNode(v)); return d; };
+  let jCursor = "";
+
+  async function doBan(uid, email, ban) {
+    let reason = "";
+    if (ban) {
+      reason = prompt("Blokir " + (email || uid) + "?\nAlasan (boleh kosong):");
+      if (reason === null) return;
+    } else if (!confirm("Buka blokir " + (email || uid) + "?")) return;
+    try {
+      await admApi(ban ? "/api/admin/ban" : "/api/admin/unban", { uid, email, reason });
+      await Promise.all([loadJobs(true), loadBans()]);
+    } catch (e) { $("mMsg").textContent = "❌ " + e.message; }
+  }
+
+  function jobRow(j) {
+    const row = el("div", "mrow");
+    const top = el("div", "mtop");
+    const info = el("div");
+    info.append(el("b", "", (j.target === "exe" ? "🪟 " : "🤖 ") + (j.name || "-")), el("br"));
+    info.append(el("small", "", (j.email || j.uid) + " · " + (MST[j.status] || j.status || "-") + " · " + mt(j.createdAt)));
+    if (j.banned) { info.append(el("br"), el("small", "mban", "🚫 akun diblokir")); }
+    const btns = el("div", "mbtns");
+    if (j.status === "done" && typeof j.apkUrl === "string" && j.apkUrl.startsWith("https://github.com/")) {
+      const a = el("a", "hdl", "⬇ Unduh"); a.href = j.apkUrl; a.rel = "noopener"; btns.appendChild(a);
+    }
+    const bb = el("button", "alt", j.banned ? "Buka blokir" : "Blokir");
+    bb.type = "button"; bb.addEventListener("click", () => doBan(j.uid, j.email, !j.banned));
+    btns.appendChild(bb);
+    top.append(info, btns);
+    const det = el("details"); det.appendChild(el("summary", "", "Konfigurasi"));
+    const body = el("div", "mdet");
+    body.append(
+      kv("Target", j.target || "-"), kv("Mode", j.mode === "url" ? "URL website" : "Upload file"),
+      kv("URL", j.url || "-"), kv("Package ID", j.appId || "-"),
+      kv("Izin", (j.perms && j.perms.length) ? j.perms.join(", ") : "tidak ada"),
+      kv("Ikon kustom", j.hasIcon ? "ya" : "tidak"),
+      kv("Job ID", j.jobId), kv("UID", j.uid)
+    );
+    if (j.runUrl && j.runUrl.startsWith("https://github.com/")) {
+      const d = el("div"); d.appendChild(el("b", "", "Log build: "));
+      const a = el("a", "", "buka"); a.href = j.runUrl; a.rel = "noopener"; d.appendChild(a); body.appendChild(d);
+    }
+    det.appendChild(body);
+    row.append(top, det);
+    return row;
+  }
+
+  async function loadJobs(reset) {
+    const out = $("mList"), m = $("mMsg"); m.textContent = "";
+    if (reset) { out.textContent = ""; jCursor = ""; }
+    $("mMore").style.display = "none";
+    try {
+      const d = await admApi("/api/admin/jobs" + (jCursor ? "?cursor=" + encodeURIComponent(jCursor) : ""));
+      d.jobs.forEach(j => out.appendChild(jobRow(j)));
+      if (reset && !d.jobs.length) out.appendChild(el("small", "", "Belum ada build."));
+      jCursor = d.cursor || "";
+      $("mMore").style.display = jCursor ? "" : "none";
+    } catch (e) { m.textContent = "❌ " + e.message; }
+  }
+
+  async function loadBans() {
+    const out = $("mBans"); out.textContent = "";
+    try {
+      const d = await admApi("/api/admin/bans");
+      if (!d.bans.length) { out.appendChild(el("small", "", "Tidak ada akun yang diblokir.")); return; }
+      d.bans.forEach(b => {
+        const row = el("div", "hrow");
+        const t = el("div"); t.append(el("b", "", b.email || b.uid), el("br"),
+          el("small", "", (b.reason ? b.reason + " · " : "") + (b.at ? mt(b.at) : "")));
+        const bt = el("button", "alt", "Buka blokir"); bt.type = "button";
+        bt.style.cssText = "width:auto;margin:0;padding:6px 10px;font-size:.75rem";
+        bt.addEventListener("click", () => doBan(b.uid, b.email, false));
+        row.append(t, bt); out.appendChild(row);
+      });
+    } catch (e) { $("mMsg").textContent = "❌ " + e.message; }
+  }
+  $("mLoad").addEventListener("click", () => { loadJobs(true); loadBans(); });
+  $("mMore").addEventListener("click", () => loadJobs(false));
 
   window.fbToken = () => auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null);
   window.fbSaveBuild = (id, data, isNew) => {
