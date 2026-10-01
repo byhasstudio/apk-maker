@@ -6,44 +6,81 @@
 <title>Pembuat APK</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>">
 <style>
-  body{font-family:system-ui,sans-serif;background:#f4f5f7;margin:0;color:#222}
-  main{max-width:480px;margin:0 auto;padding:16px}
-  h1{font-size:1.4rem}
-  .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px #0002}
-  .warn{background:#fff3cd;border:1px solid #ffe08a;padding:10px;border-radius:8px;font-size:.85rem}
-  label{display:block;margin:12px 0 4px;font-weight:600;font-size:.9rem}
-  input[type=text],input[type=url],input[type=file]{width:100%;box-sizing:border-box;padding:10px;border:1px solid #bbb;border-radius:8px;font-size:1rem}
-  input[type=color]{width:60px;height:40px;border:none;padding:0}
-  .modes label{display:inline-block;margin-right:16px;font-weight:400}
-  button{width:100%;margin-top:16px;padding:12px;font-size:1rem;border:none;border-radius:8px;background:#1a73e8;color:#fff;cursor:pointer}
-  button:disabled{background:#999;cursor:not-allowed}
-  #status{margin-top:16px;padding:10px;border-radius:8px;background:#eef;display:none;word-break:break-word}
-  #status.done{background:#dfd}
-  #status.failed{background:#fdd}
+  :root{--bg:#f4f6fb;--bgimg:linear-gradient(160deg,#e8efff 0%,#f6f1ff 55%,#fff 100%);--fg:#1c2230;--card:#fff;--bd:#d5dbe8;--mut:#667085;--wbg:#fff7e0;--wbd:#f3d98b;--ok:#dff6e5;--err:#fde2e2;--info:#e8efff;--trk:#e8ecf5;--acc:#4f6df5;--acc2:#8a5cf6;--sh:0 8px 30px #1c223014;color-scheme:light}
+  @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f1218;--bgimg:linear-gradient(160deg,#10162a 0%,#16122a 55%,#0f1218 100%);--fg:#e8ebf2;--card:#1a1f2b;--bd:#343c4e;--mut:#9aa3b5;--wbg:#33290f;--wbd:#6b5a1f;--ok:#12331d;--err:#3d1a1a;--info:#1b2540;--trk:#2a3142;--sh:0 8px 30px #0006;color-scheme:dark}}
+  :root[data-theme=dark]{--bg:#0f1218;--bgimg:linear-gradient(160deg,#10162a 0%,#16122a 55%,#0f1218 100%);--fg:#e8ebf2;--card:#1a1f2b;--bd:#343c4e;--mut:#9aa3b5;--wbg:#33290f;--wbd:#6b5a1f;--ok:#12331d;--err:#3d1a1a;--info:#1b2540;--trk:#2a3142;--sh:0 8px 30px #0006;color-scheme:dark}
+  *{-webkit-tap-highlight-color:transparent}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bgimg) fixed;background-color:var(--bg);margin:0;color:var(--fg);min-height:100vh}
+  main{max-width:520px;margin:0 auto;padding:20px 16px 40px}
+  h1{font-size:1.55rem;margin:0;font-weight:800;background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{margin:4px 0 0;color:var(--mut);font-size:.85rem;line-height:1.4}
+  #top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
+  #themes{display:flex;gap:2px;background:var(--card);padding:3px;border-radius:999px;box-shadow:var(--sh);flex-shrink:0}
+  #themes button{width:auto;margin:0;padding:6px 9px;font-size:.75rem;font-weight:600;background:transparent;color:var(--mut);border:0;border-radius:999px;box-shadow:none}
+  #themes button.on{background:linear-gradient(90deg,var(--acc),var(--acc2));color:#fff}
+  .card{background:var(--card);border-radius:20px;padding:20px;box-shadow:var(--sh)}
+  .warn{background:var(--wbg);border:1px solid var(--wbd);padding:12px;border-radius:14px;font-size:.8rem;line-height:1.45;margin:0 0 16px}
+  label{display:block;margin:18px 0 6px;font-weight:700;font-size:.85rem}
+  input[type=text],input[type=url],input[type=file],select{width:100%;box-sizing:border-box;padding:12px;border:1.5px solid var(--bd);border-radius:12px;font-size:1rem;background:var(--card);color:var(--fg);transition:border-color .15s,box-shadow .15s}
+  input:focus,select:focus{outline:0;border-color:var(--acc);box-shadow:0 0 0 4px #4f6df522}
+  input[type=file]::file-selector-button{margin-right:10px;padding:6px 12px;border:0;border-radius:8px;background:var(--trk);color:var(--fg);cursor:pointer}
+  .modes{display:flex;gap:4px;background:var(--trk);padding:4px;border-radius:14px}
+  .modes label{flex:1;margin:0;text-align:center;padding:10px 6px;border-radius:10px;font-weight:600;font-size:.85rem;cursor:pointer;color:var(--mut)}
+  .modes input{position:absolute;opacity:0;pointer-events:none}
+  .modes label:has(input:checked){background:var(--card);box-shadow:0 2px 8px #0002;color:var(--acc)}
+  button{width:100%;margin-top:18px;padding:14px;font-size:1rem;font-weight:700;border:none;border-radius:14px;background:linear-gradient(90deg,var(--acc),var(--acc2));color:#fff;cursor:pointer;box-shadow:0 6px 18px #4f6df540;transition:transform .1s,filter .2s}
+  button:hover{filter:brightness(1.07)}button:active{transform:scale(.98)}
+  button:disabled{background:#98a0b3;box-shadow:none;cursor:not-allowed;filter:none;transform:none}
+  #status{margin-top:16px;padding:12px;border-radius:12px;background:var(--info);display:none;word-break:break-word;font-size:.9rem}
+  #status.done{background:var(--ok)}
+  #status.failed{background:var(--err)}
   #status a{color:inherit}
-  #bar{display:none;position:relative;margin-top:10px;height:22px;background:#e3e6ea;border-radius:11px;overflow:hidden}
-  #barFill{height:100%;width:0;background:#1a73e8;transition:width 1s linear}
-  #barTxt{position:absolute;inset:0;text-align:center;font-size:.8rem;line-height:22px;font-weight:600;color:#111}
-  #dl{display:none;margin-top:10px;text-align:center;padding:12px;background:#0a7d32;color:#fff;border-radius:8px;text-decoration:none}
-  small{color:#666}
-  #gate{position:fixed;inset:0;z-index:99;background:#f4f5f7;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:16px}
+  #bar{display:none;position:relative;margin-top:10px;height:22px;background:var(--trk);border-radius:11px;overflow:hidden}
+  #barFill{height:100%;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width 1s linear}
+  #barTxt{position:absolute;inset:0;text-align:center;font-size:.75rem;line-height:22px;font-weight:700;color:var(--fg)}
+  #dl{display:none;margin-top:12px;text-align:center;padding:14px;font-weight:700;background:linear-gradient(90deg,#0a9d4a,#12b886);color:#fff;border-radius:14px;text-decoration:none;box-shadow:0 6px 18px #0a9d4a40}
+  small{color:var(--mut);font-size:.78rem}
+  #ed{display:none;margin-top:12px;padding:12px;background:var(--trk);border-radius:16px}#ed.on{display:block}
+  #cv{display:block;width:100%;max-width:320px;margin:0 auto 6px;border-radius:16px;touch-action:none;cursor:grab;background:repeating-conic-gradient(#8884 0 25%,transparent 0 50%) 0 0/16px 16px}
+  #tools label{font-weight:500;font-size:.8rem;margin:10px 0 0;display:flex;align-items:center;gap:8px}
+  #tools label input,#tools label select{flex:1;accent-color:var(--acc)}
+  #tools select{padding:8px}
+  .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .row button{width:auto;flex:1;margin:0;padding:8px;font-size:.78rem;font-weight:600;background:var(--card);color:var(--fg);box-shadow:none}
+  #pvw{display:flex;gap:10px;align-items:flex-end;margin-top:14px;flex-wrap:wrap}
+  #pvw span{text-align:center;background:var(--trk);padding:10px 12px 6px;border-radius:14px}
+  #pvw small{display:block;font-size:.68rem;margin-top:2px}
+  .pv{width:56px;height:56px;display:block;margin:0 auto 2px}
+  .p1{border-radius:50%}.p2{border-radius:30%}.p3{border-radius:14%}
+  .perms{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+  .perms>label:first-child,.perms>small{grid-column:1/-1}
+  .perms>label:has(.perm){margin:0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem;cursor:pointer;transition:border-color .15s,background .15s}
+  .perms>label:has(.perm:checked){border-color:var(--acc);background:#4f6df514}
+  .perms input{margin-right:8px;accent-color:var(--acc)}
+  #gate{position:fixed;inset:0;z-index:99;background:var(--bgimg);background-color:var(--bg);display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:16px}
   #gate.on{display:flex}
-  #gate h2{margin:0 0 6px;font-size:1.3rem}
-  #gate p{margin:0 0 18px;color:#555;font-size:.95rem}
+  #gate h2{margin:0 0 6px;font-size:1.5rem;font-weight:800}
+  #gate p{margin:0 0 18px;color:var(--mut);font-size:.95rem}
   #gateTs{min-height:65px}
 </style>
 </head>
 <body>
 <div id="gate" role="dialog" aria-label="Verifikasi">
-  <h2>Pembuat APK</h2>
+  <h2>📱 Pembuat APK</h2>
   <p>Selesaikan verifikasi singkat untuk melanjutkan.</p>
   <div id="gateTs"></div>
 </div>
 <main>
-  <h1>Pembuat APK</h1>
+  <div id="top"><div><h1>📱 Pembuat APK</h1><p class="sub">Ubah website atau file HTML jadi aplikasi Android dalam beberapa menit.</p></div>
+    <div id="themes"><button type="button" data-t="auto">🖥 Auto</button><button type="button" data-t="light">☀️ Terang</button><button type="button" data-t="dark">🌙 Gelap</button></div>
+  </div>
   <p class="warn">⚠️ APK dibuat oleh pengguna dan dipakai dengan risiko sendiri. Kami tidak memeriksa isi aplikasi. Jangan memasang APK dari sumber yang tidak Anda percaya. APK ini bertanda tangan debug (bukan untuk Play Store).</p>
 
   <div class="card">
+    <div class="modes" id="tgts" style="margin-bottom:14px">
+      <label><input type="radio" name="target" value="apk" checked> 🤖 Android (APK)</label>
+      <label><input type="radio" name="target" value="exe"> 🪟 Windows (EXE)</label>
+    </div>
     <div class="modes">
       <label><input type="radio" name="mode" value="url" checked> Dari URL</label>
       <label><input type="radio" name="mode" value="upload"> Upload HTML/ZIP</label>
@@ -63,22 +100,49 @@
     <input id="appName" type="text" maxlength="30" placeholder="Aplikasi Saya">
     <small>2–30 karakter: huruf, angka, spasi, titik, garis bawah, strip.</small>
 
+    <div id="boxApk">
     <label for="appId">Package ID</label>
     <input id="appId" type="text" maxlength="60" placeholder="com.nama.aplikasi" autocapitalize="none" autocomplete="off" spellcheck="false">
     <small>Huruf kecil, angka, titik. Contoh: com.budi.toko</small>
+    </div>
 
-    <label for="color">Warna tema</label>
-    <input id="color" type="color" value="#1a73e8">
+    <label for="iconFile">Ikon (opsional)</label>
+    <input id="iconFile" type="file" accept="image/*">
+    <small>Gambar dipakai apa adanya. Tanpa ikon, dibuat otomatis dari huruf pertama nama aplikasi.</small>
+    <div id="ed">
+      <canvas id="cv" width="512" height="512"></canvas>
+      <small>Geser untuk memposisikan, cubit/scroll untuk zoom.</small>
+      <div id="tools">
+        <label>Zoom <input id="zoom" type="range" min="0.2" max="4" step="0.01" value="1"></label>
+        <label>Putar <input id="rot" type="range" min="-180" max="180" step="1" value="0"></label>
+        <label class="f">Terang <input id="bri" type="range" min="50" max="150" value="100"></label>
+        <label class="f">Kontras <input id="con" type="range" min="50" max="150" value="100"></label>
+        <label>Latar <select id="bg"><option value="transparent">Transparan</option><option value="#ffffff">Putih</option><option value="#000000">Hitam</option></select></label>
+        <div class="row"><button type="button" data-a="r90">⟳ 90°</button><button type="button" data-a="flip">⇋ Balik</button><button type="button" data-a="fit">Pas</button><button type="button" data-a="reset">Reset</button><button type="button" data-a="del">Hapus</button></div>
+      </div>
+    </div>
+    <div id="pvw">
+      <span><canvas class="pv p0" width="64" height="64"></canvas><small>Asli</small></span>
+      <span><canvas class="pv p1" width="64" height="64"></canvas><small>Bulat</small></span>
+      <span><canvas class="pv p2" width="64" height="64"></canvas><small>Squircle</small></span>
+      <span><canvas class="pv p3" width="64" height="64"></canvas><small>Kotak</small></span>
+    </div>
 
-    <label for="icon">Ikon (opsional, PNG/JPG, maks 1 MB)</label>
-    <input id="icon" type="file" accept="image/png,image/jpeg">
-
+    <div class="perms" id="permBox">
+      <label style="margin-bottom:2px">Izin aplikasi</label>
+      <small>Dialog izin muncul di HP saat aplikasi/websitemu memintanya.</small>
+      <label><input type="checkbox" class="perm" value="camera"> 📷 Kamera</label>
+      <label><input type="checkbox" class="perm" value="microphone"> 🎤 Mikrofon</label>
+      <label><input type="checkbox" class="perm" value="location"> 📍 Lokasi</label>
+      <label><input type="checkbox" class="perm" value="notifications"> 🔔 Notifikasi</label>
+      <label><input type="checkbox" class="perm" value="media"> 🖼 Foto, video &amp; audio (galeri)</label>
+    </div>
     <div id="ts" style="margin-top:16px"></div>
     <button id="btn">Buat APK</button>
 
     <div id="status" role="status" aria-live="polite"></div>
     <div id="bar"><div id="barFill"></div><span id="barTxt">0%</span></div>
-    <a id="dl" href="#" rel="noopener">⬇ Download APK</a>
+    <a id="dl" href="#" rel="noopener">⬇ Download</a>
   </div>
 </main>
 
@@ -109,12 +173,13 @@ if (!gateDone()) $("gate").classList.add("on");
 
 window.onTurnstileLoad = () => {
   // widget untuk tombol Buat APK (tetap diperiksa server saat build)
-  widgetId = turnstile.render("#ts", {sitekey: TURNSTILE_SITEKEY});
+  widgetId = turnstile.render("#ts", {sitekey: TURNSTILE_SITEKEY, theme: curTheme()});
 
   // widget untuk layar verifikasi awal
   if (!gateDone()){
     turnstile.render("#gateTs", {
       sitekey: TURNSTILE_SITEKEY,
+      theme: curTheme(),
       callback: () => {
         gateMark();
         setTimeout(() => $("gate").classList.remove("on"), 600);
@@ -179,11 +244,119 @@ function stopPolling(){
   setBusy(false);
 }
 
+/* ---------- tema gelap/terang ---------- */
+const THEME_KEY = "apkmaker.theme";
+function curTheme(){
+  const t = document.documentElement.dataset.theme;
+  return t === "dark" || t === "light" ? t : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+}
+function setTheme(t){
+  try { t === "auto" ? localStorage.removeItem(THEME_KEY) : localStorage.setItem(THEME_KEY, t); } catch(e){}
+  if (t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  document.querySelectorAll("#themes button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  // widget Turnstile ikut berganti tema (hanya jika belum diselesaikan)
+  if (window.turnstile && widgetId !== null && !turnstile.getResponse(widgetId)){
+    try { turnstile.remove(widgetId); widgetId = turnstile.render("#ts", {sitekey: TURNSTILE_SITEKEY, theme: curTheme()}); } catch(e){}
+  }
+}
+document.querySelectorAll("#themes button").forEach(b => b.addEventListener("click", () => setTheme(b.dataset.t)));
+(function(){ let t = "auto"; try { t = localStorage.getItem(THEME_KEY) || "auto"; } catch(e){} setTheme(t); })();
+
+/* ---------- editor ikon ---------- */
+const cv = $("cv"), cx = cv.getContext("2d"), S = 512;
+const DEF = {z:1, r:0, f:1, x:0, y:0, b:100, c:100, bg:"transparent"};
+const st = Object.assign({img:null}, DEF);
+const canFilter = typeof cx.filter === "string";
+if (!canFilter) document.querySelectorAll(".f").forEach(l => l.style.display = "none");
+const clampZ = z => Math.min(4, Math.max(0.2, z));
+
+function hslHex(h, s, l){
+  const a = s * Math.min(l, 1 - l);
+  const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+  return "#" + [f(0), f(8), f(4)].map(v => v.toString(16).padStart(2, "0")).join("");
+}
+function draw(){
+  cx.clearRect(0, 0, S, S); cx.filter = "none";
+  const nm = $("appName").value.trim() || "A";
+  if (!st.img){
+    let hue = 0; for (const ch of nm) hue = (hue * 31 + ch.codePointAt(0)) % 360;
+    cx.fillStyle = hslHex(hue, 0.6, 0.42); cx.fillRect(0, 0, S, S);
+    cx.fillStyle = "#fff"; cx.font = "bold 300px system-ui,sans-serif"; cx.textAlign = "center"; cx.textBaseline = "alphabetic";
+    cx.fillText([...nm][0].toUpperCase(), S / 2, S / 2 + 105);
+  } else {
+    if (st.bg !== "transparent"){ cx.fillStyle = st.bg; cx.fillRect(0, 0, S, S); }
+    if (canFilter) cx.filter = "brightness(" + st.b + "%) contrast(" + st.c + "%)";
+    const w = st.img.naturalWidth, h = st.img.naturalHeight, k = Math.max(S / w, S / h) * st.z;
+    cx.save(); cx.translate(S / 2 + st.x, S / 2 + st.y); cx.rotate(st.r * Math.PI / 180); cx.scale(st.f * k, k);
+    cx.drawImage(st.img, -w / 2, -h / 2); cx.restore(); cx.filter = "none";
+  }
+  document.querySelectorAll("canvas.pv").forEach(p => { const c = p.getContext("2d"); c.clearRect(0, 0, p.width, p.height); c.drawImage(cv, 0, 0, p.width, p.height); });
+}
+function syncUI(){ $("zoom").value = st.z; $("rot").value = st.r; $("bri").value = st.b; $("con").value = st.c; $("bg").value = st.bg; }
+
+[["zoom","z"],["rot","r"],["bri","b"],["con","c"]].forEach(([id, k]) => $(id).addEventListener("input", e => { st[k] = +e.target.value; draw(); }));
+$("bg").addEventListener("input", e => { st.bg = e.target.value; draw(); });
+$("appName").addEventListener("input", () => { if (!st.img) draw(); });
+
+document.querySelectorAll("#tools [data-a]").forEach(b => b.addEventListener("click", () => {
+  const a = b.dataset.a;
+  if (a === "r90") st.r = st.r + 90 > 180 ? st.r - 270 : st.r + 90;
+  else if (a === "flip") st.f *= -1;
+  else if (a === "fit" && st.img) st.z = clampZ(Math.min(S / st.img.naturalWidth, S / st.img.naturalHeight) / Math.max(S / st.img.naturalWidth, S / st.img.naturalHeight));
+  else if (a === "reset") Object.assign(st, DEF);
+  else if (a === "del"){ st.img = null; Object.assign(st, DEF); $("iconFile").value = ""; $("ed").classList.remove("on"); }
+  syncUI(); draw();
+}));
+
+$("iconFile").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (!f.type.startsWith("image/") || f.size > 10 * 1024 * 1024){ e.target.value = ""; return show("failed", "Pilih file gambar (maks 10 MB)."); }
+  const im = new Image();
+  im.onload = () => { Object.assign(st, DEF, {img: im}); syncUI(); $("ed").classList.add("on"); draw(); };
+  im.onerror = () => show("failed", "Gambar tidak bisa dibaca.");
+  im.src = URL.createObjectURL(f);
+});
+
+const ptr = new Map();
+cv.addEventListener("pointerdown", e => { if (!st.img) return; cv.setPointerCapture(e.pointerId); ptr.set(e.pointerId, e); });
+cv.addEventListener("pointermove", e => {
+  const p = ptr.get(e.pointerId); if (!p) return;
+  const k = S / cv.getBoundingClientRect().width;
+  if (ptr.size === 2){
+    const o = [...ptr.values()].find(q => q.pointerId !== e.pointerId);
+    const d0 = Math.hypot(p.clientX - o.clientX, p.clientY - o.clientY), d1 = Math.hypot(e.clientX - o.clientX, e.clientY - o.clientY);
+    if (d0){ st.z = clampZ(st.z * d1 / d0); $("zoom").value = st.z; }
+  } else { st.x += (e.clientX - p.clientX) * k; st.y += (e.clientY - p.clientY) * k; }
+  ptr.set(e.pointerId, e); draw();
+});
+["pointerup", "pointercancel"].forEach(t => cv.addEventListener(t, e => ptr.delete(e.pointerId)));
+cv.addEventListener("wheel", e => { if (!st.img) return; e.preventDefault(); st.z = clampZ(st.z * (e.deltaY < 0 ? 1.06 : 0.94)); $("zoom").value = st.z; draw(); }, {passive: false});
+
+// Hasil akhir (gambar editan atau ikon huruf) dikirim sebagai PNG 512x512; JPEG hanya jika PNG terlalu besar.
+async function exportIcon(){
+  draw();
+  let b = await new Promise(r => cv.toBlob(r, "image/png"));
+  if (b && b.size > 900 * 1024){
+    const t = document.createElement("canvas"); t.width = t.height = S;
+    const c = t.getContext("2d"); c.fillStyle = "#fff"; c.fillRect(0, 0, S, S); c.drawImage(cv, 0, 0);
+    b = await new Promise(r => t.toBlob(r, "image/jpeg", 0.9));
+  }
+  return b;
+}
+draw();
+
 /* ---------- mode ---------- */
 document.querySelectorAll("input[name=mode]").forEach(r => r.addEventListener("change", () => {
   const m = document.querySelector("input[name=mode]:checked").value;
   $("boxUrl").style.display = m === "url" ? "" : "none";
   $("boxFile").style.display = m === "upload" ? "" : "none";
+}));
+
+document.querySelectorAll("input[name=target]").forEach(r => r.addEventListener("change", () => {
+  const exe = document.querySelector("input[name=target]:checked").value === "exe";
+  $("boxApk").style.display = exe ? "none" : "";
+  $("permBox").style.display = exe ? "none" : "";
+  $("btn").textContent = exe ? "Buat EXE" : "Buat APK";
 }));
 
 $("appId").addEventListener("input", e => {
@@ -255,15 +428,17 @@ $("btn").addEventListener("click", async () => {
   const mode = document.querySelector("input[name=mode]:checked").value;
   const appName = $("appName").value.trim();
   const appId = $("appId").value.trim();
+  const target = document.querySelector("input[name=target]:checked").value;
 
   if (!validName(appName)) return show("failed", "Nama aplikasi 2–30 karakter, hanya huruf, angka, spasi, titik, garis bawah, atau strip.");
-  if (!validAppId(appId)) return show("failed", "Package ID tidak valid. Contoh: com.budi.toko (huruf kecil, minimal dua bagian, tanpa kata terlarang Java seperti 'new' atau 'int').");
+  if (target === "apk" && !validAppId(appId)) return show("failed", "Package ID tidak valid. Contoh: com.budi.toko (huruf kecil, minimal dua bagian, tanpa kata terlarang Java seperti 'new' atau 'int').");
 
   const fd = new FormData();
   fd.append("mode", mode);
   fd.append("appName", appName);
   fd.append("appId", appId);
-  fd.append("color", $("color").value);
+  fd.append("target", target);
+  fd.append("perms", [...document.querySelectorAll(".perm:checked")].map(i => i.value).join(","));
 
   if (mode === "url"){
     const u = $("siteUrl").value.trim();
@@ -278,12 +453,8 @@ $("btn").addEventListener("click", async () => {
     if (f.size > 10*1024*1024) return show("failed", "File lebih dari 10 MB.");
     fd.append("file", f);
   }
-  const ic = $("icon").files[0];
-  if (ic){
-    if (!/^image\/(png|jpeg)$/.test(ic.type)) return show("failed", "Ikon harus PNG atau JPG.");
-    if (ic.size > 1024*1024) return show("failed", "Ikon lebih dari 1 MB.");
-    fd.append("icon", ic);
-  }
+  const ib = await exportIcon();
+  if (ib) fd.append("icon", ib, ib.type === "image/jpeg" ? "icon.jpg" : "icon.png");
 
   if (!window.turnstile || widgetId === null) return show("failed", "Verifikasi belum siap. Muat ulang halaman.");
   const token = turnstile.getResponse(widgetId);
