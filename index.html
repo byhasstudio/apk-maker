@@ -844,6 +844,11 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     } catch (_) { return false; }
   }
 
+  // Di dalam aplikasi (APK/EXE buatan web ini) Google menolak login lewat WebView dan popup-nya malah membuka Chrome.
+  const IN_APP = /; wv\)/.test(navigator.userAgent) || /Electron\//.test(navigator.userAgent) || !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (IN_APP) $("aGoogle").style.display = "none";
+  const GOOGLE_ONLY = IN_APP ? "Email ini terdaftar lewat Google. Di aplikasi hanya bisa masuk dengan email + sandi. Masuk dengan Google lewat browser (Chrome)." : "Email ini terdaftar lewat Google. Pakai tombol Lanjut dengan Google.";
+
   document.querySelectorAll("input[name=atab]").forEach(r => r.addEventListener("change", () => {
     $("aGo").textContent = isUp() ? "Daftar" : "Masuk";
     $("aPass").autocomplete = isUp() ? "new-password" : "current-password";
@@ -864,7 +869,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
         openOtp({email: em, pw, mode: "signup"});
       } else {
         if (!methods.length) fail("Email belum terdaftar. Silakan daftar dulu.");
-        if (!methods.includes("password")) fail("Email ini terdaftar lewat Google. Pakai tombol Lanjut dengan Google.");
+        if (!methods.includes("password")) fail(GOOGLE_ONLY);
         await signInWithEmailAndPassword(auth, em, pw);
       }
     } catch (e) { showErr(msg, e); }
@@ -872,6 +877,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
   });
 
   $("aGoogle").addEventListener("click", async () => {
+    if (IN_APP) return msg("Masuk dengan Google tidak bisa di dalam aplikasi. Pakai email dan sandi.");
     try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (e) { showErr(msg, e); }
   });
 
