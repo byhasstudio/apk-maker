@@ -150,7 +150,9 @@
     <input id="aPass" type="password" autocomplete="current-password" placeholder="Minimal 8 karakter, huruf + angka">
     <button type="button" id="aGo">Masuk</button>
     <button type="button" id="aGoogle" class="alt">🌐 Lanjut dengan Google</button>
+    <small id="aNote" style="display:none;margin-top:10px">ℹ️ Catatan: di aplikasi APK/EXE, masuk dengan Google tidak tersedia, hanya email + sandi. Kalau akunmu daftar lewat Google dan mau dipakai di aplikasi, isi email lalu tekan <b>Lupa sandi?</b> untuk membuat sandi dulu.</small>
     <a href="#" id="aForgot">Lupa sandi?</a>
+    <small id="aHint" style="display:none;margin-top:10px">Akun lama dari Google? Isi email, tekan <b>Lupa sandi?</b>, buka tautan di email untuk membuat sandi, lalu kembali ke sini dan masuk dengan email + sandi itu.</small>
     <div id="aMsg" role="alert"></div>
   </div>
 
@@ -846,8 +848,8 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
 
   // Di dalam aplikasi (APK/EXE buatan web ini) Google menolak login lewat WebView dan popup-nya malah membuka Chrome.
   const IN_APP = /; wv\)/.test(navigator.userAgent) || /Electron\//.test(navigator.userAgent) || !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  if (IN_APP) $("aGoogle").style.display = "none";
-  const GOOGLE_ONLY = IN_APP ? "Email ini terdaftar lewat Google. Di aplikasi hanya bisa masuk dengan email + sandi. Masuk dengan Google lewat browser (Chrome)." : "Email ini terdaftar lewat Google. Pakai tombol Lanjut dengan Google.";
+  if (IN_APP) { $("aGoogle").style.display = "none"; $("aHint").style.display = "block"; } else $("aNote").style.display = "block";
+  const GOOGLE_ONLY = IN_APP ? "Email ini terdaftar lewat Google dan belum punya sandi. Tekan Lupa sandi? untuk membuat sandi, lalu masuk dengan email + sandi." : "Email ini terdaftar lewat Google. Pakai tombol Lanjut dengan Google, atau tekan Lupa sandi? untuk membuat sandi.";
 
   document.querySelectorAll("input[name=atab]").forEach(r => r.addEventListener("change", () => {
     $("aGo").textContent = isUp() ? "Daftar" : "Masuk";
@@ -889,8 +891,9 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     try {
       const methods = await fetchSignInMethodsForEmail(auth, em);
       if (!methods.length) fail("Email belum terdaftar.");
-      if (!methods.includes("password")) fail("Email ini terdaftar lewat Google, tidak punya sandi.");
-      await sendPasswordResetEmail(auth, em); msg("Tautan reset sandi dikirim ke email.");
+      const noPw = !methods.includes("password"); // akun Google: reset sandi sekaligus membuatkan sandi untuk akun itu
+      await sendPasswordResetEmail(auth, em);
+      msg(noPw ? "Tautan dikirim ke email. Buka tautannya untuk membuat sandi, lalu masuk dengan email + sandi tadi." : "Tautan reset sandi dikirim ke email.");
     } catch (er) { showErr(msg, er); }
   });
 
