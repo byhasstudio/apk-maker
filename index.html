@@ -169,6 +169,8 @@
 
   <div class="card" id="adminCard" style="display:none;margin-bottom:16px">
     <b>Panel Admin: buat kode verifikasi</b>
+    <button type="button" class="alt admToggle" data-t="admBody1" style="margin-top:10px">Selengkapnya ▼</button>
+    <div id="admBody1" style="display:none">
     <div class="agrid">
       <div><label for="cCount">Jumlah kode (1–50)</label><input id="cCount" type="text" inputmode="numeric" value="5"></div>
       <div><label for="cUses">Dipakai berapa build</label><input id="cUses" type="text" inputmode="numeric" value="1"></div>
@@ -180,11 +182,14 @@
     <div id="cOut" style="margin-top:8px"></div>
     <button type="button" id="cAll" class="alt" style="display:none">Salin semua</button>
     <small id="cNote" style="display:none;margin-top:8px">Kode hanya tampil sekali. Salin sebelum menutup halaman.</small>
+    </div>
   </div>
 
   <div class="card" id="monCard" style="display:none;margin-bottom:16px">
     <b>Panel Admin: pantau build pengguna</b>
     <small style="display:block;margin-top:4px">Lihat build semua pengguna, unduh hasilnya, cek konfigurasi, dan blokir akun yang melanggar.</small>
+    <button type="button" class="alt admToggle" data-t="admBody2" style="margin-top:10px">Selengkapnya ▼</button>
+    <div id="admBody2" style="display:none">
     <b style="display:block;margin-top:14px">📢 Pengumuman ke semua aplikasi</b>
     <input id="nMsg" type="text" maxlength="300" placeholder="Mis. Server maintenance malam ini" style="margin-top:6px">
     <div class="row"><button type="button" id="nSend">Kirim pengumuman</button><button type="button" id="nClear" class="alt">Hapus pengumuman</button></div>
@@ -199,6 +204,7 @@
     <div id="mReps" style="margin-top:6px"></div>
     <b style="display:block;margin-top:18px">Akun diblokir</b>
     <div id="mBans" style="margin-top:6px"></div>
+    </div>
   </div>
 
   <div class="card" id="buildCard" style="display:none">
@@ -519,6 +525,11 @@ $("bg").addEventListener("input", e => { st.bg = e.target.value; draw(); });
 $("appName").addEventListener("input", () => { if (!st.img) draw(); });
 $("icText").addEventListener("input", e => { icText = e.target.value; draw(); });
 $("icBg").addEventListener("input", e => { icBg = e.target.value; draw(); });
+document.querySelectorAll(".admToggle").forEach(b => b.addEventListener("click", () => {
+  const body = $(b.dataset.t), open = body.style.display === "none";
+  body.style.display = open ? "" : "none";
+  b.textContent = open ? "Sembunyikan ▲" : "Selengkapnya ▼";
+}));
 $("icAuto").addEventListener("click", () => { icText = ""; icBg = null; $("icText").value = ""; draw(); });
 
 document.querySelectorAll("#tools [data-a]").forEach(b => b.addEventListener("click", () => {
