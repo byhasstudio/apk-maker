@@ -12,6 +12,18 @@
   *{-webkit-tap-highlight-color:transparent}
   body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bgimg) fixed;background-color:var(--bg);margin:0;color:var(--fg);min-height:100vh}
   main{max-width:520px;margin:0 auto;padding:20px 16px 40px}
+  /* ---------- layout responsif: HP = 1 kolom, komputer = 2 kolom ---------- */
+  #cols{display:flex;flex-direction:column}
+  #colL,#colR{display:contents}
+  #authCard,#otpCard{order:0}#adminCard,#monCard{order:1}#buildCard{order:2}#histCard{order:3}
+  @media(min-width:600px){main{max-width:640px}}
+  @media(min-width:1000px){
+    main{max-width:1200px;padding:28px 28px 56px}
+    #cols{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:20px;align-items:start}
+    #colL,#colR{display:flex;flex-direction:column;gap:16px;min-width:0}
+    #cols .card{margin:0!important}
+    #cols.solo{grid-template-columns:minmax(0,520px);justify-content:center}
+  }
   h1{font-size:1.55rem;margin:0;font-weight:800;background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
   .sub{margin:4px 0 0;color:var(--mut);font-size:.85rem;line-height:1.4}
   #top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
@@ -137,6 +149,8 @@
   <div id="userBar"><small id="uMail"></small><button type="button" id="aOut" class="alt">Keluar</button></div>
   <p class="warn">⚠️ APK dibuat oleh pengguna dan dipakai dengan risiko sendiri. Kami tidak memeriksa isi aplikasi. Jangan memasang APK dari sumber yang tidak Anda percaya. APK ini bertanda tangan debug (bukan untuk Play Store).</p>
 
+  <div id="cols" class="solo">
+  <div id="colL">
   <div class="card" id="authCard" style="display:none">
     <h2 style="margin:0 0 4px;font-size:1.2rem">Masuk untuk melanjutkan</h2>
     <small>Akun diperlukan untuk membuat aplikasi dan menyimpan riwayat build.</small>
@@ -147,7 +161,10 @@
     <label for="aEmail" style="margin-top:0">Email</label>
     <input id="aEmail" type="text" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="nama@email.com">
     <label for="aPass">Sandi</label>
-    <input id="aPass" type="password" autocomplete="current-password" placeholder="Minimal 8 karakter, huruf + angka">
+    <div style="position:relative">
+      <input id="aPass" type="password" autocomplete="current-password" placeholder="Minimal 8 karakter, huruf + angka" style="padding-right:52px">
+      <button type="button" id="pwToggle" aria-label="Tampilkan sandi" title="Tampilkan sandi" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:auto;margin:0;padding:6px 10px;background:transparent;box-shadow:none;color:var(--mut);line-height:0;cursor:pointer"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-10-7-10-7a18.5 18.5 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
+    </div>
     <button type="button" id="aGo">Masuk</button>
     <button type="button" id="aGoogle" class="alt">🌐 Lanjut dengan Google</button>
     <small id="aNote" style="display:none;margin-top:10px">ℹ️ Catatan: di aplikasi APK/EXE, masuk dengan Google tidak tersedia, hanya email + sandi. Kalau akunmu daftar lewat Google dan mau dipakai di aplikasi, isi email lalu tekan <b>Lupa sandi?</b> untuk membuat sandi dulu.</small>
@@ -165,46 +182,6 @@
     <button type="button" id="oResend" class="alt" disabled>Kirim ulang kode</button>
     <a href="#" id="oCancel" style="display:block;margin-top:10px;font-size:.8rem;color:var(--acc);text-align:center">Batal</a>
     <div id="oMsg" role="alert" style="margin-top:12px;font-size:.85rem;color:#d92d20;min-height:1em"></div>
-  </div>
-
-  <div class="card" id="adminCard" style="display:none;margin-bottom:16px">
-    <b>Panel Admin: buat kode verifikasi</b>
-    <button type="button" class="alt admToggle" data-t="admBody1" style="margin-top:10px">Selengkapnya ▼</button>
-    <div id="admBody1" style="display:none">
-    <div class="agrid">
-      <div><label for="cCount">Jumlah kode (1–50)</label><input id="cCount" type="text" inputmode="numeric" value="5"></div>
-      <div><label for="cUses">Dipakai berapa build</label><input id="cUses" type="text" inputmode="numeric" value="1"></div>
-      <div><label for="cLen">Panjang kode (32–200)</label><input id="cLen" type="text" inputmode="numeric" value="100"></div>
-      <div><label for="cDays">Berlaku (hari, 0 = tanpa batas)</label><input id="cDays" type="text" inputmode="numeric" value="30"></div>
-    </div>
-    <button type="button" id="cGo">Buat kode</button>
-    <div id="cMsg" role="alert" style="margin-top:12px;font-size:.85rem;color:#d92d20;min-height:1em"></div>
-    <div id="cOut" style="margin-top:8px"></div>
-    <button type="button" id="cAll" class="alt" style="display:none">Salin semua</button>
-    <small id="cNote" style="display:none;margin-top:8px">Kode hanya tampil sekali. Salin sebelum menutup halaman.</small>
-    </div>
-  </div>
-
-  <div class="card" id="monCard" style="display:none;margin-bottom:16px">
-    <b>Panel Admin: pantau build pengguna</b>
-    <small style="display:block;margin-top:4px">Lihat build semua pengguna, unduh hasilnya, cek konfigurasi, dan blokir akun yang melanggar.</small>
-    <button type="button" class="alt admToggle" data-t="admBody2" style="margin-top:10px">Selengkapnya ▼</button>
-    <div id="admBody2" style="display:none">
-    <b style="display:block;margin-top:14px">📢 Pengumuman ke semua aplikasi</b>
-    <input id="nMsg" type="text" maxlength="300" placeholder="Mis. Server maintenance malam ini" style="margin-top:6px">
-    <div class="row"><button type="button" id="nSend">Kirim pengumuman</button><button type="button" id="nClear" class="alt">Hapus pengumuman</button></div>
-    <small>Muncul sekali di tiap aplikasi (APK dan EXE) saat dibuka.</small>
-    <div class="row"><button type="button" id="mLoad" class="alt">🔄 Muat ulang</button></div>
-    <div id="mMsg" role="alert" style="margin-top:10px;font-size:.85rem;color:#d92d20;min-height:1em"></div>
-    <div id="mList" style="margin-top:6px"></div>
-    <button type="button" id="mMore" class="alt" style="display:none">Muat lebih banyak</button>
-    <b style="display:block;margin-top:18px">📊 Statistik pemakaian (7 hari)</b>
-    <div id="mStats" style="margin-top:6px"></div>
-    <b style="display:block;margin-top:18px">🚩 Laporan aplikasi</b>
-    <div id="mReps" style="margin-top:6px"></div>
-    <b style="display:block;margin-top:18px">Akun diblokir</b>
-    <div id="mBans" style="margin-top:6px"></div>
-    </div>
   </div>
 
   <div class="card" id="buildCard" style="display:none">
@@ -319,10 +296,54 @@
     <a id="dpage" href="#" target="_blank" rel="noopener" style="display:none;margin-top:10px;text-align:center;font-size:.85rem;color:var(--acc)">🔗 Halaman unduh publik (bagikan ke orang lain)</a>
   </div>
 
+  </div>
+  <div id="colR">
+  <div class="card" id="adminCard" style="display:none;margin-bottom:16px">
+    <b>Panel Admin: buat kode verifikasi</b>
+    <button type="button" class="alt admToggle" data-t="admBody1" style="margin-top:10px">Selengkapnya ▼</button>
+    <div id="admBody1" style="display:none">
+    <div class="agrid">
+      <div><label for="cCount">Jumlah kode (1–50)</label><input id="cCount" type="text" inputmode="numeric" value="5"></div>
+      <div><label for="cUses">Dipakai berapa build</label><input id="cUses" type="text" inputmode="numeric" value="1"></div>
+      <div><label for="cLen">Panjang kode (32–200)</label><input id="cLen" type="text" inputmode="numeric" value="100"></div>
+      <div><label for="cDays">Berlaku (hari, 0 = tanpa batas)</label><input id="cDays" type="text" inputmode="numeric" value="30"></div>
+    </div>
+    <button type="button" id="cGo">Buat kode</button>
+    <div id="cMsg" role="alert" style="margin-top:12px;font-size:.85rem;color:#d92d20;min-height:1em"></div>
+    <div id="cOut" style="margin-top:8px"></div>
+    <button type="button" id="cAll" class="alt" style="display:none">Salin semua</button>
+    <small id="cNote" style="display:none;margin-top:8px">Kode hanya tampil sekali. Salin sebelum menutup halaman.</small>
+    </div>
+  </div>
+
+  <div class="card" id="monCard" style="display:none;margin-bottom:16px">
+    <b>Panel Admin: pantau build pengguna</b>
+    <small style="display:block;margin-top:4px">Lihat build semua pengguna, unduh hasilnya, cek konfigurasi, dan blokir akun yang melanggar.</small>
+    <button type="button" class="alt admToggle" data-t="admBody2" style="margin-top:10px">Selengkapnya ▼</button>
+    <div id="admBody2" style="display:none">
+    <b style="display:block;margin-top:14px">📢 Pengumuman ke semua aplikasi</b>
+    <input id="nMsg" type="text" maxlength="300" placeholder="Mis. Server maintenance malam ini" style="margin-top:6px">
+    <div class="row"><button type="button" id="nSend">Kirim pengumuman</button><button type="button" id="nClear" class="alt">Hapus pengumuman</button></div>
+    <small>Muncul sekali di tiap aplikasi (APK dan EXE) saat dibuka.</small>
+    <div class="row"><button type="button" id="mLoad" class="alt">🔄 Muat ulang</button></div>
+    <div id="mMsg" role="alert" style="margin-top:10px;font-size:.85rem;color:#d92d20;min-height:1em"></div>
+    <div id="mList" style="margin-top:6px"></div>
+    <button type="button" id="mMore" class="alt" style="display:none">Muat lebih banyak</button>
+    <b style="display:block;margin-top:18px">📊 Statistik pemakaian (7 hari)</b>
+    <div id="mStats" style="margin-top:6px"></div>
+    <b style="display:block;margin-top:18px">🚩 Laporan aplikasi</b>
+    <div id="mReps" style="margin-top:6px"></div>
+    <b style="display:block;margin-top:18px">Akun diblokir</b>
+    <div id="mBans" style="margin-top:6px"></div>
+    </div>
+  </div>
+
   <div class="card" id="histCard" style="margin-top:16px;display:none">
     <b>Riwayat build</b>
     <div id="hist" style="margin-top:8px"></div>
     <small>Tautan unduhan aktif sekitar 14 hari.</small>
+  </div>
+  </div>
   </div>
 </main>
 
@@ -525,6 +546,14 @@ $("bg").addEventListener("input", e => { st.bg = e.target.value; draw(); });
 $("appName").addEventListener("input", () => { if (!st.img) draw(); });
 $("icText").addEventListener("input", e => { icText = e.target.value; draw(); });
 $("icBg").addEventListener("input", e => { icBg = e.target.value; draw(); });
+const EYE_ON = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>', EYE_OFF = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-10-7-10-7a18.5 18.5 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+$("pwToggle").addEventListener("click", () => {
+  const p = $("aPass"), show = p.type === "password";
+  p.type = show ? "text" : "password";
+  $("pwToggle").innerHTML = show ? EYE_ON : EYE_OFF;
+  $("pwToggle").setAttribute("aria-label", show ? "Sembunyikan sandi" : "Tampilkan sandi");
+  $("pwToggle").title = show ? "Sembunyikan sandi" : "Tampilkan sandi";
+});
 document.querySelectorAll(".admToggle").forEach(b => b.addEventListener("click", () => {
   const body = $(b.dataset.t), open = body.style.display === "none";
   body.style.display = open ? "" : "none";
@@ -998,6 +1027,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     $("otpCard").style.display = (!ok && (u || pending)) ? "" : "none";
     $("buildCard").style.display = ok ? "" : "none";
     $("histCard").style.display = ok ? "" : "none";
+    $("cols").classList.toggle("solo", !ok);
     $("userBar").style.display = ok ? "flex" : "none";
     if (unsub) { unsub(); unsub = null; }
     if (ok) {
