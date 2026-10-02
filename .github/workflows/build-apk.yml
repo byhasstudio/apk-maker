@@ -1,4 +1,5 @@
 name: Build APK
+run-name: Build APK ${{ inputs.job_id }}
 
 on:
   workflow_dispatch:
@@ -19,6 +20,10 @@ on:
       app_name:
         required: true
         type: string
+      version:
+        description: "versi aplikasi, contoh 1.0.0"
+        required: true
+        type: string
       app_id:
         required: true
         type: string
@@ -30,6 +35,16 @@ on:
         required: false
         type: string
         default: ""
+      secure:
+        description: "anti-screenshot (true/false)"
+        required: false
+        type: string
+        default: "false"
+      lock:
+        description: "kunci layar HP (true/false)"
+        required: false
+        type: string
+        default: "false"
 
 permissions:
   contents: write
@@ -45,7 +60,11 @@ jobs:
       APP_NAME: ${{ inputs.app_name }}
       APP_ID: ${{ inputs.app_id }}
       HAS_ICON: ${{ inputs.has_icon }}
+      VERSION: ${{ inputs.version }}
       PERMS: ${{ inputs.perms }}
+      SECURE: ${{ inputs.secure }}
+      LOCK: ${{ inputs.lock }}
+      VT_API_KEY: ${{ secrets.VT_API_KEY }}
       WORKER_URL: ${{ secrets.WORKER_URL }}
       BUILD_SECRET: ${{ secrets.BUILD_SECRET }}
     steps:
@@ -57,7 +76,10 @@ jobs:
           [[ "$JOB_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "::error::job_id tidak valid"; exit 1; }
           [[ "$MODE" == "url" || "$MODE" == "upload" ]] || { echo "::error::mode tidak valid"; exit 1; }
           [[ "$HAS_ICON" == "true" || "$HAS_ICON" == "false" ]] || { echo "::error::has_icon tidak valid"; exit 1; }
+          [[ "$VERSION" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || { echo "::error::versi tidak valid"; exit 1; }
           [[ "$PERMS" =~ ^[a-z,]*$ ]] || { echo "::error::izin tidak valid"; exit 1; }
+          [[ "$SECURE" == "true" || "$SECURE" == "false" ]] || { echo "::error::secure tidak valid"; exit 1; }
+          [[ "$LOCK" == "true" || "$LOCK" == "false" ]] || { echo "::error::lock tidak valid"; exit 1; }
           test -f builder/make-config.js || { echo "::error::builder/make-config.js tidak ada di repo"; exit 1; }
           test -f builder/make-icon.js || { echo "::error::builder/make-icon.js tidak ada di repo"; exit 1; }
 
@@ -171,7 +193,24 @@ jobs:
           node make-icon.js android
           npx cap sync android
 
-      - name: Pasang kill switch
+      - name: Atur versi aplikasi
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re
+          v = os.environ["VERSION"]
+          a, b, c = [int(x) for x in v.split(".")]
+          code = a * 1000000 + b * 1000 + c
+          f = "app/android/app/build.gradle"
+          s = open(f, encoding="utf-8").read()
+          s, n1 = re.subn(r"versionCode\s+\d+", "versionCode %d" % code, s, count=1)
+          s, n2 = re.subn(r'versionName\s+"[^"]*"', 'versionName "%s"' % v, s, count=1)
+          assert n1 == 1 and n2 == 1, "build.gradle tidak berisi versionCode/versionName"
+          open(f, "w", encoding="utf-8").write(s)
+          print("Versi", v, "kode", code)
+          PY
+
+      - name: Pasang kill switch dan halaman offline
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -181,8 +220,11 @@ jobs:
           import android.content.SharedPreferences;
           import android.os.Handler;
           import android.os.Looper;
+          import android.webkit.WebResourceError;
+          import android.webkit.WebResourceRequest;
           import android.webkit.WebView;
           import com.getcapacitor.BridgeActivity;
+          import com.getcapacitor.BridgeWebViewClient;
           import java.io.BufferedReader;
           import java.io.InputStreamReader;
           import java.net.HttpURLConnection;
@@ -191,13 +233,40 @@ jobs:
           public class MainActivity extends BridgeActivity {
             private static final String API = "__API__";
             private static final String JOB = "__JOB__";
-            private static final String HTML = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head><body style='margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;background:#111827;color:#f9fafb;text-align:center'><div><div style='font-size:64px'>&#128683;</div><h2>Aplikasi ini telah diblokir</h2><p style='color:#9ca3af'>Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body></html>";
+            private static final String HTML = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head><body style='margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;background:#111827;color:#f9fafb;text-align:center'><div><div style='font-size:64px'>&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style='color:#9ca3af'>Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body></html>";
+            private static final String OFFLINE = "__OFFLINE__";
+            private static final boolean SECURE = __SECURE__;
+            private static final boolean LOCK = __LOCK__;
+            private boolean unlocked = false, prompting = false, first = true;
+            private static final String FORCE = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head><body style='margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;background:#111827;color:#f9fafb;text-align:center;padding:24px;box-sizing:border-box'><div><div style='font-size:64px'>&#11015;</div><h2>Versi ini sudah usang</h2><p style='color:#9ca3af'>Unduh versi terbaru untuk melanjutkan.</p><a href='__U__' style='display:inline-block;margin-top:12px;padding:12px 28px;border-radius:12px;background:#4f46e5;color:#fff;text-decoration:none;font-weight:700'>Unduh versi terbaru</a></div></body></html>";
+            private volatile String force = "", msg = "", mid = "";
+            private boolean forced = false;
             private volatile boolean checking = false;
             private volatile boolean blocked = false;
 
             @Override
+            public void onCreate(android.os.Bundle savedInstanceState) {
+              if (SECURE) getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE);
+              super.onCreate(savedInstanceState);
+              if (OFFLINE.length() > 0) {
+                try {
+                  getBridge().setWebViewClient(new BridgeWebViewClient(getBridge()) {
+                    @Override
+                    public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                      super.onReceivedError(view, request, error);
+                      if (request != null && request.isForMainFrame()) {
+                        view.loadDataWithBaseURL(null, blocked ? HTML : OFFLINE, "text/html", "utf-8", null);
+                      }
+                    }
+                  });
+                } catch (Exception ignored) {}
+              }
+            }
+
+            @Override
             public void onResume() {
               super.onResume();
+              if (LOCK && !unlocked) lockNow();
               final SharedPreferences sp = getSharedPreferences("ks", MODE_PRIVATE);
               blocked = sp.getBoolean("blocked", false);
               if (blocked) showBlocked();
@@ -214,13 +283,71 @@ jobs:
               } catch (Exception ignored) {}
             }
 
+            @Override
+            protected void onStop() {
+              super.onStop();
+              if (LOCK && !prompting) unlocked = false;
+            }
+
+            private void unlockOk() {
+              unlocked = true;
+              try { getBridge().getWebView().setVisibility(android.view.View.VISIBLE); } catch (Exception ignored) {}
+            }
+
+            @Override
+            protected void onActivityResult(int req, int res, android.content.Intent data) {
+              super.onActivityResult(req, res, data);
+              if (req == 7421) {
+                prompting = false;
+                if (res == RESULT_OK) unlockOk(); else finishAndRemoveTask();
+              }
+            }
+
+            private void lockNow() {
+              if (prompting) return;
+              android.app.KeyguardManager km = (android.app.KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+              if (km == null || !km.isKeyguardSecure()) { unlocked = true; return; }
+              try { getBridge().getWebView().setVisibility(android.view.View.INVISIBLE); } catch (Exception ignored) {}
+              prompting = true;
+              if (android.os.Build.VERSION.SDK_INT >= 30) {
+                android.hardware.biometrics.BiometricPrompt bp = new android.hardware.biometrics.BiometricPrompt.Builder(this)
+                  .setTitle("Buka aplikasi")
+                  .setAllowedAuthenticators(android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_WEAK | android.hardware.biometrics.BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+                  .build();
+                bp.authenticate(new android.os.CancellationSignal(), getMainExecutor(), new android.hardware.biometrics.BiometricPrompt.AuthenticationCallback() {
+                  @Override
+                  public void onAuthenticationSucceeded(android.hardware.biometrics.BiometricPrompt.AuthenticationResult r) { prompting = false; unlockOk(); }
+                  @Override
+                  public void onAuthenticationError(int code, CharSequence m) { prompting = false; finishAndRemoveTask(); }
+                });
+              } else {
+                android.content.Intent i = km.createConfirmDeviceCredentialIntent("Buka aplikasi", null);
+                if (i == null) { prompting = false; unlockOk(); return; }
+                startActivityForResult(i, 7421);
+              }
+            }
+
+            private void showForce(String u) {
+              forced = true;
+              try { getBridge().getWebView().loadDataWithBaseURL(null, FORCE.replace("__U__", u.replace("'", "%27")), "text/html", "utf-8", null); } catch (Exception ignored) {}
+            }
+
+            private void announce() {
+              if (msg.length() == 0 || mid.length() == 0) return;
+              SharedPreferences sp = getSharedPreferences("ks", MODE_PRIVATE);
+              if (mid.equals(sp.getString("mid", ""))) return;
+              sp.edit().putString("mid", mid).apply();
+              new android.app.AlertDialog.Builder(this).setTitle("Pengumuman").setMessage(msg).setPositiveButton("OK", null).show();
+            }
+
             private void check(final SharedPreferences sp) {
               if (checking) return;
               checking = true;
+              final String q = first ? "?o=1" : ""; first = false;
               new Thread(() -> {
                 Boolean result = null;
                 try {
-                  HttpURLConnection c = (HttpURLConnection) new URL(API + "/api/app-status/" + JOB).openConnection();
+                  HttpURLConnection c = (HttpURLConnection) new URL(API + "/api/app-status/" + JOB + q).openConnection();
                   c.setConnectTimeout(6000);
                   c.setReadTimeout(6000);
                   if (c.getResponseCode() == 200) {
@@ -229,7 +356,9 @@ jobs:
                     String ln;
                     while ((ln = r.readLine()) != null) sb.append(ln);
                     r.close();
-                    result = sb.toString().replace(" ", "").contains("\"blocked\":true");
+                    org.json.JSONObject o = new org.json.JSONObject(sb.toString());
+                    result = o.optBoolean("blocked", false);
+                    force = o.optString("force", ""); msg = o.optString("message", ""); mid = o.optString("mid", "");
                   }
                   c.disconnect();
                 } catch (Exception ignored) {}
@@ -241,12 +370,36 @@ jobs:
                   boolean was = blocked;
                   blocked = now;
                   if (now) showBlocked();
-                  else if (was) { try { getBridge().reload(); } catch (Exception ignored) {} }
+                  else if (force.startsWith("https://")) showForce(force);
+                  else {
+                    if (was || forced) { forced = false; try { getBridge().reload(); } catch (Exception ignored) {} }
+                    announce();
+                  }
                 });
               }).start();
             }
           }
           '''
+
+          import html as _h
+          from urllib.parse import quote
+          name = os.environ.get("APP_NAME", "")
+          ver = os.environ["VERSION"]
+          site = os.environ.get("SITE_URL", "")
+          def esc(x): return _h.escape(x).encode("ascii", "xmlcharrefreplace").decode()
+          url = quote(site, safe=":/?&=#%@+~,;!$*()") if site else ""
+          OFFLINE = ("<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><style>"
+            "body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;background:#f3f4f6;color:#111827;text-align:center;padding:24px;box-sizing:border-box}"
+            "@media(prefers-color-scheme:dark){body{background:#111827;color:#f9fafb}p{color:#9ca3af}}"
+            ".i{font-size:72px}h2{margin:12px 0 6px}p{color:#6b7280;margin:0 0 22px;line-height:1.5}"
+            "button{border:0;border-radius:12px;padding:12px 30px;font-size:1rem;font-weight:700;background:#4f46e5;color:#fff}"
+            "small{display:block;margin-top:24px;opacity:.6}</style></head><body><div><div class='i'>&#128225;</div>"
+            "<h2>Tidak ada koneksi internet</h2><p>Periksa Wi-Fi atau data seluler kamu, lalu coba lagi.<br>Halaman dimuat otomatis begitu tersambung.</p>"
+            "<button id='b'>Coba lagi</button><small>" + esc(name) + " &middot; v" + esc(ver) + "</small></div>"
+            "<script>var U='" + url + "';function go(){location.replace(U)}"
+            "function t(){return fetch(U,{mode:'no-cors',cache:'no-store'}).then(go)}"
+            "document.getElementById('b').onclick=function(){var x=this;x.textContent='Memeriksa...';t().catch(function(){x.textContent='Coba lagi'})};"
+            "window.addEventListener('online',go);setInterval(function(){t().catch(function(){})},8000);</script></body></html>")
           api = os.environ.get("WORKER_URL", "").rstrip("/")
           job = os.environ["JOB_ID"]
           assert re.fullmatch(r"https://[A-Za-z0-9._:/-]+", api), "WORKER_URL tidak valid"
@@ -255,7 +408,7 @@ jobs:
           assert len(files) == 1, files
           f = files[0]
           pkg = re.search(r"^package\s+([\w.]+);", open(f, encoding="utf-8").read(), re.M).group(1)
-          open(f, "w", encoding="utf-8").write(JAVA.replace("__PKG__", pkg).replace("__API__", api).replace("__JOB__", job))
+          open(f, "w", encoding="utf-8").write(JAVA.replace("__PKG__", pkg).replace("__API__", api).replace("__JOB__", job).replace("__OFFLINE__", OFFLINE if os.environ.get("MODE") == "url" else "").replace("__SECURE__", "true" if os.environ.get("SECURE") == "true" else "false").replace("__LOCK__", "true" if os.environ.get("LOCK") == "true" else "false"))
           print("Kill switch dipasang di", f)
           PY
 
@@ -342,12 +495,51 @@ jobs:
             --notes "APK debug dibuat otomatis oleh pengguna. Pakai dengan risiko sendiri."
           echo "APK_URL=https://github.com/$GITHUB_REPOSITORY/releases/download/job-$JOB_ID/$SAFE.apk" >> "$GITHUB_ENV"
 
+      - name: Pindai VirusTotal (opsional)
+        if: ${{ env.VT_API_KEY != '' }}
+        continue-on-error: true
+        timeout-minutes: 12
+        run: |
+          . "$GITHUB_WORKSPACE/.pg.sh"
+          pg 94 "Memindai VirusTotal"
+          FILE=$(ls dist/*.apk | head -n 1) node - <<'JS'
+          const fs = require("fs"), path = require("path");
+          const key = process.env.VT_API_KEY, file = process.env.FILE;
+          const H = { "x-apikey": key };
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
+          (async () => {
+            const up = await (await fetch("https://www.virustotal.com/api/v3/files/upload_url", { headers: H })).json();
+            if (!up.data) throw new Error("upload_url gagal");
+            const fd = new FormData();
+            fd.append("file", new Blob([fs.readFileSync(file)]), path.basename(file));
+            const r = await (await fetch(up.data, { method: "POST", headers: H, body: fd })).json();
+            const id = r.data && r.data.id;
+            if (!id) throw new Error("upload gagal");
+            for (let i = 0; i < 40; i++) {
+              await sleep(15000);
+              const a = await (await fetch("https://www.virustotal.com/api/v3/analyses/" + id, { headers: H })).json();
+              const at = a.data && a.data.attributes;
+              if (at && at.status === "completed") {
+                const st = at.stats || {};
+                const sha = a.meta && a.meta.file_info && a.meta.file_info.sha256;
+                if (!sha) throw new Error("tanpa sha256");
+                const t = (st.malicious || 0) + (st.suspicious || 0) + (st.harmless || 0) + (st.undetected || 0);
+                fs.writeFileSync("vt.json", JSON.stringify({ m: st.malicious || 0, s: st.suspicious || 0, t, sha }));
+                console.log("VirusTotal selesai");
+                return;
+              }
+            }
+            throw new Error("timeout");
+          })().catch(e => { console.error("VirusTotal dilewati:", e.message); process.exit(1); });
+          JS
+          echo "VT_JSON=$(cat vt.json)" >> "$GITHUB_ENV"
+
       - name: Kabari Worker (selesai)
         run: |
           curl -fsS --retry 3 --retry-delay 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
             -H "Authorization: Bearer $BUILD_SECRET" \
             -H "Content-Type: application/json" \
-            -d "{\"status\":\"done\",\"apkUrl\":\"$APK_URL\"}"
+            -d "{\"status\":\"done\",\"apkUrl\":\"$APK_URL\",\"vt\":${VT_JSON:-null}}"
 
       - name: Bersihkan release lama (lebih dari 14 hari)
         continue-on-error: true
