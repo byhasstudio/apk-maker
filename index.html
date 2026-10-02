@@ -183,10 +183,18 @@
   <div class="card" id="monCard" style="display:none;margin-bottom:16px">
     <b>Panel Admin: pantau build pengguna</b>
     <small style="display:block;margin-top:4px">Lihat build semua pengguna, unduh hasilnya, cek konfigurasi, dan blokir akun yang melanggar.</small>
+    <b style="display:block;margin-top:14px">📢 Pengumuman ke semua aplikasi</b>
+    <input id="nMsg" type="text" maxlength="300" placeholder="Mis. Server maintenance malam ini" style="margin-top:6px">
+    <div class="row"><button type="button" id="nSend">Kirim pengumuman</button><button type="button" id="nClear" class="alt">Hapus pengumuman</button></div>
+    <small>Muncul sekali di tiap aplikasi (APK dan EXE) saat dibuka.</small>
     <div class="row"><button type="button" id="mLoad" class="alt">🔄 Muat ulang</button></div>
     <div id="mMsg" role="alert" style="margin-top:10px;font-size:.85rem;color:#d92d20;min-height:1em"></div>
     <div id="mList" style="margin-top:6px"></div>
     <button type="button" id="mMore" class="alt" style="display:none">Muat lebih banyak</button>
+    <b style="display:block;margin-top:18px">📊 Statistik pemakaian (7 hari)</b>
+    <div id="mStats" style="margin-top:6px"></div>
+    <b style="display:block;margin-top:18px">🚩 Laporan aplikasi</b>
+    <div id="mReps" style="margin-top:6px"></div>
     <b style="display:block;margin-top:18px">Akun diblokir</b>
     <div id="mBans" style="margin-top:6px"></div>
   </div>
@@ -209,11 +217,23 @@
       <label for="file">File .html atau .zip (maks 10 MB)</label>
       <input id="file" type="file" accept=".html,.htm,.zip">
       <small>ZIP harus punya index.html.</small>
+      <label for="tplSel">Belum punya website? Pakai template</label>
+      <select id="tplSel"><option value="">— tidak pakai —</option><option value="calc">🧮 Kalkulator</option><option value="bio">🔗 Link-in-bio</option><option value="cat">🛍 Katalog sederhana</option></select>
+      <div id="tplBox" style="display:none">
+        <label for="tTitle">Judul / nama</label><input id="tTitle" type="text" maxlength="60" placeholder="Toko Budi">
+        <label for="tBio" id="tBioL">Deskripsi singkat</label><input id="tBio" type="text" maxlength="120" placeholder="Jual kue dan roti">
+        <label for="tList" id="tListL">Daftar</label><textarea id="tList" rows="5" style="width:100%;box-sizing:border-box;padding:12px;border:1.5px solid var(--bd);border-radius:12px;font-size:.9rem;background:var(--card);color:var(--fg);font-family:inherit"></textarea>
+        <small id="tHint"></small>
+      </div>
     </div>
 
     <label for="appName">Nama aplikasi</label>
     <input id="appName" type="text" maxlength="30" placeholder="Aplikasi Saya">
     <small>2–30 karakter: huruf, angka, spasi, titik, garis bawah, strip.</small>
+
+    <label for="appVer">Versi aplikasi</label>
+    <input id="appVer" type="text" inputmode="decimal" maxlength="11" placeholder="1.0.0" autocomplete="off" spellcheck="false">
+    <small>Wajib diisi. Angka dipisah titik, contoh 1.0.0 atau 2.1. Naikkan versi tiap kali membuat ulang supaya APK baru bisa menimpa yang lama.</small>
 
     <div id="boxApk">
     <label for="appId">Package ID</label>
@@ -251,6 +271,11 @@
       <label><input type="checkbox" class="perm" value="location"> 📍 Lokasi</label>
       <label><input type="checkbox" class="perm" value="notifications"> 🔔 Notifikasi</label>
       <label><input type="checkbox" class="perm" value="media"> 🖼 Foto, video &amp; audio (galeri)</label>
+      <label style="grid-column:1/-1;margin:0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem"><input type="checkbox" id="secure"> 🛡 Anti-screenshot (layar hitam saat difoto/direkam)</label>
+      <label style="grid-column:1/-1;margin:0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem"><input type="checkbox" id="lock"> 🔐 Kunci dengan sidik jari / PIN / pola HP</label>
+    </div>
+    <div id="boxExe" style="display:none">
+      <label style="margin:12px 0 0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem"><input type="checkbox" id="tray" style="margin-right:8px"> 🔽 Sembunyikan ke system tray saat ditutup (menu tray punya opsi jalan otomatis saat Windows menyala)</label>
     </div>
     <div id="codeBox">
     <label for="buildCode">Kode verifikasi</label>
@@ -271,9 +296,11 @@
       </div>
       <div id="pgStep">Menunggu giliran…</div>
       <ol id="pgList"></ol>
+      <button type="button" id="cancelBtn" class="alt" style="display:none">✖ Batalkan pembuatan</button>
     </div>
     <div id="status" role="status" aria-live="polite"></div>
     <a id="dl" href="#" rel="noopener">⬇ Download</a>
+    <a id="dpage" href="#" target="_blank" rel="noopener" style="display:none;margin-top:10px;text-align:center;font-size:.85rem;color:var(--acc)">🔗 Halaman unduh publik (bagikan ke orang lain)</a>
   </div>
 
   <div class="card" id="histCard" style="margin-top:16px;display:none">
@@ -289,13 +316,14 @@ const TURNSTILE_SITEKEY = "0x4AAAAAAFJAeNGZE9C_NHfh";
 
 const API = WORKER_URL.replace(/\/+$/, "");
 const $ = id => document.getElementById(id);
+const TGT = t => t === "exe" ? "EXE" : (t === "apk" ? "APK" : "APK/EXE");
 const LABEL = {queued:"⏳ Antre…", building:"🔧 Membangun APK (sekitar 5–10 menit)…", done:"✅ Selesai!", failed:"❌ Gagal"};
 const POLL_MS = 5000;
 const MAX_WAIT_MS = 30 * 60 * 1000; // workflow maksimal 25 menit
 const JOB_KEY = "apkmaker.job";
 const JAVA_KEYWORDS = new Set(("abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while true false null").split(" "));
 
-let widgetId = null, timer = null, busy = false, shownPct = 0;
+let widgetId = null, timer = null, busy = false, shownPct = 0, curJob = null;
 
 const GATE_KEY = "apkmaker.gate";
 function gateDone(){
@@ -356,7 +384,8 @@ const STAGES = [
   {n: "Menerbitkan hasil", at: 92}
 ];
 const RING = 326.73;
-let clock = null;
+let clock = null, etaMs = 0;
+const mmss = ms => { const t = Math.round(ms / 1000); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
 function stageOf(p){ let i = 0; STAGES.forEach((s, k) => { if (p >= s.at) i = k; }); return i; }
 function renderStages(p){
   const done = p >= 100, cur = stageOf(p), ul = $("pgList");
@@ -373,7 +402,7 @@ function renderStages(p){
 }
 function startClock(t){
   clearInterval(clock);
-  const f = () => { const s = Math.max(0, Math.floor((Date.now() - t) / 1000)); $("pgTime").textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+  const f = () => { const s = Math.max(0, Math.floor((Date.now() - t) / 1000)); $("pgTime").textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") + (etaMs ? " / ~" + mmss(etaMs) : ""); };
   f(); clock = setInterval(f, 1000);
 }
 function setBar(p){
@@ -384,7 +413,7 @@ function setBar(p){
   renderStages(shownPct);
 }
 function hideBar(){
-  shownPct = 0;
+  shownPct = 0; etaMs = 0;
   clearInterval(clock);
   $("prog").style.display = "none";
   $("ringFg").style.strokeDashoffset = RING;
@@ -407,6 +436,7 @@ function show(cls, text, linkUrl, linkText){
   }
 }
 function stopPolling(){
+  $("cancelBtn").style.display = "none";
   clearInterval(clock);
   clearInterval(timer);
   timer = null;
@@ -526,6 +556,7 @@ document.querySelectorAll("input[name=target]").forEach(r => r.addEventListener(
   const exe = document.querySelector("input[name=target]:checked").value === "exe";
   $("boxApk").style.display = exe ? "none" : "";
   $("permBox").style.display = exe ? "none" : "";
+  $("boxExe").style.display = exe ? "" : "none";
   $("btn").textContent = exe ? "Buat EXE" : "Buat APK";
 }));
 
@@ -534,11 +565,15 @@ $("appId").addEventListener("input", e => {
 });
 
 /* ---------- polling ---------- */
-function poll(jobId, startedAt){
+function poll(jobId, startedAt, target){
   const start = startedAt || Date.now();
+  curJob = {id: jobId, target};
+  $("cancelBtn").textContent = "✖ Batalkan pembuatan " + TGT(target);
+  $("cancelBtn").disabled = false;
+  $("cancelBtn").style.display = "block";
   clearInterval(timer);
   setBusy(true);
-  store({id: jobId, t: start});
+  store({id: jobId, t: start, target});
   startClock(start);
   let checking = false;
 
@@ -568,6 +603,7 @@ function poll(jobId, startedAt){
           show("done", LABEL.done);
           $("dl").href = d.apkUrl;
           $("dl").style.display = "block";
+          $("dpage").href = API + "/d/" + jobId; $("dpage").style.display = "block";
         } else {
           stopPolling();
           show("failed", "❌ Build selesai tetapi link APK tidak valid.");
@@ -576,11 +612,15 @@ function poll(jobId, startedAt){
         stopPolling();
         if (window.fbSaveBuild) window.fbSaveBuild(jobId, {status: "failed"});
         show("failed", LABEL.failed + ".", d.runUrl, "Lihat log");
+      } else if (d.status === "cancelled"){
+        stopPolling();
+        show("failed", "🛑 Pembuatan " + TGT(curJob && curJob.target) + " dibatalkan.");
       } else if (d.status === "blocked"){
         stopPolling();
         show("failed", "🚫 Build ini diblokir oleh admin.");
       } else if (d.status === "building"){
         // angka dari server = batas bawah; di sela laporan, bar merayap pelan agar tidak terlihat macet
+        if (typeof d.eta === "number" && d.eta > 0) etaMs = d.eta;
         const base = typeof d.progress === "number" ? d.progress : 10;
         setBar(Math.max(base, Math.min(shownPct + 0.5, base + 6, 97)));
         show("", "🔧 " + (d.step || "Membangun") + "…");
@@ -598,15 +638,68 @@ function poll(jobId, startedAt){
   timer = setInterval(tick, POLL_MS);
 }
 
+/* ---------- template mode upload ---------- */
+const tesc = x => String(x).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const TPL_CSS = "body{margin:0;font-family:system-ui,sans-serif;background:#f4f6fb;color:#1c2230;padding:20px;display:flex;justify-content:center}.w{width:100%;max-width:480px}h1{margin:0 0 4px}p{color:#667085}a.l{display:block;margin:10px 0;padding:14px;border-radius:14px;background:#4f6df5;color:#fff;text-decoration:none;text-align:center;font-weight:700}.i{display:flex;justify-content:space-between;gap:10px;background:#fff;padding:14px;border-radius:14px;margin:8px 0;box-shadow:0 2px 10px #0001}";
+function tplLines(t){ return t.split("\n").map(l => l.trim()).filter(Boolean).slice(0, 40).map(l => l.split("|").map(x => x.trim())); }
+function buildTemplate(kind){
+  const title = tesc($("tTitle").value.trim() || "Aplikasiku"), bio = tesc($("tBio").value.trim());
+  const head = '<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + title + '</title><style>' + TPL_CSS + '</style></head><body><div class="w">';
+  if (kind === "calc"){
+    return head + '<h1>' + title + '</h1><p>' + (bio || "Kalkulator sederhana") + '</p><input id="d" readonly style="width:100%;box-sizing:border-box;font-size:2rem;text-align:right;padding:12px;border-radius:12px;border:1px solid #d5dbe8"><div id="k" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px"></div><script>var e="";var d=document.getElementById("d");["7","8","9","/","4","5","6","*","1","2","3","-","C","0",".","+","="].forEach(function(c){var b=document.createElement("button");b.textContent=c;b.style.cssText="padding:18px;font-size:1.2rem;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 6px #0002"+(c=="="?";grid-column:span 4;background:#4f6df5;color:#fff":"");b.onclick=function(){if(c=="C"){e="";}else if(c=="="){try{if(/^[0-9+*\\/.()-]+$/.test(e)){e=String(Function("return "+e)());}}catch(x){e="Error"}}else{if(e=="Error")e="";e+=c}d.value=e};document.getElementById("k").appendChild(b)})<\/script></div></body></html>';
+  }
+  const rows = tplLines($("tList").value);
+  if (kind === "bio"){
+    const links = rows.filter(r => r[1] && /^https:\/\//i.test(r[1])).map(r => '<a class="l" href="' + tesc(r[1]) + '">' + tesc(r[0] || r[1]) + '</a>').join("");
+    return head + '<h1>' + title + '</h1><p>' + bio + '</p>' + links + '</div></body></html>';
+  }
+  const items = rows.map(r => '<div class="i"><b>' + tesc(r[0] || "") + '</b><span>' + tesc(r[1] || "") + '</span></div>').join("");
+  return head + '<h1>' + title + '</h1><p>' + bio + '</p>' + items + '</div></body></html>';
+}
+let tplFile = null;
+function tplRefresh(){
+  const k = $("tplSel").value; tplFile = null;
+  $("tplBox").style.display = k ? "" : "none";
+  if (!k) return;
+  const calc = k === "calc";
+  $("tListL").style.display = $("tList").style.display = $("tHint").style.display = calc ? "none" : "";
+  $("tHint").textContent = k === "bio" ? "Satu baris satu tombol: Nama tombol|https://alamat-link" : "Satu baris satu barang: Nama barang|Harga";
+  if (!$("tList").value && !calc) $("tList").value = k === "bio" ? "Instagram|https://instagram.com/akunmu\nWhatsApp|https://wa.me/628123456789" : "Roti coklat|Rp 10.000\nKue lapis|Rp 25.000";
+  tplFile = new File([buildTemplate(k)], "index.html", {type: "text/html"});
+}
+["tplSel","tTitle","tBio","tList"].forEach(id => $(id).addEventListener("input", tplRefresh));
+
+$("cancelBtn").addEventListener("click", async () => {
+  if (!curJob) return;
+  if (!confirm("Batalkan pembuatan " + TGT(curJob.target) + " ini?")) return;
+  const b = $("cancelBtn"); b.disabled = true; b.textContent = "Membatalkan…";
+  try {
+    const tk = window.fbToken ? await window.fbToken() : null;
+    if (!tk) throw new Error("Silakan masuk dulu.");
+    const r = await fetch(API + "/api/cancel", {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tk}, body: JSON.stringify({jobId: curJob.id})});
+    const d = await readJson(r);
+    if (!r.ok) throw new Error(d.error || ("Ditolak (" + r.status + ")."));
+    const id = curJob.id, t = curJob.target;
+    stopPolling();
+    if (window.fbSaveBuild) window.fbSaveBuild(id, {status: "cancelled"});
+    show("failed", "🛑 Pembuatan " + TGT(t) + " dibatalkan.");
+  } catch (e) {
+    b.disabled = false; b.textContent = "✖ Batalkan pembuatan " + TGT(curJob && curJob.target);
+    alert(e.message);
+  }
+});
+
 /* ---------- kirim ---------- */
 $("btn").addEventListener("click", async () => {
   if (busy) return;
   const mode = document.querySelector("input[name=mode]:checked").value;
   const appName = $("appName").value.trim();
   const appId = $("appId").value.trim();
+  const appVer = $("appVer").value.trim();
   const target = document.querySelector("input[name=target]:checked").value;
 
   if (!validName(appName)) return show("failed", "Nama aplikasi 2–30 karakter, hanya huruf, angka, spasi, titik, garis bawah, atau strip.");
+  if (!/^\d{1,3}(\.\d{1,3}){0,2}$/.test(appVer) || /^0+(\.0+){0,2}$/.test(appVer)) return show("failed", "Versi aplikasi wajib diisi, contoh: 1.0.0 (angka dipisah titik, bukan 0).");
   if (target === "apk" && !validAppId(appId)) return show("failed", "Package ID tidak valid. Contoh: com.budi.toko (huruf kecil, minimal dua bagian, tanpa kata terlarang Java seperti 'new' atau 'int').");
 
   const code = $("buildCode").value.trim();
@@ -617,7 +710,11 @@ $("btn").addEventListener("click", async () => {
   fd.append("mode", mode);
   fd.append("appName", appName);
   fd.append("appId", appId);
+  fd.append("version", appVer);
   fd.append("target", target);
+  fd.append("secure", $("secure").checked ? "true" : "false");
+  fd.append("lock", $("lock").checked ? "true" : "false");
+  fd.append("tray", $("tray").checked ? "true" : "false");
   fd.append("perms", [...document.querySelectorAll(".perm:checked")].map(i => i.value).join(","));
 
   if (mode === "url"){
@@ -627,8 +724,8 @@ $("btn").addEventListener("click", async () => {
     if (parsed.protocol !== "https:") return show("failed", "URL harus diawali https://");
     fd.append("url", parsed.href);
   } else {
-    const f = $("file").files[0];
-    if (!f) return show("failed", "Pilih file dulu.");
+    const f = $("file").files[0] || (($("tplSel").value && tplFile) || null);
+    if (!f) return show("failed", "Pilih file atau template dulu.");
     if (!/\.(html?|zip)$/i.test(f.name)) return show("failed", "File harus .html, .htm, atau .zip.");
     if (f.size > 10*1024*1024) return show("failed", "File lebih dari 10 MB.");
     fd.append("file", f);
@@ -645,7 +742,7 @@ $("btn").addEventListener("click", async () => {
   if (!tk) return show("failed", "Silakan masuk dulu.");
   setBusy(true);
   hideBar();
-  $("dl").style.display = "none";
+  $("dl").style.display = "none"; $("dpage").style.display = "none";
   show("", "⏳ Mengirim…");
   let started = false;
   try {
@@ -658,7 +755,7 @@ $("btn").addEventListener("click", async () => {
     if (window.fbSaveBuild) window.fbSaveBuild(d.jobId, {name: appName, target, status: "queued"}, true);
     started = true;
     $("buildCode").value = "";
-    poll(d.jobId);
+    poll(d.jobId, undefined, target);
   } catch(e){
     show("failed", "❌ " + e.message);
   } finally {
@@ -672,7 +769,7 @@ $("btn").addEventListener("click", async () => {
   const j = loadJob();
   if (j && j.id && Date.now() - j.t < MAX_WAIT_MS){
     show("", "⏳ Melanjutkan pekerjaan sebelumnya…");
-    poll(j.id, j.t);
+    poll(j.id, j.t, j.target);
   } else {
     store(null);
   }
@@ -831,7 +928,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
   function renderHist(list) {
     const el = $("hist"); el.textContent = "";
     if (!list.length) { const p = document.createElement("small"); p.textContent = "Belum ada riwayat."; el.appendChild(p); return; }
-    const ST = {queued: "antre", building: "membangun", done: "selesai", failed: "gagal"};
+    const ST = {queued: "antre", building: "membangun", done: "selesai", failed: "gagal", cancelled: "dibatalkan"};
     list.forEach(b => {
       const row = document.createElement("div"); row.className = "hrow";
       const t = document.createElement("div");
@@ -841,6 +938,20 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
       t.append(n, document.createElement("br"), s); row.appendChild(t);
       if (b.status === "done" && typeof b.url === "string" && b.url.startsWith("https://github.com/")) {
         const a = document.createElement("a"); a.href = b.url; a.rel = "noopener"; a.className = "hdl"; a.textContent = "⬇"; row.appendChild(a);
+        const pg = document.createElement("a"); pg.href = API + "/d/" + b.id; pg.target = "_blank"; pg.rel = "noopener"; pg.className = "hdl"; pg.textContent = "🔗"; row.appendChild(pg);
+        const tg = document.createElement("button"); tg.type = "button"; tg.className = "alt"; tg.textContent = "⏸";
+        tg.style.cssText = "width:auto;margin:0;padding:6px 10px;font-size:.78rem";
+        fetch(API + "/api/app-status/" + b.id).then(r => r.json()).then(x => { tg.dataset.off = x.off ? "1" : ""; tg.textContent = x.off ? "▶" : "⏸"; }).catch(() => {});
+        tg.addEventListener("click", async () => {
+          const off = tg.dataset.off !== "1";
+          if (!confirm(off ? "Nonaktifkan aplikasi ini? Aplikasi menolak dibuka sampai kamu aktifkan lagi (berguna kalau HP hilang)." : "Aktifkan lagi aplikasi ini?")) return;
+          try {
+            const r = await fetch(API + "/api/app/toggle", {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + await window.fbToken()}, body: JSON.stringify({jobId: b.id, off})});
+            const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || "Gagal.");
+            tg.dataset.off = d.off ? "1" : ""; tg.textContent = d.off ? "▶" : "⏸";
+          } catch (e) { alert(e.message); }
+        });
+        row.appendChild(tg);
       }
       el.appendChild(row);
     });
@@ -853,7 +964,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     window.isAdmin = adm;
     $("adminCard").style.display = adm ? "" : "none";
     $("monCard").style.display = adm ? "" : "none";
-    if (adm) { loadJobs(true); loadBans(); }
+    if (adm) { loadJobs(true); loadBans(); loadReps(); loadStats(); admApi("/api/admin/config").then(c => { $("nMsg").value = c.msg || ""; }).catch(() => {}); }
     $("codeBox").style.display = adm ? "none" : "";
     $("authCard").style.display = (!u && !pending) ? "" : "none";
     $("otpCard").style.display = (!ok && (u || pending)) ? "" : "none";
@@ -922,7 +1033,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     return d;
   }
   const mt = t => new Date(t).toLocaleString("id-ID");
-  const MST = { queued: "antre", building: "membangun", done: "selesai", failed: "gagal", blocked: "diblokir" };
+  const MST = { queued: "antre", building: "membangun", done: "selesai", failed: "gagal", blocked: "diblokir", cancelled: "dibatalkan" };
   let jobsLoaded = [];
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const kv = (k, v) => { const d = el("div"); d.append(el("b", "", k + ": "), document.createTextNode(v)); return d; };
@@ -989,15 +1100,28 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     const det = el("details"); det.appendChild(el("summary", "", "Konfigurasi"));
     const body = el("div", "mdet");
     body.append(
-      kv("Target", j.target || "-"), kv("Mode", j.mode === "url" ? "URL website" : "Upload file"),
+      kv("Target", j.target || "-"), kv("Versi", j.version || "-"), kv("Mode", j.mode === "url" ? "URL website" : "Upload file"),
       kv("URL", j.url || "-"), kv("Package ID", j.appId || "-"),
       kv("Izin", (j.perms && j.perms.length) ? j.perms.join(", ") : "tidak ada"),
       kv("Ikon kustom", j.hasIcon ? "ya" : "tidak"),
+      kv("VirusTotal", j.vt ? (j.vt.m + j.vt.s) + " dari " + j.vt.t + " mesin mendeteksi" : "belum dipindai"),
       kv("Job ID", j.jobId), kv("UID", j.uid)
     );
     if (j.runUrl && j.runUrl.startsWith("https://github.com/")) {
       const d = el("div"); d.appendChild(el("b", "", "Log build: "));
       const a = el("a", "", "buka"); a.href = j.runUrl; a.rel = "noopener"; d.appendChild(a); body.appendChild(d);
+    }
+    if (j.status === "done") {
+      const fb = el("button", "alt", "⬆ Paksa update"); fb.type = "button";
+      fb.style.cssText = "width:auto;margin:8px 8px 0 0;padding:6px 10px;font-size:.75rem";
+      fb.addEventListener("click", async () => {
+        const v = prompt("Versi minimum untuk \u201C" + (j.name || "-") + "\u201D (versi sekarang " + (j.version || "-") + ").\nAplikasi di bawah versi ini akan dipaksa update.\nKosongkan untuk mencabut:");
+        if (v === null) return;
+        let u = "";
+        if (v.trim()) { u = prompt("Link unduh versi baru (https), mis. halaman unduh build baru:"); if (!u) return; }
+        admAct("/api/admin/forceupdate", { jobId: j.jobId, minVersion: v.trim(), url: u.trim() }, false);
+      });
+      body.appendChild(fb);
     }
     if (!j.purged && j.status !== "failed") {
       const pb = el("button", "alt", "🗑 Hapus file dari GitHub (permanen)"); pb.type = "button";
@@ -1039,7 +1163,39 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
       });
     } catch (e) { $("mMsg").textContent = "❌ " + e.message; }
   }
-  $("mLoad").addEventListener("click", () => { loadJobs(true); loadBans(); });
+  async function loadStats() {
+    const out = $("mStats"); out.textContent = "";
+    try {
+      const d = await admApi("/api/admin/stats");
+      if (!d.rows.length) { out.appendChild(el("small", "", "Belum ada data. Hanya build baru yang ikut menghitung.")); return; }
+      d.rows.forEach(r => {
+        const row = el("div", "hrow"), t = el("div");
+        t.append(el("b", "", (r.target === "exe" ? "🪟 " : "🤖 ") + r.name), el("br"), el("small", "", r.jobId));
+        row.append(t, el("small", "", "hari ini " + r.today + " · 7 hari " + r.week)); out.appendChild(row);
+      });
+    } catch (e) { $("mMsg").textContent = "❌ " + e.message; }
+  }
+  async function loadReps() {
+    const out = $("mReps"); out.textContent = "";
+    try {
+      const d = await admApi("/api/admin/reports");
+      if (!d.reports.length) { out.appendChild(el("small", "", "Belum ada laporan.")); return; }
+      d.reports.forEach(r => {
+        const row = el("div", "hrow"), t = el("div");
+        t.append(el("b", "", r.reason || "(tanpa alasan)"), el("br"), el("small", "", mt(r.at) + " · " + r.jobId));
+        const bt = el("div", "mbtns");
+        const v = el("a", "hdl", "Lihat"); v.href = API + "/d/" + r.jobId; v.target = "_blank"; v.rel = "noopener";
+        const k = el("button", "alt", "🚫 Blokir"); k.type = "button";
+        k.addEventListener("click", () => { if (confirm("Blokir aplikasi ini?")) admApi("/api/admin/takedown", { jobId: r.jobId }).then(() => { loadJobs(true); }).catch(e => { $("mMsg").textContent = "❌ " + e.message; }); });
+        const x = el("button", "alt", "Hapus"); x.type = "button";
+        x.addEventListener("click", () => admApi("/api/admin/delreport", { key: r.key }).then(loadReps).catch(e => { $("mMsg").textContent = "❌ " + e.message; }));
+        bt.append(v, k, x); row.append(t, bt); out.appendChild(row);
+      });
+    } catch (e) { $("mMsg").textContent = "❌ " + e.message; }
+  }
+  $("nSend").addEventListener("click", async () => { try { await admApi("/api/admin/config", { message: $("nMsg").value }); $("mMsg").textContent = "✅ Pengumuman disimpan."; } catch (e) { $("mMsg").textContent = "❌ " + e.message; } });
+  $("nClear").addEventListener("click", async () => { try { await admApi("/api/admin/config", { message: "" }); $("nMsg").value = ""; $("mMsg").textContent = "✅ Pengumuman dihapus."; } catch (e) { $("mMsg").textContent = "❌ " + e.message; } });
+  $("mLoad").addEventListener("click", () => { loadJobs(true); loadBans(); loadReps(); loadStats(); });
   $("mMore").addEventListener("click", () => loadJobs(false));
 
   window.fbToken = () => auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null);
