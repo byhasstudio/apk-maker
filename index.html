@@ -963,8 +963,8 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     if (j.status === "done" && typeof j.apkUrl === "string" && j.apkUrl.startsWith("https://github.com/")) {
       const a = el("a", "hdl", "⬇ Unduh"); a.href = j.apkUrl; a.rel = "noopener"; btns.appendChild(a);
     }
-    if (["done", "building", "queued"].includes(j.status)) {
-      const tb = el("button", "alt", "🗑 Blokir file"); tb.type = "button";
+    if (["done", "building", "queued", "blocked"].includes(j.status)) {
+      const tb = el("button", "alt", j.status === "blocked" ? "🗑 Hapus ulang file" : "🗑 Blokir file"); tb.type = "button";
       tb.addEventListener("click", () => takedown(j));
       btns.appendChild(tb);
     }
