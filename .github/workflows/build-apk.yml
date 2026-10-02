@@ -60,7 +60,16 @@ jobs:
           [[ "$PERMS" =~ ^[a-z,]*$ ]] || { echo "::error::izin tidak valid"; exit 1; }
           test -f builder/make-config.js || { echo "::error::builder/make-config.js tidak ada di repo"; exit 1; }
           test -f builder/make-icon.js || { echo "::error::builder/make-icon.js tidak ada di repo"; exit 1; }
-          test -f builder/inject-guard.js || { echo "::error::builder/inject-guard.js tidak ada di repo"; exit 1; }
+
+      - name: Siapkan pelapor progres
+        run: |
+          cat > "$GITHUB_WORKSPACE/.pg.sh" <<'EOS'
+          pg() {
+            curl -sS --max-time 15 --retry 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
+              -H "Authorization: Bearer $BUILD_SECRET" -H "Content-Type: application/json" \
+              -d "{\"status\":\"building\",\"progress\":$1,\"step\":\"$2\"}" >/dev/null || true
+          }
+          EOS
 
       - name: Kabari Worker (mulai membangun)
         run: |
@@ -80,16 +89,18 @@ jobs:
 
       - name: Progress 15%
         run: |
-          curl -sS --retry 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
-            -H "Authorization: Bearer $BUILD_SECRET" -H "Content-Type: application/json" \
-            -d '{"status":"building","progress":15,"step":"Menyiapkan proyek"}' || true
+          . "$GITHUB_WORKSPACE/.pg.sh"
+          pg 15 "Alat siap (Node.js dan Java)"
 
       - name: Siapkan proyek Capacitor
         run: |
           set -euo pipefail
+          . "$GITHUB_WORKSPACE/.pg.sh"
+          pg 20 "Memasang Capacitor"
           mkdir app && cd app
           npm init -y >/dev/null
           npm install --no-audit --no-fund @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/assets@3 sharp
+          pg 28 "Membuat konfigurasi"
           cp ../builder/make-config.js ../builder/make-icon.js .
           node make-config.js
           mkdir www
@@ -103,6 +114,8 @@ jobs:
         if: ${{ inputs.mode == 'upload' }}
         run: |
           set -euo pipefail
+          . "$GITHUB_WORKSPACE/.pg.sh"
+          pg 35 "Mengunduh dan menyiapkan file"
           cd app
           curl -fsS --retry 3 --retry-delay 2 -H "Authorization: Bearer $BUILD_SECRET" "$WORKER_URL/internal/file/$JOB_ID" -o upload.bin
           if [ "$(head -c 2 upload.bin)" = "PK" ]; then
@@ -135,26 +148,34 @@ jobs:
       - name: Unduh ikon (jika ada)
         if: ${{ inputs.has_icon == 'true' }}
         run: |
+          . "$GITHUB_WORKSPACE/.pg.sh"
+          pg 42 "Mengunduh ikon"
           curl -fsS --retry 3 --retry-delay 2 -H "Authorization: Bearer $BUILD_SECRET" "$WORKER_URL/internal/icon/$JOB_ID" -o app/icon-src.bin
 
       - name: Progress 45%
         run: |
-          curl -sS --retry 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
-            -H "Authorization: Bearer $BUILD_SECRET" -H "Content-Type: application/json" \
-            -d '{"status":"building","progress":45,"step":"Menyiapkan Android dan ikon"}' || true
+          . "$GITHUB_WORKSPACE/.pg.sh"
+          pg 45 "Memproses ikon"
 
       - name: Tambah Android dan buat ikon
         run: |
           set -euo pipefail
+          . "$GITHUB_WORKSPACE/.pg.sh"
           cd app
+          pg 48 "Membuat ikon"
           node make-icon.js
+          pg 52 "Menambah platform Android"
           npx cap add android
+          pg 56 "Menerapkan ikon penuh"
           npx capacitor-assets generate --android
+          node make-icon.js android
           npx cap sync android
 
       - name: Tambah izin aplikasi
         run: |
           set -euo pipefail
+          . "$GITHUB_WORKSPACE/.pg.sh"
+          pg 60 "Menambah izin aplikasi"
           python3 - <<'PY'
           import os
           M = "app/android/app/src/main/AndroidManifest.xml"
@@ -187,31 +208,34 @@ jobs:
             npx cap sync android
           fi
 
-      - name: Tanam penjaga status APK
-        run: |
-          set -euo pipefail
-          cp builder/inject-guard.js app/
-          cd app
-          node inject-guard.js
-
       - name: Progress 60%
         run: |
-          curl -sS --retry 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
-            -H "Authorization: Bearer $BUILD_SECRET" -H "Content-Type: application/json" \
-            -d '{"status":"building","progress":60,"step":"Membangun APK"}' || true
+          . "$GITHUB_WORKSPACE/.pg.sh"
+          pg 63 "Memulai build Gradle"
 
       - name: Bangun APK
         run: |
           set -euo pipefail
+          . "$GITHUB_WORKSPACE/.pg.sh"
           cd app/android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon &
+          PID=$!
+          P=64; T=0
+          while kill -0 "$PID" 2>/dev/null; do
+            sleep 1; T=$((T+1))
+            if [ $((T % 15)) -eq 0 ]; then
+              P=$((P+2)); [ $P -gt 88 ] && P=88
+              if [ $P -lt 70 ]; then M="Mengunduh dependensi Gradle"; elif [ $P -lt 80 ]; then M="Mengompilasi kode"; else M="Merakit APK"; fi
+              pg $P "$M"
+            fi
+          done
+          wait "$PID"
 
       - name: Progress 92%
         run: |
-          curl -sS --retry 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
-            -H "Authorization: Bearer $BUILD_SECRET" -H "Content-Type: application/json" \
-            -d '{"status":"building","progress":92,"step":"Menerbitkan APK"}' || true
+          . "$GITHUB_WORKSPACE/.pg.sh"
+          pg 92 "Menerbitkan APK"
 
       - name: Terbitkan Release
         env:
