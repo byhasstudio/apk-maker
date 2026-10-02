@@ -939,19 +939,6 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
       if (b.status === "done" && typeof b.url === "string" && b.url.startsWith("https://github.com/")) {
         const a = document.createElement("a"); a.href = b.url; a.rel = "noopener"; a.className = "hdl"; a.textContent = "⬇"; row.appendChild(a);
         const pg = document.createElement("a"); pg.href = API + "/d/" + b.id; pg.target = "_blank"; pg.rel = "noopener"; pg.className = "hdl"; pg.textContent = "🔗"; row.appendChild(pg);
-        const tg = document.createElement("button"); tg.type = "button"; tg.className = "alt"; tg.textContent = "⏸";
-        tg.style.cssText = "width:auto;margin:0;padding:6px 10px;font-size:.78rem";
-        fetch(API + "/api/app-status/" + b.id).then(r => r.json()).then(x => { tg.dataset.off = x.off ? "1" : ""; tg.textContent = x.off ? "▶" : "⏸"; }).catch(() => {});
-        tg.addEventListener("click", async () => {
-          const off = tg.dataset.off !== "1";
-          if (!confirm(off ? "Nonaktifkan aplikasi ini? Aplikasi menolak dibuka sampai kamu aktifkan lagi (berguna kalau HP hilang)." : "Aktifkan lagi aplikasi ini?")) return;
-          try {
-            const r = await fetch(API + "/api/app/toggle", {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + await window.fbToken()}, body: JSON.stringify({jobId: b.id, off})});
-            const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || "Gagal.");
-            tg.dataset.off = d.off ? "1" : ""; tg.textContent = d.off ? "▶" : "⏸";
-          } catch (e) { alert(e.message); }
-        });
-        row.appendChild(tg);
       }
       el.appendChild(row);
     });
