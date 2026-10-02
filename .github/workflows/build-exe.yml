@@ -113,19 +113,31 @@ jobs:
           cd app
           curl -fsS --retry 3 --retry-delay 2 -H "Authorization: Bearer $BUILD_SECRET" "$WORKER_URL/internal/file/$JOB_ID" -o upload.bin
           if [ "$(head -c 2 upload.bin)" = "PK" ]; then
+            TOTAL=$(unzip -Z -t upload.bin | awk '{print $3}')
+            if ! [[ "$TOTAL" =~ ^[0-9]+$ ]]; then echo "::error::ZIP tidak bisa dibaca"; exit 1; fi
+            if [ "$TOTAL" -gt 200000000 ]; then echo "::error::Isi ZIP terlalu besar setelah diekstrak"; exit 1; fi
             mkdir tmp_unzip
             unzip -q upload.bin -d tmp_unzip
             rm -rf tmp_unzip/__MACOSX
+            SRC=""
             if [ -f tmp_unzip/index.html ]; then
               SRC=tmp_unzip
             else
-              COUNT=$(find tmp_unzip -mindepth 1 -maxdepth 1 | wc -l)
-              DIR=$(find tmp_unzip -mindepth 1 -maxdepth 1 -type d | head -n 1)
-              if [ "$COUNT" -eq 1 ] && [ -n "$DIR" ] && [ -f "$DIR/index.html" ]; then
-                SRC="$DIR"
+              # cari index.html (huruf besar/kecil bebas) di folder paling dangkal
+              IDX=$(find tmp_unzip -type f -iname 'index.html' -not -path '*/node_modules/*' | awk -F/ '{print NF" "$0}' | sort -n | head -n 1 | cut -d' ' -f2-)
+              if [ -n "$IDX" ]; then
+                SRC=$(dirname "$IDX")
+                [ "$(basename "$IDX")" = "index.html" ] || cp "$IDX" "$SRC/index.html"
               else
-                echo "::error::ZIP tidak punya index.html di root (atau di satu folder pembungkus)"
-                exit 1
+                HCOUNT=$(find tmp_unzip -type f \( -iname '*.html' -o -iname '*.htm' \) | wc -l)
+                if [ "$HCOUNT" -eq 1 ]; then
+                  H=$(find tmp_unzip -type f \( -iname '*.html' -o -iname '*.htm' \) | head -n 1)
+                  SRC=$(dirname "$H")
+                  cp "$H" "$SRC/index.html"
+                else
+                  echo "::error::ZIP tidak punya index.html (dan HTML-nya lebih dari satu)"
+                  exit 1
+                fi
               fi
             fi
             cp -a "$SRC"/. www/
