@@ -45,6 +45,11 @@ on:
         required: false
         type: string
         default: "false"
+      orient:
+        description: "orientasi layar: auto, portrait, landscape"
+        required: false
+        type: string
+        default: "auto"
 
 permissions:
   contents: write
@@ -64,6 +69,7 @@ jobs:
       PERMS: ${{ inputs.perms }}
       SECURE: ${{ inputs.secure }}
       LOCK: ${{ inputs.lock }}
+      ORIENT: ${{ inputs.orient }}
       VT_API_KEY: ${{ secrets.VT_API_KEY }}
       WORKER_URL: ${{ secrets.WORKER_URL }}
       BUILD_SECRET: ${{ secrets.BUILD_SECRET }}
@@ -80,6 +86,7 @@ jobs:
           [[ "$PERMS" =~ ^[a-z,]*$ ]] || { echo "::error::izin tidak valid"; exit 1; }
           [[ "$SECURE" == "true" || "$SECURE" == "false" ]] || { echo "::error::secure tidak valid"; exit 1; }
           [[ "$LOCK" == "true" || "$LOCK" == "false" ]] || { echo "::error::lock tidak valid"; exit 1; }
+          [[ "$ORIENT" == "auto" || "$ORIENT" == "portrait" || "$ORIENT" == "landscape" ]] || { echo "::error::orientasi tidak valid"; exit 1; }
           test -f builder/make-config.js || { echo "::error::builder/make-config.js tidak ada di repo"; exit 1; }
           test -f builder/make-icon.js || { echo "::error::builder/make-icon.js tidak ada di repo"; exit 1; }
 
@@ -462,6 +469,21 @@ jobs:
             npm install --no-audit --no-fund @capacitor/local-notifications@6
             npx cap sync android
           fi
+
+      - name: Atur orientasi layar
+        if: ${{ inputs.orient != 'auto' }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re
+          M = "app/android/app/src/main/AndroidManifest.xml"
+          val = {"portrait": "sensorPortrait", "landscape": "sensorLandscape"}[os.environ["ORIENT"]]
+          s = open(M, encoding="utf-8").read()
+          s, n = re.subn(r"<activity\b", '<activity android:screenOrientation="%s"' % val, s, count=1)
+          assert n == 1, "tag activity tidak ditemukan di AndroidManifest.xml"
+          open(M, "w", encoding="utf-8").write(s)
+          print("Orientasi layar:", val)
+          PY
 
       - name: Progress 60%
         run: |
