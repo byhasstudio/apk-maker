@@ -149,7 +149,7 @@ jobs:
             if (u.protocol !== "https:") throw new Error("URL harus https");
             url = u.href;
           }
-          fs.writeFileSync("app-config.json", JSON.stringify({ name, url }));
+          fs.writeFileSync("app-config.json", JSON.stringify({ name, url, jobId: e.JOB_ID || "", api: (e.WORKER_URL || "").replace(/\/+$/, "") }));
           const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
           Object.assign(pkg, {
             name: "app", version: "1.0.0", main: "main.js", description: name, author: name,
@@ -164,27 +164,55 @@ jobs:
           });
           fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
           fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu } = require("electron");
+          const fs = require("fs");
+          const path = require("path");
           const cfg = require("./app-config.json");
           const safe = u => /^https?:/i.test(u);
-          function create() {
+          const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini telah diblokir</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
+          let win = null, blocked = false;
+          const flagFile = () => path.join(app.getPath("userData"), "blocked.flag");
+          // Tanya Worker apakah aplikasi ini diblokir. Offline = pakai status terakhir yang diketahui.
+          async function checkBlocked() {
+            if (!cfg.api || !cfg.jobId) return false;
+            try {
+              const ctl = new AbortController();
+              const t = setTimeout(() => ctl.abort(), 6000);
+              const r = await fetch(cfg.api + "/api/app-status/" + cfg.jobId, { signal: ctl.signal, cache: "no-store" });
+              clearTimeout(t);
+              if (!r.ok) throw new Error("status " + r.status);
+              const d = await r.json();
+              try { if (d.blocked) fs.writeFileSync(flagFile(), "1"); else fs.unlinkSync(flagFile()); } catch (_) {}
+              return !!d.blocked;
+            } catch (_) {
+              try { return fs.existsSync(flagFile()); } catch (__) { return false; }
+            }
+          }
+          function loadContent() { if (cfg.url) win.loadURL(cfg.url); else win.loadFile("www/index.html"); }
+          function showBlocked() { win.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(BLOCK_HTML)); }
+          async function create() {
             Menu.setApplicationMenu(null);
-            const w = new BrowserWindow({ width: 1100, height: 760, title: cfg.name, autoHideMenuBar: true,
+            win = new BrowserWindow({ width: 1100, height: 760, title: cfg.name, autoHideMenuBar: true,
               webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
             // F11 / Alt+Enter = layar penuh, Esc = keluar dari layar penuh (menu dimatikan, jadi harus ditangani manual)
-            w.webContents.on("before-input-event", (ev, input) => {
+            win.webContents.on("before-input-event", (ev, input) => {
               if (input.type !== "keyDown") return;
-              if (input.key === "F11" || (input.alt && input.key === "Enter")) { w.setFullScreen(!w.isFullScreen()); ev.preventDefault(); }
-              else if (input.key === "Escape" && w.isFullScreen()) { w.setFullScreen(false); ev.preventDefault(); }
+              if (input.key === "F11" || (input.alt && input.key === "Enter")) { win.setFullScreen(!win.isFullScreen()); ev.preventDefault(); }
+              else if (input.key === "Escape" && win.isFullScreen()) { win.setFullScreen(false); ev.preventDefault(); }
             });
             if (cfg.url) {
-              w.loadURL(cfg.url);
-              w.webContents.setWindowOpenHandler(({ url }) => { if (safe(url)) shell.openExternal(url); return { action: "deny" }; });
-              w.webContents.on("will-navigate", (ev, u) => {
+              win.webContents.setWindowOpenHandler(({ url }) => { if (safe(url)) shell.openExternal(url); return { action: "deny" }; });
+              win.webContents.on("will-navigate", (ev, u) => {
                 try { if (new URL(u).hostname !== new URL(cfg.url).hostname) { ev.preventDefault(); if (safe(u)) shell.openExternal(u); } } catch (_) { ev.preventDefault(); }
               });
-            } else {
-              w.loadFile("www/index.html");
             }
+            blocked = await checkBlocked();
+            if (blocked) showBlocked(); else loadContent();
+            // cek ulang tiap 10 menit: kalau diblokir/dibuka saat aplikasi berjalan, langsung berlaku
+            setInterval(async () => {
+              const b = await checkBlocked();
+              if (b && !blocked) { blocked = true; showBlocked(); }
+              else if (!b && blocked) { blocked = false; loadContent(); }
+            }, 600000);
           }
           app.whenReady().then(create);
           app.on("window-all-closed", () => app.quit());
