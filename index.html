@@ -199,7 +199,7 @@
       <input id="siteUrl" type="url" placeholder="https://contoh.com">
     </div>
     <div id="boxFile" style="display:none">
-      <label for="file">File .html atau .zip (maks 10 MB)</label>
+      <label for="file">File .html atau .zip (maks 24 MB)</label>
       <input id="file" type="file" accept=".html,.htm,.zip">
       <small>ZIP harus punya index.html.</small>
       <label for="tplSel">Belum punya website? Pakai template</label>
@@ -790,7 +790,7 @@ $("btn").addEventListener("click", async () => {
     const f = $("file").files[0] || (($("tplSel").value && tplFile) || null);
     if (!f) return show("failed", "Pilih file atau template dulu.");
     if (!/\.(html?|zip)$/i.test(f.name)) return show("failed", "File harus .html, .htm, atau .zip.");
-    if (f.size > 10*1024*1024) return show("failed", "File lebih dari 10 MB.");
+    if (f.size > 24*1024*1024) return show("failed", "File lebih dari 24 MB.");
     fd.append("file", f);
   }
   const ib = await exportIcon();
