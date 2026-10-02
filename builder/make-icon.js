@@ -1,5 +1,8 @@
-// Ikon dari gambar pengguna. Gambar tidak dipotong: dimuat utuh (contain) di atas
-// latar blur dari gambar yang sama. Ikon adaptif memakai zona aman agar tidak terpotong topeng launcher.
+// Ikon 100% dari logo pengguna: logo TIDAK dipotong, TIDAK diberi latar/blur, TIDAK diperkecil.
+// Gambar dimuat utuh (hanya diskalakan ke kotak ikon; kalau tidak persegi, sisi kosong dibiarkan transparan).
+// Tanpa ikon (atau ikon rusak) dibuat ikon huruf pertama nama aplikasi.
+//   node make-icon.js            -> buat assets/*.png (dipakai capacitor-assets & EXE)
+//   node make-icon.js android    -> timpa ikon peluncur Android dengan logo penuh (tanpa ikon adaptif)
 const sharp = require("sharp");
 const fs = require("fs");
 
@@ -26,12 +29,13 @@ async function letterIcon() {
   return sharp(Buffer.from(svg)).png().toBuffer();
 }
 
-// Gambar utuh tanpa dipotong; sisa ruang (jika tidak persegi) diisi versi blur gambar itu sendiri.
+// Logo utuh, memenuhi kotak ikon sepenuhnya.
 async function userIcon() {
-  const src = await sharp("icon-src.bin", { limitInputPixels: 50_000_000 }).rotate().png().toBuffer();
-  const bg = await sharp(src).resize(SIZE, SIZE, { fit: "cover" }).blur(40).png().toBuffer();
-  const fg = await sharp(src).resize(SIZE, SIZE, { fit: "inside" }).png().toBuffer();
-  return sharp(bg).composite([{ input: fg, gravity: "center" }]).png().toBuffer();
+  return sharp("icon-src.bin", { limitInputPixels: 50_000_000 })
+    .rotate()
+    .resize(SIZE, SIZE, { fit: "contain", background: CLEAR })
+    .png()
+    .toBuffer();
 }
 
 async function main() {
@@ -43,19 +47,28 @@ async function main() {
   }
   if (!base) base = await letterIcon();
   fs.writeFileSync("assets/icon-only.png", base);
-
-  // Ikon adaptif: gambar diperkecil ke zona aman (~49%) supaya tidak terpotong topeng bulat/squircle.
-  const INNER = 500, PAD = (SIZE - INNER) / 2;
-  const fg = await sharp(base)
-    .resize(INNER, INNER)
-    .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: CLEAR })
-    .png().toBuffer();
-  fs.writeFileSync("assets/icon-foreground.png", fg);
-
-  // Latar adaptif: gambar yang sama di-blur, jadi menyatu dengan ikon.
-  const bg = await sharp(base).blur(40).png().toBuffer();
-  fs.writeFileSync("assets/icon-background.png", bg);
+  // file ini hanya agar capacitor-assets berjalan; ikon adaptifnya dibuang di tahap "android"
+  fs.writeFileSync("assets/icon-foreground.png", base);
+  fs.writeFileSync("assets/icon-background.png",
+    await sharp({ create: { width: SIZE, height: SIZE, channels: 4, background: CLEAR } }).png().toBuffer());
   console.log("Ikon siap");
 }
 
-main().catch(err => { console.error(err); process.exit(1); });
+// Android: pakai ikon biasa (persegi) berisi logo penuh, bukan ikon adaptif yang selalu dipotong topeng launcher.
+async function androidIcons() {
+  const res = "android/app/src/main/res";
+  const base = fs.readFileSync("assets/icon-only.png");
+  fs.rmSync(`${res}/mipmap-anydpi-v26`, { recursive: true, force: true });
+  const dens = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
+  for (const [d, px] of Object.entries(dens)) {
+    const dir = `${res}/mipmap-${d}`;
+    fs.mkdirSync(dir, { recursive: true });
+    const png = await sharp(base).resize(px, px, { fit: "contain", background: CLEAR }).png().toBuffer();
+    fs.writeFileSync(`${dir}/ic_launcher.png`, png);
+    fs.writeFileSync(`${dir}/ic_launcher_round.png`, png);
+    for (const f of ["ic_launcher_foreground.png", "ic_launcher_background.png"]) fs.rmSync(`${dir}/${f}`, { force: true });
+  }
+  console.log("Ikon Android (logo penuh) siap");
+}
+
+(process.argv[2] === "android" ? androidIcons() : main()).catch(err => { console.error(err); process.exit(1); });
