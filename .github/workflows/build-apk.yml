@@ -309,7 +309,8 @@ jobs:
               if (km == null || !km.isKeyguardSecure()) { unlocked = true; return; }
               try { getBridge().getWebView().setVisibility(android.view.View.INVISIBLE); } catch (Exception ignored) {}
               prompting = true;
-              if (android.os.Build.VERSION.SDK_INT >= 30) {
+              boolean shown = false;
+              if (android.os.Build.VERSION.SDK_INT >= 30) { try {
                 android.hardware.biometrics.BiometricPrompt bp = new android.hardware.biometrics.BiometricPrompt.Builder(this)
                   .setTitle("Buka aplikasi")
                   .setAllowedAuthenticators(android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_WEAK | android.hardware.biometrics.BiometricManager.Authenticators.DEVICE_CREDENTIAL)
@@ -320,7 +321,9 @@ jobs:
                   @Override
                   public void onAuthenticationError(int code, CharSequence m) { prompting = false; finishAndRemoveTask(); }
                 });
-              } else {
+                shown = true;
+              } catch (Exception e) { shown = false; } }
+              if (!shown) {
                 android.content.Intent i = km.createConfirmDeviceCredentialIntent("Buka aplikasi", null);
                 if (i == null) { prompting = false; unlockOk(); return; }
                 startActivityForResult(i, 7421);
@@ -431,6 +434,8 @@ jobs:
           lines = []
           for p in want:
               lines += ['    <uses-permission android:name="%s" />' % x for x in MAP[p]]
+          if os.environ.get("LOCK") == "true":
+              lines.append('    <uses-permission android:name="android.permission.USE_BIOMETRIC" />')
           if "media" in want:
               lines.append('    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />')
           if "camera" in want:
