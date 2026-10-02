@@ -171,6 +171,94 @@ jobs:
           node make-icon.js android
           npx cap sync android
 
+      - name: Pasang kill switch
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import glob, os, re
+          JAVA = r'''package __PKG__;
+
+          import android.content.SharedPreferences;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.webkit.WebView;
+          import com.getcapacitor.BridgeActivity;
+          import java.io.BufferedReader;
+          import java.io.InputStreamReader;
+          import java.net.HttpURLConnection;
+          import java.net.URL;
+
+          public class MainActivity extends BridgeActivity {
+            private static final String API = "__API__";
+            private static final String JOB = "__JOB__";
+            private static final String HTML = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head><body style='margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;background:#111827;color:#f9fafb;text-align:center'><div><div style='font-size:64px'>&#128683;</div><h2>Aplikasi ini telah diblokir</h2><p style='color:#9ca3af'>Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body></html>";
+            private volatile boolean checking = false;
+            private volatile boolean blocked = false;
+
+            @Override
+            public void onResume() {
+              super.onResume();
+              final SharedPreferences sp = getSharedPreferences("ks", MODE_PRIVATE);
+              blocked = sp.getBoolean("blocked", false);
+              if (blocked) showBlocked();
+              check(sp);
+            }
+
+            private void showBlocked() {
+              try {
+                final WebView wv = getBridge().getWebView();
+                wv.loadDataWithBaseURL(null, HTML, "text/html", "utf-8", null);
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                  if (blocked) wv.loadDataWithBaseURL(null, HTML, "text/html", "utf-8", null);
+                }, 2000);
+              } catch (Exception ignored) {}
+            }
+
+            private void check(final SharedPreferences sp) {
+              if (checking) return;
+              checking = true;
+              new Thread(() -> {
+                Boolean result = null;
+                try {
+                  HttpURLConnection c = (HttpURLConnection) new URL(API + "/api/app-status/" + JOB).openConnection();
+                  c.setConnectTimeout(6000);
+                  c.setReadTimeout(6000);
+                  if (c.getResponseCode() == 200) {
+                    BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream()));
+                    StringBuilder sb = new StringBuilder();
+                    String ln;
+                    while ((ln = r.readLine()) != null) sb.append(ln);
+                    r.close();
+                    result = sb.toString().replace(" ", "").contains("\"blocked\":true");
+                  }
+                  c.disconnect();
+                } catch (Exception ignored) {}
+                checking = false;
+                if (result == null) return;
+                final boolean now = result;
+                sp.edit().putBoolean("blocked", now).apply();
+                runOnUiThread(() -> {
+                  boolean was = blocked;
+                  blocked = now;
+                  if (now) showBlocked();
+                  else if (was) { try { getBridge().reload(); } catch (Exception ignored) {} }
+                });
+              }).start();
+            }
+          }
+          '''
+          api = os.environ.get("WORKER_URL", "").rstrip("/")
+          job = os.environ["JOB_ID"]
+          assert re.fullmatch(r"https://[A-Za-z0-9._:/-]+", api), "WORKER_URL tidak valid"
+          assert re.fullmatch(r"[0-9a-f-]{36}", job), "JOB_ID tidak valid"
+          files = glob.glob("app/android/app/src/main/java/**/MainActivity.java", recursive=True)
+          assert len(files) == 1, files
+          f = files[0]
+          pkg = re.search(r"^package\s+([\w.]+);", open(f, encoding="utf-8").read(), re.M).group(1)
+          open(f, "w", encoding="utf-8").write(JAVA.replace("__PKG__", pkg).replace("__API__", api).replace("__JOB__", job))
+          print("Kill switch dipasang di", f)
+          PY
+
       - name: Tambah izin aplikasi
         run: |
           set -euo pipefail
