@@ -353,6 +353,12 @@
       <label><input type="checkbox" class="perm" value="media"> 🖼 Foto, video &amp; audio (galeri)</label>
       <label style="grid-column:1/-1;margin:0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem"><input type="checkbox" id="secure"> 🛡 Anti-screenshot (layar hitam saat difoto/direkam)</label>
       <label style="grid-column:1/-1;margin:0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem"><input type="checkbox" id="lock"> 🔐 Kunci dengan sidik jari / PIN / pola HP</label>
+      <label for="orient" style="grid-column:1/-1;margin:8px 0 0">📱 Orientasi layar</label>
+      <select id="orient" style="grid-column:1/-1">
+        <option value="auto">Bebas (ikut putaran HP)</option>
+        <option value="portrait">Potret saja (berdiri)</option>
+        <option value="landscape">Lanskap saja (miring)</option>
+      </select>
     </div>
     <div id="boxExe" style="display:none">
       <label style="margin:12px 0 0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem"><input type="checkbox" id="tray" style="margin-right:8px"> 🔽 Sembunyikan ke system tray saat ditutup (menu tray punya opsi jalan otomatis saat Windows menyala)</label>
@@ -374,6 +380,7 @@
         </svg>
         <div class="rc"><b id="pgPct">0%</b><small id="pgTime">0:00</small></div>
       </div>
+      <div id="pgEta" style="margin-top:8px;font-size:.9rem;font-weight:700"></div>
       <div id="pgStep">Menunggu giliran…</div>
       <ol id="pgList"></ol>
       <button type="button" id="cancelBtn" class="alt" style="display:none">✖ Batalkan pembuatan</button>
@@ -524,9 +531,47 @@ function renderStages(p){
   });
   $("pgStep").textContent = done ? "Selesai 🎉" : "Tahap " + (cur + 1) + " dari " + STAGES.length + " · " + STAGES[cur].n;
 }
+/* ---------- perkiraan sisa waktu (naik-turun seperti unduhan Play Store) ---------- */
+const ETA_DEF = {apk: 300000, exe: 360000};            // tebakan awal: ~5 menit (APK) / ~6 menit (EXE)
+// perkiraan porsi waktu yang sudah lewat saat progres server mencapai angka tertentu (Gradle/Electron paling lama)
+const ETA_CURVE = [[0,0],[15,.06],[28,.14],[45,.24],[56,.33],[63,.38],[88,.93],[92,.96],[100,1]];
+let remEst = 0, remAt = 0, srvPct = 0, jobStart = 0;
+function timeFrac(p){
+  for (let i = 1; i < ETA_CURVE.length; i++){
+    const a = ETA_CURVE[i - 1], b = ETA_CURVE[i];
+    if (p <= b[0]) return a[1] + (b[1] - a[1]) * (p - a[0]) / (b[0] - a[0]);
+  }
+  return 1;
+}
+function estRemain(elapsed){
+  const t0 = etaMs || ETA_DEF[(curJob && curJob.target) || "apk"] || 300000; // rata-rata build sebelumnya (dari server)
+  let total = t0;
+  if (srvPct >= 10){                                    // makin jauh progres, makin percaya kecepatan build ini
+    const byRate = elapsed / Math.max(.05, timeFrac(srvPct));
+    const w = Math.min(.8, srvPct / 90);
+    total = (1 - w) * t0 + w * Math.min(Math.max(byRate, t0 * .5), t0 * 3);
+  }
+  return Math.max(0, total - elapsed);
+}
+function updateEta(){                                   // dipanggil tiap laporan progres baru dari server
+  if (!jobStart) return;
+  const now = Date.now(), fresh = estRemain(now - jobStart);
+  const shown = remAt ? Math.max(0, remEst - (now - remAt)) : fresh;
+  remEst = remAt ? shown * .6 + fresh * .4 : fresh;     // dihaluskan: bergeser pelan, bisa naik atau turun
+  remAt = now;
+}
+function renderEta(){
+  const el = $("pgEta");
+  if (!jobStart || shownPct >= 100){ el.textContent = ""; return; }
+  const left = remAt ? Math.max(0, remEst - (Date.now() - remAt)) : estRemain(Date.now() - jobStart);
+  el.textContent = left < 8000 ? "Hampir selesai…"
+    : left < 60000 ? "Sisa ± " + Math.ceil(left / 10000) * 10 + " detik"
+    : "Sisa ± " + Math.ceil(left / 60000) + " menit";
+}
 function startClock(t){
   clearInterval(clock);
-  const f = () => { const s = Math.max(0, Math.floor((Date.now() - t) / 1000)); $("pgTime").textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") + (etaMs ? " / ~" + mmss(etaMs) : ""); };
+  jobStart = t; remEst = 0; remAt = 0; srvPct = 0;
+  const f = () => { const s = Math.max(0, Math.floor((Date.now() - t) / 1000)); $("pgTime").textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); renderEta(); };
   f(); clock = setInterval(f, 1000);
 }
 function setBar(p){
@@ -535,9 +580,11 @@ function setBar(p){
   $("ringFg").style.strokeDashoffset = RING * (1 - Math.min(100, shownPct) / 100);
   $("pgPct").textContent = Math.floor(shownPct) + "%";
   renderStages(shownPct);
+  renderEta();
 }
 function hideBar(){
-  shownPct = 0; etaMs = 0;
+  shownPct = 0; etaMs = 0; jobStart = 0; remAt = 0; srvPct = 0;
+  $("pgEta").textContent = "";
   clearInterval(clock);
   $("prog").style.display = "none";
   $("ringFg").style.strokeDashoffset = RING;
@@ -772,6 +819,7 @@ function poll(jobId, startedAt, target){
         // angka dari server = batas bawah; di sela laporan, bar merayap pelan agar tidak terlihat macet
         if (typeof d.eta === "number" && d.eta > 0) etaMs = d.eta;
         const base = typeof d.progress === "number" ? d.progress : 10;
+        srvPct = base; updateEta();
         setBar(Math.max(base, Math.min(shownPct + 0.5, base + 6, 97)));
         show("", "🔧 " + (d.step || "Membangun") + "…");
       } else {
@@ -865,6 +913,7 @@ $("btn").addEventListener("click", async () => {
   fd.append("secure", $("secure").checked ? "true" : "false");
   fd.append("lock", $("lock").checked ? "true" : "false");
   fd.append("tray", $("tray").checked ? "true" : "false");
+  fd.append("orient", $("orient").value);
   fd.append("perms", [...document.querySelectorAll(".perm:checked")].map(i => i.value).join(","));
 
   if (mode === "url"){
