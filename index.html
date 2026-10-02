@@ -922,7 +922,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     return d;
   }
   const mt = t => new Date(t).toLocaleString("id-ID");
-  const MST = { queued: "antre", building: "membangun", done: "selesai", failed: "gagal", blocked: "🚫 diblokir" };
+  const MST = { queued: "antre", building: "membangun", done: "selesai", failed: "gagal", blocked: "diblokir" };
   let jobsLoaded = [];
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const kv = (k, v) => { const d = el("div"); d.append(el("b", "", k + ": "), document.createTextNode(v)); return d; };
@@ -938,18 +938,30 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
       await admApi(ban ? "/api/admin/ban" : "/api/admin/unban", { uid, email, reason });
       if (ban) {
         const act = jobsLoaded.filter(j => j.uid === uid && ["done", "building", "queued"].includes(j.status));
-        if (act.length && confirm("Sekalian blokir & hapus " + act.length + " APK/EXE milik akun ini yang tampil di daftar?")) {
-          for (const j of act) { try { await admApi("/api/admin/takedown", { jobId: j.jobId }); } catch (e) { $("mMsg").textContent = "❌ " + e.message; } }
+        if (act.length && confirm("Aplikasi milik akun ini otomatis ikut diblokir (kill switch) dan hidup lagi kalau blokir dibuka.\nSekalian HAPUS PERMANEN " + act.length + " file APK/EXE-nya dari GitHub?")) {
+          for (const j of act) { try { await admApi("/api/admin/takedown", { jobId: j.jobId, purge: true }); } catch (e) { $("mMsg").textContent = "❌ " + e.message; } }
         }
       }
       await Promise.all([loadJobs(true), loadBans()]);
     } catch (e) { $("mMsg").textContent = "❌ " + e.message; }
   }
 
-  async function takedown(j) {
-    if (!confirm("Blokir & hapus file " + (j.target === "exe" ? "EXE" : "APK") + " \u201C" + (j.name || "-") + "\u201D?\nFile di GitHub dihapus, tautan unduhan langsung mati.")) return;
-    try { await admApi("/api/admin/takedown", { jobId: j.jobId }); await loadJobs(true); }
+  const isBlocked = j => !!(j.blocked || j.status === "blocked");
+  async function admAct(path, body, okReload = true) {
+    try { await admApi(path, body); if (okReload) await loadJobs(true); }
     catch (e) { $("mMsg").textContent = "❌ " + e.message; }
+  }
+  function blockApp(j) {
+    if (!confirm("Blokir aplikasi \u201C" + (j.name || "-") + "\u201D?\nAplikasi hasil build ini akan menolak dibuka (tampil layar \u201Cdiblokir\u201D). Bisa dibuka lagi kapan saja lewat tombol Buka blokir.")) return;
+    admAct("/api/admin/takedown", { jobId: j.jobId });
+  }
+  function unblockApp(j) {
+    if (!confirm("Buka blokir \u201C" + (j.name || "-") + "\u201D? Aplikasi akan bisa dipakai lagi.")) return;
+    admAct("/api/admin/untakedown", { jobId: j.jobId });
+  }
+  function purgeFile(j) {
+    if (!confirm("HAPUS PERMANEN file " + (j.target === "exe" ? "EXE" : "APK") + " \u201C" + (j.name || "-") + "\u201D dari GitHub?\nTautan unduhan mati dan file TIDAK bisa dikembalikan. Aplikasi juga ikut diblokir.")) return;
+    admAct("/api/admin/takedown", { jobId: j.jobId, purge: true });
   }
 
   function jobRow(j) {
@@ -958,14 +970,16 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     const info = el("div");
     info.append(el("b", "", (j.target === "exe" ? "🪟 " : "🤖 ") + (j.name || "-")), el("br"));
     info.append(el("small", "", (j.email || j.uid) + " · " + (MST[j.status] || j.status || "-") + " · " + mt(j.createdAt)));
-    if (j.banned) { info.append(el("br"), el("small", "mban", "🚫 akun diblokir")); }
+    if (j.banned) { info.append(el("br"), el("small", "mban", "🚫 akun diblokir (aplikasinya ikut mati)")); }
+    if (isBlocked(j)) { info.append(el("br"), el("small", "mban", "🚫 aplikasi diblokir" + (j.purged ? " · file dihapus" : ""))); }
     const btns = el("div", "mbtns");
     if (j.status === "done" && typeof j.apkUrl === "string" && j.apkUrl.startsWith("https://github.com/")) {
       const a = el("a", "hdl", "⬇ Unduh"); a.href = j.apkUrl; a.rel = "noopener"; btns.appendChild(a);
     }
-    if (["done", "building", "queued", "blocked"].includes(j.status)) {
-      const tb = el("button", "alt", j.status === "blocked" ? "🗑 Hapus ulang file" : "🗑 Blokir file"); tb.type = "button";
-      tb.addEventListener("click", () => takedown(j));
+    const blk = isBlocked(j);
+    if (blk || ["done", "building", "queued"].includes(j.status)) {
+      const tb = el("button", "alt", blk ? "✅ Buka blokir" : "🚫 Blokir app"); tb.type = "button";
+      tb.addEventListener("click", () => blk ? unblockApp(j) : blockApp(j));
       btns.appendChild(tb);
     }
     const bb = el("button", "alt", j.banned ? "Buka blokir akun" : "Blokir akun");
@@ -984,6 +998,12 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     if (j.runUrl && j.runUrl.startsWith("https://github.com/")) {
       const d = el("div"); d.appendChild(el("b", "", "Log build: "));
       const a = el("a", "", "buka"); a.href = j.runUrl; a.rel = "noopener"; d.appendChild(a); body.appendChild(d);
+    }
+    if (!j.purged && j.status !== "failed") {
+      const pb = el("button", "alt", "🗑 Hapus file dari GitHub (permanen)"); pb.type = "button";
+      pb.style.cssText = "width:auto;margin:8px 0 0;padding:6px 10px;font-size:.75rem";
+      pb.addEventListener("click", () => purgeFile(j));
+      body.appendChild(pb);
     }
     det.appendChild(body);
     row.append(top, det);
