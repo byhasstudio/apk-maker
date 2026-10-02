@@ -1,4 +1,5 @@
 name: Build EXE
+run-name: Build EXE ${{ inputs.job_id }}
 
 on:
   workflow_dispatch:
@@ -19,9 +20,18 @@ on:
       app_name:
         required: true
         type: string
+      version:
+        description: "versi aplikasi, contoh 1.0.0"
+        required: true
+        type: string
       has_icon:
         required: true
         type: string
+      tray:
+        description: "system tray (true/false)"
+        required: false
+        type: string
+        default: "false"
 
 permissions:
   contents: write
@@ -39,6 +49,9 @@ jobs:
       SITE_URL: ${{ inputs.url }}
       APP_NAME: ${{ inputs.app_name }}
       HAS_ICON: ${{ inputs.has_icon }}
+      VERSION: ${{ inputs.version }}
+      TRAY: ${{ inputs.tray }}
+      VT_API_KEY: ${{ secrets.VT_API_KEY }}
       WORKER_URL: ${{ secrets.WORKER_URL }}
       BUILD_SECRET: ${{ secrets.BUILD_SECRET }}
     steps:
@@ -50,6 +63,7 @@ jobs:
           [[ "$JOB_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "::error::job_id tidak valid"; exit 1; }
           [[ "$MODE" == "url" || "$MODE" == "upload" ]] || { echo "::error::mode tidak valid"; exit 1; }
           [[ "$HAS_ICON" == "true" || "$HAS_ICON" == "false" ]] || { echo "::error::has_icon tidak valid"; exit 1; }
+          [[ "$VERSION" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || { echo "::error::versi tidak valid"; exit 1; }
           test -f builder/make-icon.js || { echo "::error::builder/make-icon.js tidak ada di repo"; exit 1; }
 
       - name: Siapkan pelapor progres
@@ -137,6 +151,7 @@ jobs:
           pg 48 "Membuat ikon"
           node make-icon.js
           cp assets/icon-only.png build/icon.png
+          cp build/icon.png icon.png
           pg 55 "Menyusun konfigurasi"
           node - <<'JS'
           const fs = require("fs");
@@ -149,46 +164,68 @@ jobs:
             if (u.protocol !== "https:") throw new Error("URL harus https");
             url = u.href;
           }
-          fs.writeFileSync("app-config.json", JSON.stringify({ name, url, jobId: e.JOB_ID || "", api: (e.WORKER_URL || "").replace(/\/+$/, "") }));
+          fs.writeFileSync("app-config.json", JSON.stringify({ name, url, version: e.VERSION || "", tray: e.TRAY === "true", jobId: e.JOB_ID || "", api: (e.WORKER_URL || "").replace(/\/+$/, "") }));
           const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
           Object.assign(pkg, {
-            name: "app", version: "1.0.0", main: "main.js", description: name, author: name,
+            name: "app", version: e.VERSION || "1.0.0", main: "main.js", description: name, author: name,
             build: {
               appId: "com.apkmaker.app", productName: name,
               directories: { output: "dist", buildResources: "build" },
-              files: ["main.js", "app-config.json", "www/**/*"],
+              files: ["main.js", "app-config.json", "icon.png", "www/**/*"],
               win: { target: "nsis", icon: "build/icon.png" },
               nsis: { oneClick: false, perMachine: false, allowToChangeInstallationDirectory: true, runAfterFinish: true, createDesktopShortcut: true, createStartMenuShortcut: true },
               artifactName: "app.${ext}"
             }
           });
           fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
-          fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu } = require("electron");
+          fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu, dialog, Tray } = require("electron");
           const fs = require("fs");
           const path = require("path");
           const cfg = require("./app-config.json");
           const safe = u => /^https?:/i.test(u);
-          const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini telah diblokir</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
-          let win = null, blocked = false;
+          const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
+          let win = null, blocked = false, forced = "", tray = null, quitting = false;
           const flagFile = () => path.join(app.getPath("userData"), "blocked.flag");
           // Tanya Worker apakah aplikasi ini diblokir. Offline = pakai status terakhir yang diketahui.
-          async function checkBlocked() {
-            if (!cfg.api || !cfg.jobId) return false;
+          async function checkBlocked(o) {
+            if (!cfg.api || !cfg.jobId) return {};
             try {
               const ctl = new AbortController();
               const t = setTimeout(() => ctl.abort(), 6000);
-              const r = await fetch(cfg.api + "/api/app-status/" + cfg.jobId, { signal: ctl.signal, cache: "no-store" });
+              const r = await fetch(cfg.api + "/api/app-status/" + cfg.jobId + (o ? "?o=1" : ""), { signal: ctl.signal, cache: "no-store" });
               clearTimeout(t);
               if (!r.ok) throw new Error("status " + r.status);
               const d = await r.json();
               try { if (d.blocked) fs.writeFileSync(flagFile(), "1"); else fs.unlinkSync(flagFile()); } catch (_) {}
-              return !!d.blocked;
+              return d;
             } catch (_) {
-              try { return fs.existsSync(flagFile()); } catch (__) { return false; }
+              try { return { blocked: fs.existsSync(flagFile()) }; } catch (__) { return {}; }
             }
+          }
+          const esc = x => String(x).split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;").split("'").join("&#39;");
+          function offlineHtml() {
+            const u = JSON.stringify(String(cfg.url || "")).split("<").join("%3C");
+            return '<!doctype html><meta charset="utf-8"><title>Tidak ada koneksi</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#f3f4f6;color:#111827;text-align:center;padding:24px;box-sizing:border-box}@media(prefers-color-scheme:dark){body{background:#111827;color:#f9fafb}p{color:#9ca3af}}.i{font-size:72px}h2{margin:12px 0 6px}p{color:#6b7280;margin:0 0 22px;line-height:1.5}button{border:0;border-radius:12px;padding:12px 30px;font-size:1rem;font-weight:700;background:#4f46e5;color:#fff;cursor:pointer}small{display:block;margin-top:24px;opacity:.6}</style><body><div><div class="i">&#128225;</div><h2>Tidak ada koneksi internet</h2><p>Periksa koneksi kamu, lalu coba lagi.<br>Halaman dimuat otomatis begitu tersambung.</p><button id="b">Coba lagi</button><small>' + esc(cfg.name) + ' &middot; v' + esc(cfg.version || "") + '</small></div><script>var U=' + u + ';function go(){location.replace(U)}function t(){return fetch(U,{mode:"no-cors",cache:"no-store"}).then(go)}document.getElementById("b").onclick=function(){var x=this;x.textContent="Memeriksa...";t().catch(function(){x.textContent="Coba lagi"})};window.addEventListener("online",go);setInterval(function(){t().catch(function(){})},8000);</script>';
           }
           function loadContent() { if (cfg.url) win.loadURL(cfg.url); else win.loadFile("www/index.html"); }
           function showBlocked() { win.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(BLOCK_HTML)); }
+          const FORCE_HTML = '<!doctype html><meta charset="utf-8"><title>Perbarui</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#11015;</div><h2>Versi ini sudah usang</h2><p style="color:#9ca3af">Unduh versi terbaru untuk melanjutkan.</p><a target="_blank" href="__U__" style="display:inline-block;margin-top:12px;padding:12px 28px;border-radius:12px;background:#4f46e5;color:#fff;text-decoration:none;font-weight:700">Unduh versi terbaru</a></div></body>';
+          function showForce(u) { win.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(FORCE_HTML.split("__U__").join(encodeURI(u).split("'").join("%27")))); }
+          function notify(st) {
+            if (!st || !st.message || !st.mid) return;
+            const f = path.join(app.getPath("userData"), "seen.txt");
+            let seen = ""; try { seen = fs.readFileSync(f, "utf8"); } catch (_) {}
+            if (seen === st.mid) return;
+            try { fs.writeFileSync(f, st.mid); } catch (_) {}
+            dialog.showMessageBox(win, { type: "info", title: cfg.name, message: String(st.message) });
+          }
+          async function applyState(st) {
+            st = st || {};
+            if (st.blocked) { if (!blocked) { blocked = true; showBlocked(); } return; }
+            if (typeof st.force === "string" && /^https:/.test(st.force)) { if (forced !== st.force) { forced = st.force; blocked = false; showForce(st.force); } return; }
+            if (blocked || forced) { blocked = false; forced = ""; loadContent(); }
+            notify(st);
+          }
           async function create() {
             Menu.setApplicationMenu(null);
             win = new BrowserWindow({ width: 1100, height: 760, title: cfg.name, autoHideMenuBar: true,
@@ -205,16 +242,36 @@ jobs:
                 try { if (new URL(u).hostname !== new URL(cfg.url).hostname) { ev.preventDefault(); if (safe(u)) shell.openExternal(u); } } catch (_) { ev.preventDefault(); }
               });
             }
-            blocked = await checkBlocked();
-            if (blocked) showBlocked(); else loadContent();
+            win.webContents.setWindowOpenHandler(({ url }) => { if (safe(url)) shell.openExternal(url); return { action: "deny" }; });
+            if (cfg.tray) {
+              try {
+                tray = new Tray(path.join(__dirname, "icon.png"));
+                tray.setToolTip(cfg.name);
+                tray.setContextMenu(Menu.buildFromTemplate([
+                  { label: "Buka " + cfg.name, click: () => { win.show(); win.focus(); } },
+                  { label: "Jalan otomatis saat Windows menyala", type: "checkbox", checked: app.getLoginItemSettings().openAtLogin, click: it => app.setLoginItemSettings({ openAtLogin: it.checked }) },
+                  { type: "separator" },
+                  { label: "Keluar", click: () => { quitting = true; app.quit(); } }
+                ]));
+                tray.on("click", () => { win.show(); win.focus(); });
+                win.on("close", ev => { if (!quitting) { ev.preventDefault(); win.hide(); } });
+              } catch (_) {}
+            }
+            // gagal memuat halaman utama (offline / situs tak terjangkau) -> tampilkan halaman "tidak ada koneksi"
+            win.webContents.on("did-fail-load", (ev, code, desc, failedUrl, isMain) => {
+              if (!isMain || code === -3 || blocked || !cfg.url) return;
+              win.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(offlineHtml()));
+            });
+            await applyState(await checkBlocked(true));
+            if (!blocked && !forced) loadContent();
             // cek ulang tiap 10 menit: kalau diblokir/dibuka saat aplikasi berjalan, langsung berlaku
-            setInterval(async () => {
-              const b = await checkBlocked();
-              if (b && !blocked) { blocked = true; showBlocked(); }
-              else if (!b && blocked) { blocked = false; loadContent(); }
-            }, 600000);
+            setInterval(async () => { applyState(await checkBlocked()); }, 600000);
           }
-          app.whenReady().then(create);
+          if (!app.requestSingleInstanceLock()) { app.quit(); } else {
+            app.on("second-instance", () => { if (win) { if (!win.isVisible()) win.show(); if (win.isMinimized()) win.restore(); win.focus(); } });
+            app.whenReady().then(create);
+          }
+          app.on("before-quit", () => { quitting = true; });
           app.on("window-all-closed", () => app.quit());
           `);
           JS
@@ -264,12 +321,51 @@ jobs:
             --notes "EXE dibuat otomatis oleh pengguna. Tidak bertanda tangan digital; pakai dengan risiko sendiri."
           echo "APK_URL=https://github.com/$GITHUB_REPOSITORY/releases/download/job-$JOB_ID/$SAFE.exe" >> "$GITHUB_ENV"
 
+      - name: Pindai VirusTotal (opsional)
+        if: ${{ env.VT_API_KEY != '' }}
+        continue-on-error: true
+        timeout-minutes: 12
+        run: |
+          . "${GITHUB_WORKSPACE//\\//}/.pg.sh"
+          pg 94 "Memindai VirusTotal"
+          FILE=$(ls out/*.exe | head -n 1) node - <<'JS'
+          const fs = require("fs"), path = require("path");
+          const key = process.env.VT_API_KEY, file = process.env.FILE;
+          const H = { "x-apikey": key };
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
+          (async () => {
+            const up = await (await fetch("https://www.virustotal.com/api/v3/files/upload_url", { headers: H })).json();
+            if (!up.data) throw new Error("upload_url gagal");
+            const fd = new FormData();
+            fd.append("file", new Blob([fs.readFileSync(file)]), path.basename(file));
+            const r = await (await fetch(up.data, { method: "POST", headers: H, body: fd })).json();
+            const id = r.data && r.data.id;
+            if (!id) throw new Error("upload gagal");
+            for (let i = 0; i < 40; i++) {
+              await sleep(15000);
+              const a = await (await fetch("https://www.virustotal.com/api/v3/analyses/" + id, { headers: H })).json();
+              const at = a.data && a.data.attributes;
+              if (at && at.status === "completed") {
+                const st = at.stats || {};
+                const sha = a.meta && a.meta.file_info && a.meta.file_info.sha256;
+                if (!sha) throw new Error("tanpa sha256");
+                const t = (st.malicious || 0) + (st.suspicious || 0) + (st.harmless || 0) + (st.undetected || 0);
+                fs.writeFileSync("vt.json", JSON.stringify({ m: st.malicious || 0, s: st.suspicious || 0, t, sha }));
+                console.log("VirusTotal selesai");
+                return;
+              }
+            }
+            throw new Error("timeout");
+          })().catch(e => { console.error("VirusTotal dilewati:", e.message); process.exit(1); });
+          JS
+          echo "VT_JSON=$(cat vt.json)" >> "$GITHUB_ENV"
+
       - name: Kabari Worker (selesai)
         run: |
           curl -fsS --retry 3 --retry-delay 2 -X POST "$WORKER_URL/internal/status/$JOB_ID" \
             -H "Authorization: Bearer $BUILD_SECRET" \
             -H "Content-Type: application/json" \
-            -d "{\"status\":\"done\",\"apkUrl\":\"$APK_URL\"}"
+            -d "{\"status\":\"done\",\"apkUrl\":\"$APK_URL\",\"vt\":${VT_JSON:-null}}"
 
       - name: Kabari Worker (gagal)
         if: ${{ failure() }}
