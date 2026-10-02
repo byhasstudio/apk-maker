@@ -35,9 +35,23 @@
   #status.done{background:var(--ok)}
   #status.failed{background:var(--err)}
   #status a{color:inherit}
-  #bar{display:none;position:relative;margin-top:10px;height:22px;background:var(--trk);border-radius:11px;overflow:hidden}
-  #barFill{height:100%;width:0;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width 1s linear}
-  #barTxt{position:absolute;inset:0;text-align:center;font-size:.75rem;line-height:22px;font-weight:700;color:var(--fg)}
+  #prog{display:none;margin-top:16px;text-align:center}
+  .ringWrap{position:relative;width:140px;height:140px;margin:0 auto}
+  .ringWrap svg{width:100%;height:100%;display:block}
+  .rt{fill:none;stroke:var(--trk);stroke-width:9}
+  #ringFg{fill:none;stroke:url(#rg);stroke-width:9;stroke-linecap:round;stroke-dasharray:326.73;stroke-dashoffset:326.73;transition:stroke-dashoffset .9s ease-out}
+  .rc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}
+  .rc b{font-size:1.9rem;color:var(--fg)}
+  .rc small{color:var(--mut);font-size:.78rem;margin-top:2px}
+  #pgStep{margin-top:10px;font-size:.82rem;color:var(--mut)}
+  #pgList{list-style:none;padding:0;margin:12px auto 0;max-width:300px;text-align:left}
+  #pgList li{display:flex;align-items:center;gap:10px;padding:5px 0;font-size:.86rem;color:var(--mut)}
+  #pgList li i{flex:0 0 20px;height:20px;border-radius:50%;border:2px solid var(--bd);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:.7rem;font-weight:700}
+  #pgList li.done{color:var(--fg)}
+  #pgList li.done i{background:var(--acc);border-color:var(--acc);color:#fff}
+  #pgList li.cur{color:var(--fg);font-weight:700}
+  #pgList li.cur i{border-color:var(--acc);box-shadow:0 0 0 0 var(--acc);animation:pgPulse 1.4s ease-out infinite}
+  @keyframes pgPulse{0%{box-shadow:0 0 0 0 #6366f166}100%{box-shadow:0 0 0 9px #6366f100}}
   #dl{display:none;margin-top:12px;text-align:center;padding:14px;font-weight:700;background:linear-gradient(90deg,#0a9d4a,#12b886);color:#fff;border-radius:14px;text-decoration:none;box-shadow:0 6px 18px #0a9d4a40}
   small{color:var(--mut);font-size:.78rem}
   #ed{display:none;margin-top:12px;padding:12px;background:var(--trk);border-radius:16px}#ed.on{display:block}
@@ -80,8 +94,7 @@
   .perms>label:hover{border-color:var(--acc)}
   .perms>label:active{transform:scale(.97)}
   #pvw span:hover{transform:translateY(-3px)}
-  #ed.on,#status,#bar,#dl{animation:pop .4s cubic-bezier(.2,.8,.2,1) both}
-  #barFill{background:linear-gradient(90deg,var(--acc),var(--acc2),var(--acc));background-size:200% 100%;animation:shine 1.8s linear infinite;transition:width .9s ease-out}
+  #ed.on,#status,#prog,#dl{animation:pop .4s cubic-bezier(.2,.8,.2,1) both}
   #cv:active{cursor:grabbing}
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
   /* ---------- login & riwayat ---------- */
@@ -247,8 +260,19 @@
     <div id="ts" style="margin-top:16px"></div>
     <button id="btn">Buat APK</button>
 
+    <div id="prog" aria-live="polite">
+      <div class="ringWrap">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--acc)"/><stop offset="1" style="stop-color:var(--acc2)"/></linearGradient></defs>
+          <circle class="rt" cx="60" cy="60" r="52"/>
+          <circle id="ringFg" cx="60" cy="60" r="52" transform="rotate(-90 60 60)"/>
+        </svg>
+        <div class="rc"><b id="pgPct">0%</b><small id="pgTime">0:00</small></div>
+      </div>
+      <div id="pgStep">Menunggu giliran…</div>
+      <ol id="pgList"></ol>
+    </div>
     <div id="status" role="status" aria-live="polite"></div>
-    <div id="bar"><div id="barFill"></div><span id="barTxt">0%</span></div>
     <a id="dl" href="#" rel="noopener">⬇ Download</a>
   </div>
 
@@ -322,18 +346,50 @@ function setBusy(b){
   $("btn").disabled = b;
 }
 
-/* ---------- progress bar ---------- */
+/* ---------- progress lingkaran ---------- */
+const STAGES = [
+  {n: "Memulai", at: 0},
+  {n: "Menyiapkan proyek", at: 10},
+  {n: "Memproses file & ikon", at: 35},
+  {n: "Konfigurasi", at: 55},
+  {n: "Membangun aplikasi", at: 63},
+  {n: "Menerbitkan hasil", at: 92}
+];
+const RING = 326.73;
+let clock = null;
+function stageOf(p){ let i = 0; STAGES.forEach((s, k) => { if (p >= s.at) i = k; }); return i; }
+function renderStages(p){
+  const done = p >= 100, cur = stageOf(p), ul = $("pgList");
+  if (ul.children.length !== STAGES.length){
+    ul.textContent = "";
+    STAGES.forEach(() => { const li = document.createElement("li"), i = document.createElement("i"), sp = document.createElement("span"); li.append(i, sp); ul.appendChild(li); });
+  }
+  [...ul.children].forEach((li, k) => {
+    li.className = done || k < cur ? "done" : (k === cur ? "cur" : "");
+    li.firstChild.textContent = done || k < cur ? "✓" : "";
+    li.lastChild.textContent = STAGES[k].n;
+  });
+  $("pgStep").textContent = done ? "Selesai 🎉" : "Tahap " + (cur + 1) + " dari " + STAGES.length + " · " + STAGES[cur].n;
+}
+function startClock(t){
+  clearInterval(clock);
+  const f = () => { const s = Math.max(0, Math.floor((Date.now() - t) / 1000)); $("pgTime").textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+  f(); clock = setInterval(f, 1000);
+}
 function setBar(p){
   shownPct = Math.max(shownPct, p);
-  $("bar").style.display = "block";
-  $("barFill").style.width = shownPct + "%";
-  $("barTxt").textContent = Math.floor(shownPct) + "%";
+  $("prog").style.display = "block";
+  $("ringFg").style.strokeDashoffset = RING * (1 - Math.min(100, shownPct) / 100);
+  $("pgPct").textContent = Math.floor(shownPct) + "%";
+  renderStages(shownPct);
 }
 function hideBar(){
   shownPct = 0;
-  $("bar").style.display = "none";
-  $("barFill").style.width = "0";
-  $("barTxt").textContent = "0%";
+  clearInterval(clock);
+  $("prog").style.display = "none";
+  $("ringFg").style.strokeDashoffset = RING;
+  $("pgPct").textContent = "0%";
+  $("pgTime").textContent = "0:00";
 }
 
 function show(cls, text, linkUrl, linkText){
@@ -351,6 +407,7 @@ function show(cls, text, linkUrl, linkText){
   }
 }
 function stopPolling(){
+  clearInterval(clock);
   clearInterval(timer);
   timer = null;
   store(null);
@@ -482,6 +539,7 @@ function poll(jobId, startedAt){
   clearInterval(timer);
   setBusy(true);
   store({id: jobId, t: start});
+  startClock(start);
   let checking = false;
 
   const tick = async () => {
@@ -518,11 +576,14 @@ function poll(jobId, startedAt){
         stopPolling();
         if (window.fbSaveBuild) window.fbSaveBuild(jobId, {status: "failed"});
         show("failed", LABEL.failed + ".", d.runUrl, "Lihat log");
+      } else if (d.status === "blocked"){
+        stopPolling();
+        show("failed", "🚫 Build ini diblokir oleh admin.");
       } else if (d.status === "building"){
         // angka dari server = batas bawah; di sela laporan, bar merayap pelan agar tidak terlihat macet
         const base = typeof d.progress === "number" ? d.progress : 10;
-        setBar(Math.max(base, Math.min(shownPct + 0.7, base + 20, 97)));
-        show("", "🔧 " + (d.step || "Membangun APK") + "…");
+        setBar(Math.max(base, Math.min(shownPct + 0.5, base + 6, 97)));
+        show("", "🔧 " + (d.step || "Membangun") + "…");
       } else {
         setBar(3);
         show("", LABEL[d.status] || d.status);
@@ -861,7 +922,8 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     return d;
   }
   const mt = t => new Date(t).toLocaleString("id-ID");
-  const MST = { queued: "antre", building: "membangun", done: "selesai", failed: "gagal" };
+  const MST = { queued: "antre", building: "membangun", done: "selesai", failed: "gagal", blocked: "🚫 diblokir" };
+  let jobsLoaded = [];
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const kv = (k, v) => { const d = el("div"); d.append(el("b", "", k + ": "), document.createTextNode(v)); return d; };
   let jCursor = "";
@@ -874,8 +936,20 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     } else if (!confirm("Buka blokir " + (email || uid) + "?")) return;
     try {
       await admApi(ban ? "/api/admin/ban" : "/api/admin/unban", { uid, email, reason });
+      if (ban) {
+        const act = jobsLoaded.filter(j => j.uid === uid && ["done", "building", "queued"].includes(j.status));
+        if (act.length && confirm("Sekalian blokir & hapus " + act.length + " APK/EXE milik akun ini yang tampil di daftar?")) {
+          for (const j of act) { try { await admApi("/api/admin/takedown", { jobId: j.jobId }); } catch (e) { $("mMsg").textContent = "❌ " + e.message; } }
+        }
+      }
       await Promise.all([loadJobs(true), loadBans()]);
     } catch (e) { $("mMsg").textContent = "❌ " + e.message; }
+  }
+
+  async function takedown(j) {
+    if (!confirm("Blokir & hapus file " + (j.target === "exe" ? "EXE" : "APK") + " \u201C" + (j.name || "-") + "\u201D?\nFile di GitHub dihapus, tautan unduhan langsung mati.")) return;
+    try { await admApi("/api/admin/takedown", { jobId: j.jobId }); await loadJobs(true); }
+    catch (e) { $("mMsg").textContent = "❌ " + e.message; }
   }
 
   function jobRow(j) {
@@ -889,7 +963,12 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     if (j.status === "done" && typeof j.apkUrl === "string" && j.apkUrl.startsWith("https://github.com/")) {
       const a = el("a", "hdl", "⬇ Unduh"); a.href = j.apkUrl; a.rel = "noopener"; btns.appendChild(a);
     }
-    const bb = el("button", "alt", j.banned ? "Buka blokir" : "Blokir");
+    if (["done", "building", "queued"].includes(j.status)) {
+      const tb = el("button", "alt", "🗑 Blokir file"); tb.type = "button";
+      tb.addEventListener("click", () => takedown(j));
+      btns.appendChild(tb);
+    }
+    const bb = el("button", "alt", j.banned ? "Buka blokir akun" : "Blokir akun");
     bb.type = "button"; bb.addEventListener("click", () => doBan(j.uid, j.email, !j.banned));
     btns.appendChild(bb);
     top.append(info, btns);
@@ -913,11 +992,11 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
 
   async function loadJobs(reset) {
     const out = $("mList"), m = $("mMsg"); m.textContent = "";
-    if (reset) { out.textContent = ""; jCursor = ""; }
+    if (reset) { out.textContent = ""; jCursor = ""; jobsLoaded = []; }
     $("mMore").style.display = "none";
     try {
       const d = await admApi("/api/admin/jobs" + (jCursor ? "?cursor=" + encodeURIComponent(jCursor) : ""));
-      d.jobs.forEach(j => out.appendChild(jobRow(j)));
+      d.jobs.forEach(j => { jobsLoaded.push(j); out.appendChild(jobRow(j)); });
       if (reset && !d.jobs.length) out.appendChild(el("small", "", "Belum ada build."));
       jCursor = d.cursor || "";
       $("mMore").style.display = jCursor ? "" : "none";
