@@ -38,20 +38,39 @@ async function userIcon() {
     .toBuffer();
 }
 
+// Splash screen: logo (utuh, tidak dipotong) diletakkan di tengah kanvas persegi besar dengan warna
+// latar senada supaya terlihat rapi di semua rasio layar (capacitor-assets otomatis crop sesuai device).
+async function splashIcon(base, hue) {
+  const CANVAS = 2732; // ukuran rekomendasi @capacitor/assets
+  const LOGO = Math.round(CANVAS * 0.42); // logo ambil ~42% lebar kanvas, sisanya jadi padding aman
+  const bg = hslHex(hue, 0.55, 0.16); // latar gelap senada, kontras aman utk logo terang/gelap
+  const logo = await sharp(base).resize(LOGO, LOGO, { fit: "contain", background: CLEAR }).png().toBuffer();
+  return sharp({ create: { width: CANVAS, height: CANVAS, channels: 4, background: bg } })
+    .composite([{ input: logo, gravity: "center" }])
+    .png()
+    .toBuffer();
+}
+
 async function main() {
   fs.mkdirSync("assets", { recursive: true });
-  let base;
+  let base, hue = 222; // hue default kalau ikon dari user (tanpa info warna huruf)
   if (hasIcon) {
     try { base = await userIcon(); }
     catch (err) { console.warn("Ikon pengguna tidak bisa dibaca, pakai ikon huruf:", err.message); }
   }
-  if (!base) base = await letterIcon();
+  if (!base) {
+    hue = 0;
+    for (const ch of name) hue = (hue * 31 + ch.codePointAt(0)) % 360;
+    base = await letterIcon();
+  }
   fs.writeFileSync("assets/icon-only.png", base);
   // file ini hanya agar capacitor-assets berjalan; ikon adaptifnya dibuang di tahap "android"
   fs.writeFileSync("assets/icon-foreground.png", base);
   fs.writeFileSync("assets/icon-background.png",
     await sharp({ create: { width: SIZE, height: SIZE, channels: 4, background: CLEAR } }).png().toBuffer());
-  console.log("Ikon siap");
+  fs.writeFileSync("assets/splash.png", await splashIcon(base, hue));
+  fs.writeFileSync("assets/splash-dark.png", await splashIcon(base, hue));
+  console.log("Ikon & splash siap");
 }
 
 // Android: pakai ikon biasa (persegi) berisi logo penuh, bukan ikon adaptif yang selalu dipotong topeng launcher.
