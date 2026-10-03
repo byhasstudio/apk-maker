@@ -128,7 +128,7 @@ jobs:
           pg 20 "Memasang Capacitor"
           mkdir app && cd app
           npm init -y >/dev/null
-          npm install --no-audit --no-fund @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/assets@3 sharp
+          npm install --no-audit --no-fund @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/assets@3 @capacitor/splash-screen@6 @capacitor/status-bar@6 sharp
           pg 28 "Membuat konfigurasi"
           cp ../builder/make-config.js ../builder/make-icon.js .
           node make-config.js
@@ -226,6 +226,18 @@ jobs:
           print("Versi", v, "kode", code)
           PY
 
+      - name: Tambah dependency pull-to-refresh
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          f = "app/android/app/build.gradle"
+          s = open(f, encoding="utf-8").read()
+          assert "dependencies {" in s, "dependencies block tidak ditemukan di build.gradle"
+          s = s.replace("dependencies {", 'dependencies {\n    implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"', 1)
+          open(f, "w", encoding="utf-8").write(s)
+          print("Dependency SwipeRefreshLayout ditambahkan")
+          PY
+
       - name: Pasang kill switch dan halaman offline
         run: |
           set -euo pipefail
@@ -236,9 +248,11 @@ jobs:
           import android.content.SharedPreferences;
           import android.os.Handler;
           import android.os.Looper;
+          import android.view.ViewGroup;
           import android.webkit.WebResourceError;
           import android.webkit.WebResourceRequest;
           import android.webkit.WebView;
+          import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
           import com.getcapacitor.BridgeActivity;
           import com.getcapacitor.BridgeWebViewClient;
           import java.io.BufferedReader;
@@ -259,11 +273,14 @@ jobs:
             private boolean forced = false;
             private volatile boolean checking = false;
             private volatile boolean blocked = false;
+            private SwipeRefreshLayout swipe;
+            private boolean exiting = false;
 
             @Override
             public void onCreate(android.os.Bundle savedInstanceState) {
               if (SECURE) getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE);
               super.onCreate(savedInstanceState);
+              setupPullToRefresh();
               if (OFFLINE.length() > 0) {
                 try {
                   getBridge().setWebViewClient(new BridgeWebViewClient(getBridge()) {
@@ -277,6 +294,42 @@ jobs:
                   });
                 } catch (Exception ignored) {}
               }
+            }
+
+            private void setupPullToRefresh() {
+              try {
+                final WebView wv = getBridge().getWebView();
+                ViewGroup parent = (ViewGroup) wv.getParent();
+                int idx = parent.indexOfChild(wv);
+                ViewGroup.LayoutParams lp = wv.getLayoutParams();
+                parent.removeView(wv);
+                swipe = new SwipeRefreshLayout(this);
+                swipe.setLayoutParams(lp);
+                swipe.addView(wv, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                parent.addView(swipe, idx);
+                swipe.setOnRefreshListener(() -> {
+                  try { wv.reload(); } catch (Exception ignored) {}
+                  new Handler(Looper.getMainLooper()).postDelayed(() -> { if (swipe != null) swipe.setRefreshing(false); }, 1500);
+                });
+              } catch (Exception ignored) {}
+            }
+
+            @Override
+            public void onBackPressed() {
+              try {
+                WebView wv = getBridge().getWebView();
+                if (wv != null && wv.canGoBack()) { wv.goBack(); return; }
+              } catch (Exception ignored) {}
+              if (exiting) { super.onBackPressed(); return; }
+              exiting = true;
+              new android.app.AlertDialog.Builder(this)
+                .setTitle("Keluar aplikasi?")
+                .setMessage("Yakin ingin keluar?")
+                .setCancelable(true)
+                .setPositiveButton("Keluar", (d, w) -> finishAndRemoveTask())
+                .setNegativeButton("Batal", (d, w) -> exiting = false)
+                .setOnCancelListener(d -> exiting = false)
+                .show();
             }
 
             @Override
