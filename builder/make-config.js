@@ -24,6 +24,20 @@ const cfg = {
   webDir: "www",
   backgroundColor: "#ffffff",
   android: { backgroundColor: "#ffffff", allowMixedContent: false },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 1800,
+      launchAutoHide: true,
+      backgroundColor: "#29374d", // senada dgn latar splash.png yang dibuat make-icon.js
+      androidScaleType: "CENTER_CROP",
+      showSpinner: false,
+    },
+    StatusBar: {
+      style: "DARK",          // ikon status bar gelap (cocok utk latar app yang umumnya terang)
+      backgroundColor: "#ffffff",
+      overlaysWebView: false,
+    },
+  },
 };
 
 if (mode === "url") {
