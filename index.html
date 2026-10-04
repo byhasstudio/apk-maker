@@ -1331,7 +1331,9 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
       t.append(n, document.createElement("br"), s); row.appendChild(t);
       if (b.status === "done" && typeof b.url === "string" && b.url.startsWith("https://github.com/")) {
         const a = document.createElement("a"); a.href = b.url; a.rel = "noopener"; a.className = "hdl"; a.textContent = "⬇"; row.appendChild(a);
-        const pg = document.createElement("a"); pg.href = API + "/d/" + b.id; pg.target = "_blank"; pg.rel = "noopener"; pg.className = "hdl"; pg.textContent = "🔗"; row.appendChild(pg);
+        const pg = document.createElement("button"); pg.type = "button"; pg.className = "hdl"; pg.textContent = "🔗";
+        pg.addEventListener("click", () => shareLink(API + "/d/" + b.id, b.name));
+        row.appendChild(pg);
       }
       el.appendChild(row);
     });
