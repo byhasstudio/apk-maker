@@ -782,20 +782,31 @@ $("appId").addEventListener("input", e => {
   if (e.target.value) { appIdTouched = true; } else { appIdTouched = false; autoAppId(); }
 });
 
-/* ---------- Package ID otomatis dari nama aplikasi ---------- */
+/* ---------- Package ID otomatis dari nama aplikasi (dan beda-beda kalau namanya sama) ---------- */
 let appIdTouched = false;
+const USEDID_KEY = "apkmaker.usedAppIds";
+function loadUsedIds(){ try { return new Set(JSON.parse(localStorage.getItem(USEDID_KEY) || "[]")); } catch(e){ return new Set(); } }
+let usedIds = loadUsedIds();
+function markIdUsed(id){
+  if (!id) return;
+  usedIds.add(id);
+  if (usedIds.size > 300) usedIds = new Set([...usedIds].slice(-300)); // batasi riwayat biar tidak membengkak
+  try { localStorage.setItem(USEDID_KEY, JSON.stringify([...usedIds])); } catch(e){}
+}
 function slugPart(s){
   s = (s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, ""); // hilangkan aksen
   s = s.toLowerCase().replace(/[^a-z0-9]+/g, "");
   if (!s || /^[0-9]/.test(s)) s = "a" + s;                         // segmen Java tidak boleh diawali angka
-  s = s.slice(0, 20) || "app";
-  return JAVA_KEYWORDS.has(s) ? s + "x" : s;                       // hindari kata terlarang Java
+  s = s.slice(0, 16) || "app";
+  return JAVA_KEYWORDS.has(s) ? s + "x" : s;
 }
 function autoAppId(){
   if (appIdTouched) return;
-  const name = $("appName").value.trim();
-  const id = "com.apkmaker." + slugPart(name);
-  $("appId").value = validAppId(id) ? id : "com.apkmaker.app";
+  const base = slugPart($("appName").value.trim());
+  let id = "com.apkmaker." + base, n = 2;
+  // nama sama -> id sama: tambahkan angka di belakang sampai ketemu yang belum pernah dipakai
+  while (usedIds.has(id) || !validAppId(id)) { id = "com.apkmaker." + base + n; n++; if (n > 9999) break; }
+  $("appId").value = validAppId(id) ? id : "com.apkmaker.app" + Date.now().toString().slice(-6);
 }
 $("appName").addEventListener("input", autoAppId);
 autoAppId();
@@ -1111,6 +1122,7 @@ $("btn").addEventListener("click", async () => {
     if (!r.ok) throw new Error(d.error || ("Permintaan ditolak (" + r.status + ")."));
     if (!d.jobId) throw new Error("Server tidak mengirim ID pekerjaan.");
     if (window.fbSaveBuild) window.fbSaveBuild(d.jobId, {name: appName, target, status: "queued"}, true);
+    if (target === "apk") markIdUsed(appId);
     started = true;
     $("buildCode").value = "";
     if (adm) {
