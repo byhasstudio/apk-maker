@@ -404,6 +404,7 @@
         <div class="jcStep" style="margin-top:4px;font-size:.78rem;color:var(--mut)">Menunggu…</div>
         <div class="jcStatus" style="margin-top:8px;padding:8px;border-radius:10px;background:var(--info);font-size:.82rem;word-break:break-word"></div>
         <a class="jcDl" href="#" rel="noopener" style="display:none;margin-top:8px;text-align:center;padding:9px;font-weight:700;background:linear-gradient(90deg,#0a9d4a,#12b886);color:#fff;border-radius:10px;text-decoration:none;font-size:.85rem">⬇ Download</a>
+        <button type="button" class="jcShare alt" style="display:none;margin-top:8px;padding:8px;font-size:.78rem">🔗 Bagikan</button>
         <button type="button" class="jcCancel alt" style="margin-top:8px;padding:8px;font-size:.78rem">✖ Batalkan</button>
       </div>
     </template>
@@ -516,6 +517,12 @@ function store(v){
 }
 function loadJob(){
   try { return JSON.parse(localStorage.getItem(JOB_KEY) || "null"); } catch(e){ return null; }
+}
+function shareLink(url, title){
+  if (navigator.share) { navigator.share({ title: title || "Unduh aplikasi", url }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => alert("Link disalin:\n" + url)).catch(() => prompt("Salin link ini:", url));
+  } else prompt("Salin link ini:", url);
 }
 async function readJson(r){
   try { return await r.json(); } catch(e){ return {}; }
@@ -850,6 +857,7 @@ function createJobCard(jobId, target, name){
   $("multiJobs").prepend(el);
   const s = { el, timer: null, clock: null, shownPct: 0, srvPct: 0, remEst: 0, remAt: 0, jobStart: 0, etaMs: 0, target, active: true };
   jobsState.set(jobId, s);
+  el.querySelector(".jcShare").addEventListener("click", () => shareLink(API + "/d/" + jobId, name || TGT(target)));
   el.querySelector(".jcCancel").addEventListener("click", async () => {
     if (!confirm("Batalkan pembuatan " + TGT(target) + " ini?")) return;
     const btn = el.querySelector(".jcCancel"); btn.disabled = true; btn.textContent = "Membatalkan…";
@@ -896,6 +904,7 @@ function pollMulti(jobId, startedAt, target, name){
           if (window.fbSaveBuild) window.fbSaveBuild(jobId, {status:"done", url:d.apkUrl});
           jcStatus(s, "done", LABEL.done);
           const dl = s.el.querySelector(".jcDl"); dl.href = d.apkUrl; dl.style.display = "block";
+          s.el.querySelector(".jcShare").style.display = "block";
         } else jcStatus(s, "failed", "❌ Build selesai tetapi link tidak valid.");
       } else if (d.status === "failed"){
         jcFinish(s);
@@ -1458,6 +1467,11 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     const btns = el("div", "mbtns");
     if (j.status === "done" && typeof j.apkUrl === "string" && j.apkUrl.startsWith("https://github.com/")) {
       const a = el("a", "hdl", "⬇ Unduh"); a.href = j.apkUrl; a.rel = "noopener"; btns.appendChild(a);
+      if (!isBlocked(j) && !j.purged) {
+        const sh = el("button", "alt", "🔗 Bagikan"); sh.type = "button";
+        sh.addEventListener("click", () => shareLink(API + "/d/" + j.jobId, j.name));
+        btns.appendChild(sh);
+      }
     }
     const blk = isBlocked(j);
     if (blk || ["done", "building", "queued"].includes(j.status)) {
