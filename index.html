@@ -779,7 +779,26 @@ document.querySelectorAll("input[name=target]").forEach(r => r.addEventListener(
 
 $("appId").addEventListener("input", e => {
   e.target.value = e.target.value.toLowerCase().replace(/\s+/g, "");
+  if (e.target.value) { appIdTouched = true; } else { appIdTouched = false; autoAppId(); }
 });
+
+/* ---------- Package ID otomatis dari nama aplikasi ---------- */
+let appIdTouched = false;
+function slugPart(s){
+  s = (s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, ""); // hilangkan aksen
+  s = s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  if (!s || /^[0-9]/.test(s)) s = "a" + s;                         // segmen Java tidak boleh diawali angka
+  s = s.slice(0, 20) || "app";
+  return JAVA_KEYWORDS.has(s) ? s + "x" : s;                       // hindari kata terlarang Java
+}
+function autoAppId(){
+  if (appIdTouched) return;
+  const name = $("appName").value.trim();
+  const id = "com.apkmaker." + slugPart(name);
+  $("appId").value = validAppId(id) ? id : "com.apkmaker.app";
+}
+$("appName").addEventListener("input", autoAppId);
+autoAppId();
 
 /* ---------- multi-build paralel (khusus admin: tidak perlu antre satu-satu) ---------- */
 const MULTI_KEY = "apkmaker.jobs";
