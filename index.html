@@ -388,6 +388,26 @@
     <div id="status" role="status" aria-live="polite"></div>
     <a id="dl" href="#" rel="noopener">⬇ Download</a>
     <a id="dpage" href="#" target="_blank" rel="noopener" style="display:none;margin-top:10px;text-align:center;font-size:.85rem;color:var(--acc)">🔗 Halaman unduh publik (bagikan ke orang lain)</a>
+
+    <!-- Admin: izinkan banyak build berjalan bersamaan, masing-masing punya kartu progres sendiri -->
+    <template id="jobCardTpl">
+      <div class="jobCard" style="border:1.5px solid var(--bd);border-radius:16px;padding:16px;text-align:center">
+        <div class="jcTitle" style="font-weight:700;margin-bottom:8px"></div>
+        <div class="ringWrap" style="width:96px;height:96px">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="rt" cx="60" cy="60" r="52"/>
+            <circle class="jcRingFg" cx="60" cy="60" r="52" transform="rotate(-90 60 60)" style="fill:none;stroke:var(--acc);stroke-width:9;stroke-linecap:round;stroke-dasharray:326.73;stroke-dashoffset:326.73;transition:stroke-dashoffset .9s ease-out"/>
+          </svg>
+          <div class="rc"><b class="jcPct" style="font-size:1.1rem">0%</b><small class="jcTime">0:00</small></div>
+        </div>
+        <div class="jcEta" style="margin-top:6px;font-size:.82rem;font-weight:700"></div>
+        <div class="jcStep" style="margin-top:4px;font-size:.78rem;color:var(--mut)">Menunggu…</div>
+        <div class="jcStatus" style="margin-top:8px;padding:8px;border-radius:10px;background:var(--info);font-size:.82rem;word-break:break-word"></div>
+        <a class="jcDl" href="#" rel="noopener" style="display:none;margin-top:8px;text-align:center;padding:9px;font-weight:700;background:linear-gradient(90deg,#0a9d4a,#12b886);color:#fff;border-radius:10px;text-decoration:none;font-size:.85rem">⬇ Download</a>
+        <button type="button" class="jcCancel alt" style="margin-top:8px;padding:8px;font-size:.78rem">✖ Batalkan</button>
+      </div>
+    </template>
+    <div id="multiJobs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:16px"></div>
   </div>
 
   </div>
@@ -761,6 +781,129 @@ $("appId").addEventListener("input", e => {
   e.target.value = e.target.value.toLowerCase().replace(/\s+/g, "");
 });
 
+/* ---------- multi-build paralel (khusus admin: tidak perlu antre satu-satu) ---------- */
+const MULTI_KEY = "apkmaker.jobs";
+const jobsState = new Map(); // jobId -> state kartu progres miliknya sendiri
+
+function loadMultiJobs(){ try { return JSON.parse(localStorage.getItem(MULTI_KEY) || "[]"); } catch(e){ return []; } }
+function saveMultiJobs(){
+  const arr = [...jobsState.entries()].filter(([,s]) => s.active).map(([id, s]) => ({id, t: s.jobStart || Date.now(), target: s.target}));
+  try { arr.length ? localStorage.setItem(MULTI_KEY, JSON.stringify(arr)) : localStorage.removeItem(MULTI_KEY); } catch(e){}
+}
+function jcSetBar(s, p){
+  s.shownPct = Math.max(s.shownPct, p);
+  s.el.querySelector(".jcRingFg").style.strokeDashoffset = RING * (1 - Math.min(100, s.shownPct) / 100);
+  s.el.querySelector(".jcPct").textContent = Math.floor(s.shownPct) + "%";
+}
+function jcStatus(s, cls, text, linkUrl, linkText){
+  const box = s.el.querySelector(".jcStatus");
+  box.style.background = cls === "done" ? "var(--ok)" : cls === "failed" ? "var(--err)" : "var(--info)";
+  box.textContent = text;
+  if (linkUrl && linkUrl.startsWith("https://github.com/")){
+    box.appendChild(document.createTextNode(" "));
+    const a = document.createElement("a"); a.href = linkUrl; a.target = "_blank"; a.rel = "noopener"; a.textContent = linkText || "Lihat log";
+    box.appendChild(a);
+  }
+}
+function jcEta(s){
+  const el = s.el.querySelector(".jcEta");
+  if (!s.jobStart || s.shownPct >= 100){ el.textContent = ""; return; }
+  const left = s.remAt ? Math.max(0, s.remEst - (Date.now() - s.remAt)) : 0;
+  el.textContent = !left ? "" : left < 8000 ? "Hampir selesai…" : left < 60000 ? "Sisa ± " + Math.ceil(left/10000)*10 + " dtk" : "Sisa ± " + Math.ceil(left/60000) + " mnt";
+}
+function jcFinish(s){ clearInterval(s.timer); clearInterval(s.clock); s.active = false; s.el.querySelector(".jcCancel").style.display = "none"; saveMultiJobs(); }
+
+function createJobCard(jobId, target, name){
+  const tpl = $("jobCardTpl").content.cloneNode(true);
+  const el = tpl.querySelector(".jobCard");
+  el.querySelector(".jcTitle").textContent = (target === "exe" ? "🪟 " : "🤖 ") + (name || TGT(target));
+  $("multiJobs").prepend(el);
+  const s = { el, timer: null, clock: null, shownPct: 0, srvPct: 0, remEst: 0, remAt: 0, jobStart: 0, etaMs: 0, target, active: true };
+  jobsState.set(jobId, s);
+  el.querySelector(".jcCancel").addEventListener("click", async () => {
+    if (!confirm("Batalkan pembuatan " + TGT(target) + " ini?")) return;
+    const btn = el.querySelector(".jcCancel"); btn.disabled = true; btn.textContent = "Membatalkan…";
+    try {
+      const tk = window.fbToken ? await window.fbToken() : null;
+      if (!tk) throw new Error("Silakan masuk dulu.");
+      const r = await fetch(API + "/api/cancel", {method:"POST", headers:{"Content-Type":"application/json", Authorization:"Bearer "+tk}, body: JSON.stringify({jobId})});
+      const d = await readJson(r);
+      if (!r.ok) throw new Error(d.error || ("Ditolak (" + r.status + ")."));
+      jcFinish(s);
+      if (window.fbSaveBuild) window.fbSaveBuild(jobId, {status: "cancelled"});
+      jcStatus(s, "failed", "🛑 Pembuatan " + TGT(target) + " dibatalkan.");
+    } catch(e){ btn.disabled = false; btn.textContent = "✖ Batalkan"; alert(e.message); }
+  });
+  return s;
+}
+
+function pollMulti(jobId, startedAt, target, name){
+  const s = jobsState.get(jobId) || createJobCard(jobId, target, name);
+  const start = startedAt || Date.now();
+  s.jobStart = start; s.active = true;
+  clearInterval(s.timer); clearInterval(s.clock);
+  const tickClock = () => {
+    const sec = Math.max(0, Math.floor((Date.now() - start)/1000));
+    s.el.querySelector(".jcTime").textContent = Math.floor(sec/60) + ":" + String(sec%60).padStart(2,"0");
+    jcEta(s);
+  };
+  tickClock(); s.clock = setInterval(tickClock, 1000);
+  saveMultiJobs();
+  let checking = false;
+  const tick = async () => {
+    if (checking) return;
+    if (Date.now() - start > MAX_WAIT_MS){ jcFinish(s); jcStatus(s, "failed", "❌ Waktu habis."); return; }
+    checking = true;
+    try {
+      const r = await fetch(API + "/api/status/" + encodeURIComponent(jobId));
+      const d = await readJson(r);
+      if (r.status === 404){ jcFinish(s); jcStatus(s, "failed", "❌ Pekerjaan tidak ditemukan."); return; }
+      if (!r.ok || !d.status) return;
+      if (d.status === "done"){
+        jcFinish(s);
+        if (d.apkUrl && d.apkUrl.startsWith("https://github.com/")){
+          jcSetBar(s, 100);
+          if (window.fbSaveBuild) window.fbSaveBuild(jobId, {status:"done", url:d.apkUrl});
+          jcStatus(s, "done", LABEL.done);
+          const dl = s.el.querySelector(".jcDl"); dl.href = d.apkUrl; dl.style.display = "block";
+        } else jcStatus(s, "failed", "❌ Build selesai tetapi link tidak valid.");
+      } else if (d.status === "failed"){
+        jcFinish(s);
+        if (window.fbSaveBuild) window.fbSaveBuild(jobId, {status:"failed"});
+        jcStatus(s, "failed", LABEL.failed + ".", d.runUrl, "Lihat log");
+      } else if (d.status === "cancelled"){
+        jcFinish(s); jcStatus(s, "failed", "🛑 Pembuatan " + TGT(target) + " dibatalkan.");
+      } else if (d.status === "blocked"){
+        jcFinish(s); jcStatus(s, "failed", "🚫 Build ini diblokir oleh admin.");
+      } else if (d.status === "building"){
+        if (typeof d.eta === "number" && d.eta > 0) s.etaMs = d.eta;
+        const base = typeof d.progress === "number" ? d.progress : 10;
+        s.srvPct = base;
+        const t0 = s.etaMs || ETA_DEF[target] || 300000;
+        const elapsed = Date.now() - s.jobStart;
+        let total = t0;
+        if (base >= 10){ const byRate = elapsed / Math.max(.05, timeFrac(base)); const w = Math.min(.8, base/90); total = (1-w)*t0 + w*Math.min(Math.max(byRate, t0*.5), t0*3); }
+        const fresh = Math.max(0, total - elapsed);
+        s.remEst = s.remAt ? s.remEst*.6 + fresh*.4 : fresh; s.remAt = Date.now();
+        jcSetBar(s, Math.max(base, Math.min(s.shownPct + 0.5, base + 6, 97)));
+        jcStatus(s, "", "🔧 " + (d.step || "Membangun") + "…");
+      } else {
+        jcSetBar(s, 3);
+        jcStatus(s, "", LABEL[d.status] || d.status);
+      }
+    } catch(e) { /* jaringan putus sementara */ } finally { checking = false; }
+  };
+  tick();
+  s.timer = setInterval(tick, POLL_MS);
+}
+
+let multiResumed = false;
+function resumeMultiJobs(){
+  if (multiResumed) return;
+  multiResumed = true;
+  loadMultiJobs().forEach(j => { if (j && j.id && Date.now() - j.t < MAX_WAIT_MS) pollMulti(j.id, j.t, j.target); });
+}
+
 /* ---------- polling ---------- */
 function poll(jobId, startedAt, target){
   const start = startedAt || Date.now();
@@ -889,7 +1032,7 @@ $("cancelBtn").addEventListener("click", async () => {
 
 /* ---------- kirim ---------- */
 $("btn").addEventListener("click", async () => {
-  if (busy) return;
+  if (busy && !window.isAdmin) return; // admin: boleh kirim build lagi walau yang lain masih berjalan
   const mode = document.querySelector("input[name=mode]:checked").value;
   const appName = $("appName").value.trim();
   const appId = $("appId").value.trim();
@@ -939,9 +1082,8 @@ $("btn").addEventListener("click", async () => {
 
   const tk = window.fbToken ? await window.fbToken() : null;
   if (!tk) return show("failed", "Silakan masuk dulu.");
-  setBusy(true);
-  hideBar();
-  $("dl").style.display = "none"; $("dpage").style.display = "none";
+  const adm = !!window.isAdmin;
+  if (!adm) { setBusy(true); hideBar(); $("dl").style.display = "none"; $("dpage").style.display = "none"; }
   show("", "⏳ Mengirim…");
   let started = false;
   try {
@@ -949,16 +1091,21 @@ $("btn").addEventListener("click", async () => {
     const d = await readJson(r);
     if (!r.ok) throw new Error(d.error || ("Permintaan ditolak (" + r.status + ")."));
     if (!d.jobId) throw new Error("Server tidak mengirim ID pekerjaan.");
-    show("", LABEL.queued);
-    setBar(2);
     if (window.fbSaveBuild) window.fbSaveBuild(d.jobId, {name: appName, target, status: "queued"}, true);
     started = true;
     $("buildCode").value = "";
-    poll(d.jobId, undefined, target);
+    if (adm) {
+      show("", "✅ Build \"" + appName + "\" dikirim, lihat kartu progres di bawah.");
+      pollMulti(d.jobId, undefined, target, appName);
+    } else {
+      show("", LABEL.queued);
+      setBar(2);
+      poll(d.jobId, undefined, target);
+    }
   } catch(e){
     show("failed", "❌ " + e.message);
   } finally {
-    if (!started) setBusy(false);
+    if (!adm && !started) setBusy(false);
     try { turnstile.reset(widgetId); } catch(e){}
   }
 });
@@ -1157,7 +1304,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     window.isAdmin = adm;
     $("adminCard").style.display = adm ? "" : "none";
     $("monCard").style.display = adm ? "" : "none";
-    if (adm) { loadJobs(true); loadBans(); loadReps(); loadStats(); admApi("/api/admin/config").then(c => { $("nMsg").value = c.msg || ""; }).catch(() => {}); }
+    if (adm) { loadJobs(true); loadBans(); loadReps(); loadStats(); admApi("/api/admin/config").then(c => { $("nMsg").value = c.msg || ""; }).catch(() => {}); resumeMultiJobs(); }
     $("codeBox").style.display = adm ? "none" : "";
     $("authCard").style.display = (!u && !pending) ? "" : "none";
     $("otpCard").style.display = (!ok && (u || pending)) ? "" : "none";
