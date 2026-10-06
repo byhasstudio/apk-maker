@@ -31,7 +31,7 @@ on:
         required: true
         type: string
       perms:
-        description: "daftar izin, dipisah koma (camera,microphone,location,notifications,media,overlay)"
+        description: "daftar izin, dipisah koma (camera,microphone,location,notifications,media,overlay,island)"
         required: false
         type: string
         default: ""
@@ -531,6 +531,7 @@ jobs:
             "location": ["android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION"],
             "notifications": ["android.permission.POST_NOTIFICATIONS"],
             "overlay": ["android.permission.SYSTEM_ALERT_WINDOW"],
+            "island": ["android.permission.SYSTEM_ALERT_WINDOW", "android.permission.FOREGROUND_SERVICE", "android.permission.FOREGROUND_SERVICE_SPECIAL_USE", "android.permission.POST_NOTIFICATIONS"],
             "media": ["android.permission.READ_MEDIA_IMAGES", "android.permission.READ_MEDIA_VIDEO", "android.permission.READ_MEDIA_AUDIO"],
           }
           want = [p for p in os.environ.get("PERMS", "").split(",") if p in MAP]
@@ -556,6 +557,40 @@ jobs:
             npm install --no-audit --no-fund @capacitor/local-notifications@6
             npx cap sync android
           fi
+
+      - name: Pasang Dynamic Island native (jika dipilih)
+        if: ${{ contains(inputs.perms, 'island') }}
+        run: |
+          set -euo pipefail
+          . "$GITHUB_WORKSPACE/.pg.sh"
+          pg 61 "Memasang Dynamic Island native"
+          test -d builder/island || { echo "::error::folder builder/island tidak ada di repo"; exit 1; }
+          python3 - <<'PY'
+          import glob, os, re
+          files = glob.glob("app/android/app/src/main/java/**/MainActivity.java", recursive=True)
+          assert len(files) == 1, files
+          f = files[0]
+          d = os.path.dirname(f)
+          s = open(f, encoding="utf-8").read()
+          pkg = re.search(r"^package\s+([\w.]+);", s, re.M).group(1)
+          for n in ("IslandService", "IslandListener", "IslandBridge"):
+              t = open("builder/island/%s.java" % n, encoding="utf-8").read().replace("__PKG__", pkg)
+              open(os.path.join(d, n + ".java"), "w", encoding="utf-8").write(t)
+          s, n = re.subn(r"^(\s*)setupPullToRefresh\(\);", r'\1setupPullToRefresh();\n\1try { getBridge().getWebView().addJavascriptInterface(new IslandBridge(this), "AndroidIsland"); } catch (Exception ignored) {}', s, count=1, flags=re.M)
+          assert n == 1, "setupPullToRefresh tidak ditemukan di MainActivity"
+          open(f, "w", encoding="utf-8").write(s)
+          M = "app/android/app/src/main/AndroidManifest.xml"
+          m = open(M, encoding="utf-8").read()
+          ENT = ('    <service android:name="%s.IslandService" android:exported="false" android:foregroundServiceType="specialUse">\n'
+                 '      <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Menampilkan overlay Dynamic Island" />\n'
+                 '    </service>\n'
+                 '    <service android:name="%s.IslandListener" android:exported="true" android:label="Dynamic Island" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">\n'
+                 '      <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>\n'
+                 '    </service>\n') % (pkg, pkg)
+          assert m.count("</application>") == 1
+          open(M, "w", encoding="utf-8").write(m.replace("</application>", ENT + "  </application>"))
+          print("Dynamic Island native dipasang, paket:", pkg)
+          PY
 
       - name: Atur orientasi layar
         if: ${{ inputs.orient != 'auto' }}
