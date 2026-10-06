@@ -32,6 +32,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import java.util.ArrayList;
 
 public class IslandService extends Service {
   public static volatile IslandService instance;
@@ -41,7 +42,11 @@ public class IslandService extends Service {
 
   private final Handler main = new Handler(Looper.getMainLooper());
   private WindowManager wm;
-  private FrameLayout root, island;
+  private LinearLayout root;
+  private FrameLayout island;
+  private static final int MAX_EXTRA = 2;           // notifikasi tambahan yang ditumpuk di bawah
+  private final ArrayList<View> extras = new ArrayList<View>();
+  private int colTop, colBottom, tc, sc;
   private LinearLayout content;
   private ImageView iconView;
   private TextView titleView, textView;
@@ -104,8 +109,11 @@ public class IslandService extends Service {
     bg.setColors(new int[] { top, bottom });
     bg.setStroke(dp(1), Color.argb(110, 255, 255, 255));
     boolean light = (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6;
-    titleView.setTextColor(light ? 0xFF1C1C1E : Color.WHITE);
-    textView.setTextColor(light ? 0xFF55555C : 0xFFD0D0D6);
+    colTop = top; colBottom = bottom;
+    tc = light ? 0xFF1C1C1E : Color.WHITE;
+    sc = light ? 0xFF55555C : 0xFFD0D0D6;
+    titleView.setTextColor(tc);
+    textView.setTextColor(sc);
   }
 
   private void build() {
@@ -153,10 +161,15 @@ public class IslandService extends Service {
 
     island = new FrameLayout(this);
     island.setBackground(bg);
-    island.setLayoutParams(new FrameLayout.LayoutParams(cW, cH, Gravity.CENTER_HORIZONTAL));
+    LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(cW, cH);
+    ilp.gravity = Gravity.CENTER_HORIZONTAL;
+    island.setLayoutParams(ilp);
     island.addView(content);
     island.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { onTap(); } });
-    root = new FrameLayout(this);
+    root = new LinearLayout(this);
+    root.setOrientation(LinearLayout.VERTICAL);
+    root.setGravity(Gravity.CENTER_HORIZONTAL);
+    extras.clear();
     root.addView(island);
 
     WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
@@ -174,6 +187,7 @@ public class IslandService extends Service {
     main.removeCallbacks(collapseRun);
     if (anim != null) anim.cancel();
     if (root != null) { try { wm.removeView(root); } catch (Exception ignored) {} }
+    extras.clear();
     root = null; island = null;
   }
 
@@ -211,6 +225,12 @@ public class IslandService extends Service {
   public void show(final String title, final String text, final Drawable icon, final PendingIntent pi) {
     main.post(new Runnable() { public void run() {
       if (root == null) return;
+      if (expanded && hasContent) {
+        addExtra(title, text, icon, pi);
+        main.removeCallbacks(collapseRun);
+        main.postDelayed(collapseRun, SHOW_MS);
+        return;
+      }
       curIntent = pi; hasContent = true;
       titleView.setText(title);
       textView.setText(text);
@@ -234,6 +254,7 @@ public class IslandService extends Service {
   private void collapse() {
     expanded = false;
     main.removeCallbacks(collapseRun);
+    clearExtras();
     content.animate().cancel();
     content.animate().alpha(0f).translationY(-dp(4)).setStartDelay(0).setDuration(130).start();
     animateTo(cW, cH);
@@ -247,5 +268,89 @@ public class IslandService extends Service {
       expand();
       main.postDelayed(collapseRun, SHOW_MS);
     }
+  }
+
+  /** Notifikasi baru saat island sudah terbuka: muncul sebagai kartu di bawah yang sebelumnya. */
+  private void addExtra(String title, String text, Drawable icon, final PendingIntent pi) {
+    if (extras.size() >= MAX_EXTRA) fadeRemove(extras.remove(0));
+    View c = makeCard(title, text, icon, pi);
+    extras.add(c);
+    root.addView(c);
+    c.setAlpha(0f);
+    c.setTranslationY(-dp(8));
+    c.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(new DecelerateInterpolator()).start();
+  }
+
+  private View makeCard(String title, String text, Drawable icon, final PendingIntent pi) {
+    GradientDrawable g = new GradientDrawable();
+    g.setOrientation(GradientDrawable.Orientation.TOP_BOTTOM);
+    g.setColors(new int[] { colTop, colBottom });
+    g.setStroke(dp(1), Color.argb(110, 255, 255, 255));
+    g.setCornerRadius(dp(26));
+
+    ImageView iv = new ImageView(this);
+    iv.setLayoutParams(new LinearLayout.LayoutParams(dp(40), dp(40)));
+    iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
+    iv.setClipToOutline(true);
+    iv.setOutlineProvider(new ViewOutlineProvider() {
+      @Override public void getOutline(View v, Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(11)); }
+    });
+    iv.setImageDrawable(icon);
+    iv.setVisibility(icon == null ? View.GONE : View.VISIBLE);
+
+    TextView tv = new TextView(this);
+    tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+    tv.setTypeface(Typeface.DEFAULT_BOLD);
+    tv.setMaxLines(1);
+    tv.setEllipsize(TextUtils.TruncateAt.END);
+    tv.setTextColor(tc);
+    tv.setText(title);
+    TextView xv = new TextView(this);
+    xv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+    xv.setMaxLines(1);
+    xv.setEllipsize(TextUtils.TruncateAt.END);
+    xv.setTextColor(sc);
+    xv.setText(text);
+
+    LinearLayout col = new LinearLayout(this);
+    col.setOrientation(LinearLayout.VERTICAL);
+    LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+    cl.setMarginStart(dp(12));
+    col.setLayoutParams(cl);
+    col.addView(tv);
+    col.addView(xv);
+
+    LinearLayout row = new LinearLayout(this);
+    row.setOrientation(LinearLayout.HORIZONTAL);
+    row.setGravity(Gravity.CENTER_VERTICAL);
+    row.setPadding(dp(18), 0, dp(18), 0);
+    row.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    row.addView(iv);
+    row.addView(col);
+
+    FrameLayout card = new FrameLayout(this);
+    card.setBackground(g);
+    card.addView(row);
+    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(eW, eH);
+    lp.topMargin = dp(6);
+    lp.gravity = Gravity.CENTER_HORIZONTAL;
+    card.setLayoutParams(lp);
+    card.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
+      if (pi != null) { try { pi.send(); } catch (Exception ignored) {} }
+      collapse();
+    } });
+    return card;
+  }
+
+  private void fadeRemove(final View v) {
+    v.animate().cancel();
+    v.animate().alpha(0f).setDuration(150).withEndAction(new Runnable() { public void run() {
+      if (root != null) { try { root.removeView(v); } catch (Exception ignored) {} }
+    } }).start();
+  }
+
+  private void clearExtras() {
+    for (View v : new ArrayList<View>(extras)) fadeRemove(v);
+    extras.clear();
   }
 }
