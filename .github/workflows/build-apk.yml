@@ -31,7 +31,7 @@ on:
         required: true
         type: string
       perms:
-        description: "daftar izin, dipisah koma"
+        description: "daftar izin, dipisah koma (camera,microphone,location,notifications,media,overlay)"
         required: false
         type: string
         default: ""
@@ -275,12 +275,15 @@ jobs:
             private volatile boolean blocked = false;
             private SwipeRefreshLayout swipe;
             private boolean exiting = false;
+            private static final boolean OVERLAY = __OVERLAY__;
+            private boolean overlayAsked = false;
 
             @Override
             public void onCreate(android.os.Bundle savedInstanceState) {
               if (SECURE) getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE);
               super.onCreate(savedInstanceState);
               setupPullToRefresh();
+              if (OVERLAY) addOverlayBridge();
               if (OFFLINE.length() > 0) {
                 try {
                   getBridge().setWebViewClient(new BridgeWebViewClient(getBridge()) {
@@ -336,10 +339,40 @@ jobs:
             public void onResume() {
               super.onResume();
               if (LOCK && !unlocked) lockNow();
+              if (OVERLAY && !prompting) askOverlay();
               final SharedPreferences sp = getSharedPreferences("ks", MODE_PRIVATE);
               blocked = sp.getBoolean("blocked", false);
               if (blocked) showBlocked();
               check(sp);
+            }
+
+            private void askOverlay() {
+              if (overlayAsked || android.os.Build.VERSION.SDK_INT < 23) return;
+              if (android.provider.Settings.canDrawOverlays(this)) return;
+              overlayAsked = true;
+              new android.app.AlertDialog.Builder(this)
+                .setTitle("Izin tampil di atas aplikasi lain")
+                .setMessage("Aplikasi ini butuh izin untuk tampil di atas aplikasi lain. Aktifkan di layar berikutnya.")
+                .setPositiveButton("Buka pengaturan", (d, w) -> openOverlaySettings())
+                .setNegativeButton("Nanti", null)
+                .show();
+            }
+
+            private void openOverlaySettings() {
+              try {
+                startActivity(new android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:" + getPackageName())));
+              } catch (Exception ignored) {}
+            }
+
+            private void addOverlayBridge() {
+              try {
+                getBridge().getWebView().addJavascriptInterface(new Object() {
+                  @android.webkit.JavascriptInterface
+                  public boolean canDrawOverlays() { return android.provider.Settings.canDrawOverlays(MainActivity.this); }
+                  @android.webkit.JavascriptInterface
+                  public void openSettings() { runOnUiThread(() -> openOverlaySettings()); }
+                }, "AndroidOverlay");
+              } catch (Exception ignored) {}
             }
 
             private void showBlocked() {
@@ -480,7 +513,7 @@ jobs:
           assert len(files) == 1, files
           f = files[0]
           pkg = re.search(r"^package\s+([\w.]+);", open(f, encoding="utf-8").read(), re.M).group(1)
-          open(f, "w", encoding="utf-8").write(JAVA.replace("__PKG__", pkg).replace("__API__", api).replace("__JOB__", job).replace("__OFFLINE__", OFFLINE if os.environ.get("MODE") == "url" else "").replace("__SECURE__", "true" if os.environ.get("SECURE") == "true" else "false").replace("__LOCK__", "true" if os.environ.get("LOCK") == "true" else "false"))
+          open(f, "w", encoding="utf-8").write(JAVA.replace("__PKG__", pkg).replace("__API__", api).replace("__JOB__", job).replace("__OFFLINE__", OFFLINE if os.environ.get("MODE") == "url" else "").replace("__SECURE__", "true" if os.environ.get("SECURE") == "true" else "false").replace("__LOCK__", "true" if os.environ.get("LOCK") == "true" else "false").replace("__OVERLAY__", "true" if "overlay" in os.environ.get("PERMS", "").split(",") else "false"))
           print("Kill switch dipasang di", f)
           PY
 
@@ -497,6 +530,7 @@ jobs:
             "microphone": ["android.permission.RECORD_AUDIO", "android.permission.MODIFY_AUDIO_SETTINGS"],
             "location": ["android.permission.ACCESS_FINE_LOCATION", "android.permission.ACCESS_COARSE_LOCATION"],
             "notifications": ["android.permission.POST_NOTIFICATIONS"],
+            "overlay": ["android.permission.SYSTEM_ALERT_WINDOW"],
             "media": ["android.permission.READ_MEDIA_IMAGES", "android.permission.READ_MEDIA_VIDEO", "android.permission.READ_MEDIA_AUDIO"],
           }
           want = [p for p in os.environ.get("PERMS", "").split(",") if p in MAP]
