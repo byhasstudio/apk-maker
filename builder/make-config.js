@@ -18,6 +18,10 @@ if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/.test(id) || id.length > 60) throw n
 if (id.split(".").some(p => JAVA_KEYWORDS.has(p))) throw new Error("appId memakai kata terlarang Java");
 if (mode !== "url" && mode !== "upload") throw new Error("Mode tidak valid");
 
+// Fullscreen (edge-to-edge): untuk APK dengan Dynamic Island, halaman digambar sampai ke bawah status bar
+// (status bar transparan), jadi tidak ada garis/bar hitam di atas.
+const fullscreen = (e.PERMS || "").split(",").includes("island");
+
 const cfg = {
   appId: id,
   appName: name,
@@ -34,8 +38,8 @@ const cfg = {
     },
     StatusBar: {
       style: "DARK",          // ikon status bar gelap (cocok utk latar app yang umumnya terang)
-      backgroundColor: "#ffffff",
-      overlaysWebView: false,
+      backgroundColor: fullscreen ? "#00000000" : "#ffffff",
+      overlaysWebView: fullscreen,
     },
   },
 };
