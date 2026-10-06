@@ -351,6 +351,8 @@
       <label><input type="checkbox" class="perm" value="location"> 📍 Lokasi</label>
       <label><input type="checkbox" class="perm" value="notifications"> 🔔 Notifikasi</label>
       <label><input type="checkbox" class="perm" value="media"> 🖼 Foto, video &amp; audio (galeri)</label>
+      <label class="admperm" style="display:none"><input type="checkbox" class="perm" value="overlay"> 🪟 Tampil di atas aplikasi lain (admin)</label>
+      <label class="admperm" style="display:none"><input type="checkbox" class="perm" value="island"> 🏝 Dynamic Island native (admin)</label>
       <label style="grid-column:1/-1;margin:0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem"><input type="checkbox" id="secure"> 🛡 Anti-screenshot (layar hitam saat difoto/direkam)</label>
       <label style="grid-column:1/-1;margin:0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem"><input type="checkbox" id="lock"> 🔐 Kunci dengan sidik jari / PIN / pola HP</label>
       <label for="orient" style="grid-column:1/-1;margin:8px 0 0">📱 Orientasi layar</label>
@@ -1344,6 +1346,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     const ok = !!u && await isVerified(u);
     const adm = !!(ok && u.emailVerified && (u.email || "").toLowerCase() === ADMIN_EMAIL);
     window.isAdmin = adm;
+    document.querySelectorAll(".admperm").forEach(l => { l.style.display = adm ? "" : "none"; if (!adm) { const c = l.querySelector("input"); if (c) c.checked = false; } });
     $("adminCard").style.display = adm ? "" : "none";
     $("monCard").style.display = adm ? "" : "none";
     if (adm) { loadJobs(true); loadBans(); loadReps(); loadStats(); admApi("/api/admin/config").then(c => { $("nMsg").value = c.msg || ""; }).catch(() => {}); resumeMultiJobs(); }
