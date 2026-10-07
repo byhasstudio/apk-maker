@@ -10,6 +10,11 @@ import android.content.SharedPreferences;
 import android.content.pm.ServiceInfo;
 import android.graphics.Color;
 import android.graphics.Outline;
+import android.graphics.Path;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.AdaptiveIconDrawable;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.Typeface;
@@ -81,6 +86,38 @@ public class IslandService extends Service {
   };
 
   private final Runnable collapseRun = new Runnable() { public void run() { collapse(); } };
+
+  /** Bentuk squircle ala iOS (superellipse, n=5) untuk ukuran w x h. */
+  static Path squircle(float w, float h) {
+    Path p = new Path();
+    final int N = 120;
+    final double e = 2.0 / 5.0;
+    for (int i = 0; i < N; i++) {
+      double t = 2 * Math.PI * i / N;
+      double c = Math.cos(t), sn = Math.sin(t);
+      float x = (float) (w / 2 + Math.signum(c) * Math.pow(Math.abs(c), e) * w / 2);
+      float y = (float) (h / 2 + Math.signum(sn) * Math.pow(Math.abs(sn), e) * h / 2);
+      if (i == 0) p.moveTo(x, y); else p.lineTo(x, y);
+    }
+    p.close();
+    return p;
+  }
+
+  /** Ikon adaptif digambar penuh (tanpa topeng bulat/kotak bawaan HP) supaya bisa dipotong squircle. */
+  static Drawable flat(Drawable d, int size) {
+    try {
+      if (d == null || Build.VERSION.SDK_INT < 26 || !(d instanceof AdaptiveIconDrawable)) return d;
+      AdaptiveIconDrawable ad = (AdaptiveIconDrawable) d;
+      Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+      Canvas c = new Canvas(b);
+      int o = size / 4;  // lapisan 108dp, bagian terlihat 72dp
+      if (ad.getBackground() != null) { ad.getBackground().setBounds(-o, -o, size + o, size + o); ad.getBackground().draw(c); }
+      if (ad.getForeground() != null) { ad.getForeground().setBounds(-o, -o, size + o, size + o); ad.getForeground().draw(c); }
+      return new BitmapDrawable(b);
+    } catch (Exception e) {
+      return d;
+    }
+  }
 
   private int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density + 0.5f); }
 
@@ -392,10 +429,10 @@ public class IslandService extends Service {
     av.setOutlineProvider(new ViewOutlineProvider() {
       @Override public void getOutline(View v, Outline o) {
         if (circle) o.setOval(0, 0, v.getWidth(), v.getHeight());
-        else o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(11));
+        else if (v.getWidth() > 0) o.setConvexPath(squircle(v.getWidth(), v.getHeight()));
       }
     });
-    av.setImageDrawable(e.avatar);
+    av.setImageDrawable(circle ? e.avatar : flat(e.avatar, 160));
     box.addView(av);
     if (e.badge != null) {
       ImageView bd = new ImageView(this);
@@ -404,13 +441,13 @@ public class IslandService extends Service {
       bd.setPadding(dp(2), dp(2), dp(2), dp(2));
       GradientDrawable rg = new GradientDrawable();
       rg.setColor(ring);
-      rg.setCornerRadius(dp(7));
+      rg.setCornerRadius(0);
       bd.setBackground(rg);
       bd.setClipToOutline(true);
       bd.setOutlineProvider(new ViewOutlineProvider() {
-        @Override public void getOutline(View v, Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(7)); }
+        @Override public void getOutline(View v, Outline o) { if (v.getWidth() > 0) o.setConvexPath(squircle(v.getWidth(), v.getHeight())); }
       });
-      bd.setImageDrawable(e.badge);
+      bd.setImageDrawable(flat(e.badge, 96));
       box.addView(bd);
     }
     if (e.avatar == null) box.setVisibility(View.GONE);
