@@ -119,6 +119,12 @@ public class IslandService extends Service {
     }
   }
 
+  /** Lama island terbuka (ms), bisa diatur di pengaturan: 2 - 20 detik. */
+  private long showMs() {
+    int v = getSharedPreferences("island", MODE_PRIVATE).getInt("dur", (int) SHOW_MS);
+    return Math.max(2000, Math.min(20000, v));
+  }
+
   private int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density + 0.5f); }
 
   @Override public IBinder onBind(Intent i) { return null; }
@@ -548,7 +554,7 @@ public class IslandService extends Service {
       rowIn(content.getChildAt(content.getChildCount() - 1), 60, true);
       pulse();
       main.removeCallbacks(collapseRun);
-      main.postDelayed(collapseRun, SHOW_MS);
+      main.postDelayed(collapseRun, showMs());
     } });
   }
 
@@ -566,7 +572,7 @@ public class IslandService extends Service {
     for (int i = 0; i < content.getChildCount(); i++) rowIn(content.getChildAt(i), 120 + i * 60, false);
     springTo(eW, h, true);
     main.removeCallbacks(collapseRun);
-    main.postDelayed(collapseRun, SHOW_MS);
+    main.postDelayed(collapseRun, showMs());
   }
 
   private void collapse() {
