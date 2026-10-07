@@ -1,7 +1,5 @@
 package __PKG__;
 
-import android.animation.TimeInterpolator;
-import android.animation.ValueAnimator;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -13,21 +11,31 @@ import android.content.pm.ServiceInfo;
 import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.media.AudioManager;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.util.TypedValue;
+import android.view.Choreographer;
+import android.view.DisplayCutout;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -36,29 +44,45 @@ import java.util.ArrayList;
 
 public class IslandService extends Service {
   public static volatile IslandService instance;
+  public static volatile boolean camFound = false;
   public static final String ACTION_RELOAD = "island.RELOAD";
   private static final String CHANNEL = "island_service";
   private static final long SHOW_MS = 4500;
+  private static final int MAX_ROWS = 3;
+  private static final int BASE_FLAGS = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+      | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+      | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+      | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
+
+  private static class Entry {
+    String title, text;
+    Drawable avatar, badge;
+    PendingIntent pi;
+  }
 
   private final Handler main = new Handler(Looper.getMainLooper());
-  private WindowManager wm;
-  private LinearLayout root;
-  private FrameLayout island;
-  private static final int MAX_EXTRA = 2;           // notifikasi tambahan yang ditumpuk di bawah
-  private final ArrayList<View> extras = new ArrayList<View>();
-  private int colTop, colBottom, tc, sc;
-  private LinearLayout content;
-  private ImageView iconView;
-  private TextView titleView, textView;
   private final GradientDrawable bg = new GradientDrawable();
-  private float curW, curH;
-  private int cW, cH, eW, eH;
-  private boolean expanded, hasContent;
-  private PendingIntent curIntent;
-  private ValueAnimator anim;
+  private final ArrayList<Entry> entries = new ArrayList<Entry>();
+  private WindowManager wm;
+  private WindowManager.LayoutParams wlp;
+  private FrameLayout root, island;
+  private LinearLayout content;
+  private int cW, cH, eW, screenW;
+  private int camX = 0, camCy = -1, camW = 0, camH = 0, offX = 0, offY = 0;
+  private boolean camTried = false, expanded = false, openingFx = false;
+  private int tc, sc, dc, ring;
+
+  // simulasi pegas (lebar & tinggi island)
+  private float curW, curH, vw, vh, tw, th, kw, dw, kh, dh;
+  private boolean springing = false;
+  private long lastNs = 0;
+  private final Choreographer.FrameCallback frame = new Choreographer.FrameCallback() {
+    @Override public void doFrame(long ns) { step(ns); }
+  };
+
   private final Runnable collapseRun = new Runnable() { public void run() { collapse(); } };
 
-  private int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density); }
+  private int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density + 0.5f); }
 
   @Override public IBinder onBind(Intent i) { return null; }
 
@@ -99,258 +123,460 @@ public class IslandService extends Service {
     else startForeground(1, n);
   }
 
+  /* ---------- gaya & ukuran ---------- */
+
   private void applyStyle(SharedPreferences p) {
-    int base = p.getInt("bg", 0xFFCDB4FF);
-    int a = Math.max(40, Math.min(100, p.getInt("op", 82))) * 255 / 100;
+    int base = p.getInt("bg", 0xFF000000);
+    int a = Math.max(40, Math.min(100, p.getInt("op", 100))) * 255 / 100;
     int r = Color.red(base), g = Color.green(base), b = Color.blue(base);
-    int top = Color.argb(a, r + (255 - r) * 3 / 10, g + (255 - g) * 3 / 10, b + (255 - b) * 3 / 10);
-    int bottom = Color.argb(a, r, g, b);
-    bg.setOrientation(GradientDrawable.Orientation.TOP_BOTTOM);
-    bg.setColors(new int[] { top, bottom });
-    bg.setStroke(dp(1), Color.argb(110, 255, 255, 255));
-    boolean light = (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6;
-    colTop = top; colBottom = bottom;
+    bg.setColor(Color.argb(a, r, g, b));
+    float lum = (0.299f * r + 0.587f * g + 0.114f * b) / 255f;
+    if (lum > 0.12f) bg.setStroke(dp(1), Color.argb(90, 255, 255, 255)); else bg.setStroke(0, Color.TRANSPARENT);
+    boolean light = lum > 0.6f;
+    ring = Color.rgb(r, g, b);
     tc = light ? 0xFF1C1C1E : Color.WHITE;
-    sc = light ? 0xFF55555C : 0xFFD0D0D6;
-    titleView.setTextColor(tc);
-    textView.setTextColor(sc);
+    sc = light ? 0xFF55555C : 0xFFB0B0B8;
+    dc = light ? 0xFF77777E : 0xFF8E8E93;
   }
+
+  private void geometry(SharedPreferences p) {
+    int base = camCy >= 0 ? camH + dp(4) : dp(32);
+    cH = Math.max(dp(26), base + dp(p.getInt("dh", 0)));
+    cW = Math.max(dp(p.getInt("cw", 110)), camW + dp(20));
+    eW = Math.min(dp(p.getInt("ew", 340)), screenW - dp(36));
+  }
+
+  // sudut besar seperti iOS: satu baris = pill penuh, beberapa baris = sudut ~42dp
+  private float radiusFor(int h) { return Math.min(h / 2f, dp(42)); }
+
+  private int statusBarH() {
+    int id = getResources().getIdentifier("status_bar_height", "dimen", "android");
+    return id > 0 ? getResources().getDimensionPixelSize(id) : dp(24);
+  }
+
+  private int cutoutMode() {
+    return Build.VERSION.SDK_INT >= 30
+        ? WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        : WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+  }
+
+  /**
+   * Posisi window: pill dipusatkan tepat di kamera. Saat melebar, kamera di pojok -> island ke tengah layar.
+   * Saat island tertutup (pill saja), window dibuat tidak bisa disentuh supaya tarik-turun panel notifikasi tetap lancar.
+   */
+  private void applyPos(boolean exp) {
+    int cy = camCy >= 0 ? camCy : statusBarH() / 2;
+    wlp.y = Math.max(0, cy - cH / 2 + offY);
+    wlp.x = (exp && Math.abs(camX) > dp(40)) ? offX : camX + offX;
+    wlp.flags = BASE_FLAGS | (exp ? 0 : WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
+  }
+
+  private void place(boolean exp) {
+    if (root == null || wlp == null) return;
+    applyPos(exp);
+    try { wm.updateViewLayout(root, wlp); } catch (Exception ignored) {}
+  }
+
+  /* ---------- membangun island ---------- */
 
   private void build() {
     SharedPreferences p = getSharedPreferences("island", MODE_PRIVATE);
-    cW = dp(p.getInt("cw", 110)); cH = dp(32);
-    eW = dp(p.getInt("ew", 330)); eH = dp(76);
-    expanded = false; hasContent = false;
-    curW = cW; curH = cH;
-    bg.setCornerRadius(cH / 2f);
-
-    iconView = new ImageView(this);
-    iconView.setLayoutParams(new LinearLayout.LayoutParams(dp(40), dp(40)));
-    iconView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-    iconView.setClipToOutline(true);
-    iconView.setOutlineProvider(new ViewOutlineProvider() {
-      @Override public void getOutline(View v, Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(11)); }
-    });
-    titleView = new TextView(this);
-    titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-    titleView.setTypeface(Typeface.DEFAULT_BOLD);
-    titleView.setMaxLines(1);
-    titleView.setEllipsize(TextUtils.TruncateAt.END);
-    textView = new TextView(this);
-    textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-    textView.setMaxLines(1);
-    textView.setEllipsize(TextUtils.TruncateAt.END);
-
-    LinearLayout col = new LinearLayout(this);
-    col.setOrientation(LinearLayout.VERTICAL);
-    LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-    cl.setMarginStart(dp(12));
-    col.setLayoutParams(cl);
-    col.addView(titleView);
-    col.addView(textView);
+    screenW = getResources().getDisplayMetrics().widthPixels;
+    offX = dp(p.getInt("cx", 0));
+    offY = dp(p.getInt("dy", 0));
+    applyStyle(p);
+    geometry(p);
+    expanded = false; openingFx = false; springing = false;
+    curW = cW; curH = cH; vw = 0; vh = 0;
+    bg.setCornerRadius(radiusFor(cH));
 
     content = new LinearLayout(this);
-    content.setOrientation(LinearLayout.HORIZONTAL);
-    content.setGravity(Gravity.CENTER_VERTICAL);
-    content.setPadding(dp(18), 0, dp(18), 0);
+    content.setOrientation(LinearLayout.VERTICAL);
+    content.setPadding(dp(18), dp(10), dp(18), dp(10));
     content.setAlpha(0f);
-    content.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-    content.addView(iconView);
-    content.addView(col);
-    applyStyle(p);
+    content.setPivotX(eW / 2f);
+    content.setPivotY(0f);
+    content.setLayoutParams(new FrameLayout.LayoutParams(eW, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL));
 
     island = new FrameLayout(this);
     island.setBackground(bg);
-    LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(cW, cH);
-    ilp.gravity = Gravity.CENTER_HORIZONTAL;
-    island.setLayoutParams(ilp);
+    island.setClipToOutline(true);
+    island.setOutlineProvider(new ViewOutlineProvider() {
+      @Override public void getOutline(View v, Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), radiusFor(v.getHeight())); }
+    });
+    island.setLayoutParams(new FrameLayout.LayoutParams(cW, cH, Gravity.TOP | Gravity.CENTER_HORIZONTAL));
+    island.setPivotX(cW / 2f);
+    island.setPivotY(0f);
     island.addView(content);
-    island.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { onTap(); } });
-    root = new LinearLayout(this);
-    root.setOrientation(LinearLayout.VERTICAL);
-    root.setGravity(Gravity.CENTER_HORIZONTAL);
-    extras.clear();
+    island.setOnTouchListener(new View.OnTouchListener() {
+      private float downY;
+      @Override public boolean onTouch(View v, MotionEvent ev) {
+        switch (ev.getActionMasked()) {
+          case MotionEvent.ACTION_DOWN:
+            downY = ev.getY();
+            v.animate().cancel();
+            v.animate().scaleX(0.965f).scaleY(0.965f).setDuration(120).setInterpolator(new DecelerateInterpolator()).start();
+            return true;
+          case MotionEvent.ACTION_UP:
+            release(v);
+            if (downY - ev.getY() > dp(18)) collapse();                       // geser ke atas = tutup
+            else if (ev.getX() >= 0 && ev.getX() <= v.getWidth() && ev.getY() >= 0 && ev.getY() <= v.getHeight()) tapAt(ev.getY());
+            return true;
+          case MotionEvent.ACTION_CANCEL:
+            release(v);
+            return true;
+          default:
+            return true;
+        }
+      }
+    });
+
+    // ruang ekstra di kiri/kanan/bawah supaya efek membesar (denyut) tidak terpotong window
+    root = new FrameLayout(this);
+    root.setClipChildren(false);
+    root.setClipToPadding(false);
+    root.setPadding(dp(10), 0, dp(10), dp(10));
     root.addView(island);
 
-    WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+    wlp = new WindowManager.LayoutParams(
         ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
-        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-        PixelFormat.TRANSLUCENT);
-    lp.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-    lp.y = dp(p.getInt("top", 8));
-    wm.addView(root, lp);
+        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, BASE_FLAGS, PixelFormat.TRANSLUCENT);
+    wlp.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+    if (Build.VERSION.SDK_INT >= 28) wlp.layoutInDisplayCutoutMode = cutoutMode();
+    applyPos(false);
+    wm.addView(root, wlp);
+
+    if (!camTried) { camTried = true; detectCamera(); }
+  }
+
+  private void release(View v) {
+    v.animate().cancel();
+    v.animate().scaleX(1f).scaleY(1f).setDuration(280).setInterpolator(new OvershootInterpolator(2.2f)).start();
   }
 
   private void destroyView() {
     main.removeCallbacks(collapseRun);
-    if (anim != null) anim.cancel();
+    springing = false;
+    try { Choreographer.getInstance().removeFrameCallback(frame); } catch (Exception ignored) {}
     if (root != null) { try { wm.removeView(root); } catch (Exception ignored) {} }
-    extras.clear();
-    root = null; island = null;
+    root = null; island = null; content = null;
   }
+
+  /* ---------- deteksi posisi kamera asli (lubang kamera / notch) ---------- */
+
+  private void detectCamera() {
+    if (Build.VERSION.SDK_INT < 28) return;
+    try {
+      final View probe = new View(this);
+      WindowManager.LayoutParams pl = new WindowManager.LayoutParams(
+          ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
+          WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+          WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+              | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+          PixelFormat.TRANSLUCENT);
+      pl.layoutInDisplayCutoutMode = cutoutMode();
+      probe.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+        @Override public WindowInsets onApplyWindowInsets(View v, WindowInsets ins) {
+          readCutout(ins.getDisplayCutout());
+          main.post(new Runnable() { public void run() { try { wm.removeView(probe); } catch (Exception ignored) {} } });
+          return ins;
+        }
+      });
+      wm.addView(probe, pl);
+    } catch (Exception ignored) {}
+  }
+
+  private void readCutout(DisplayCutout dcut) {
+    if (dcut == null) return;
+    int sh = getResources().getDisplayMetrics().heightPixels;
+    Rect best = null;
+    for (Rect r : dcut.getBoundingRects()) {
+      if (r.top > sh / 5) continue;
+      if (r.width() > screenW * 2 / 3) continue;
+      if (best == null || r.width() < best.width()) best = r;
+    }
+    if (best == null) return;
+    camX = best.centerX() - screenW / 2;
+    camCy = best.centerY();
+    camW = best.width();
+    camH = best.height();
+    camFound = true;
+    main.post(new Runnable() { public void run() { onCamera(); } });
+  }
+
+  private void onCamera() {
+    if (island == null) return;
+    geometry(getSharedPreferences("island", MODE_PRIVATE));
+    ViewGroup.LayoutParams clp = content.getLayoutParams();
+    clp.width = eW;
+    content.setLayoutParams(clp);
+    content.setPivotX(eW / 2f);
+    if (!expanded && !springing) { curW = cW; curH = cH; applySize(cW, cH); }
+    place(expanded);
+  }
+
+  /* ---------- animasi pegas ---------- */
 
   private void applySize(float w, float h) {
     if (island == null) return;
-    curW = w; curH = h;
     ViewGroup.LayoutParams lp = island.getLayoutParams();
     lp.width = Math.max(1, (int) w);
     lp.height = Math.max(1, (int) h);
     island.setLayoutParams(lp);
-    bg.setCornerRadius(Math.min(lp.height / 2f, dp(26)));
+    island.setPivotX(lp.width / 2f);
+    bg.setCornerRadius(radiusFor(lp.height));
+    island.invalidateOutline();
   }
 
-  /** Animasi pegas: melebihi target sedikit lalu memantul balik. */
-  private void animateTo(final float tw, final float th) {
-    if (anim != null) anim.cancel();
-    final float sw = curW, sh = curH;
-    anim = ValueAnimator.ofFloat(0f, 1f);
-    anim.setDuration(650);
-    anim.setInterpolator(new TimeInterpolator() {
-      @Override public float getInterpolation(float t) {
-        if (t >= 1f) return 1f;
-        return (float) (1 - Math.exp(-6.5 * t) * Math.cos(t * Math.PI * 3.0));
-      }
-    });
-    anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-      @Override public void onAnimationUpdate(ValueAnimator a) {
-        float f = (Float) a.getAnimatedValue();
-        applySize(sw + (tw - sw) * f, sh + (th - sh) * f);
-      }
-    });
-    anim.start();
+  /** Pegas sungguhan (bukan kurva tetap): membuka agak membal, menutup lebih kencang dan tenang. */
+  private void springTo(float w, float h, boolean opening) {
+    tw = w; th = h;
+    if (opening) { kw = 230f; dw = 16f; kh = 270f; dh = 18f; }
+    else         { kw = 420f; dw = 29f; kh = 420f; dh = 29f; }
+    if (!springing) {
+      springing = true;
+      lastNs = 0;
+      Choreographer.getInstance().postFrameCallback(frame);
+    }
   }
 
-  public void show(final String title, final String text, final Drawable icon, final PendingIntent pi) {
+  private void step(long ns) {
+    if (!springing || island == null) { springing = false; return; }
+    float dt = lastNs == 0 ? 1f / 60f : Math.min((ns - lastNs) / 1e9f, 1f / 30f);
+    lastNs = ns;
+    for (int i = 0; i < 4; i++) {
+      float d = dt / 4f;
+      vw += (-kw * (curW - tw) - dw * vw) * d; curW += vw * d;
+      vh += (-kh * (curH - th) - dh * vh) * d; curH += vh * d;
+    }
+    boolean done = Math.abs(curW - tw) < 0.4f && Math.abs(curH - th) < 0.4f && Math.abs(vw) < 3f && Math.abs(vh) < 3f;
+    if (done) {
+      curW = tw; curH = th; vw = 0; vh = 0; springing = false;
+      if (openingFx) { openingFx = false; content.setAlpha(1f); content.setScaleX(1f); content.setScaleY(1f); }
+    }
+    applySize(curW, curH);
+    contentProgress();
+    if (springing) Choreographer.getInstance().postFrameCallback(frame);
+  }
+
+  /** Isi muncul pelan-pelan mengikuti seberapa lebar island sudah terbuka (dan sedikit membesar dari 90%). */
+  private void contentProgress() {
+    if (!openingFx || content == null) return;
+    float span = th - cH;
+    float p = span <= 0 ? 1f : (curH - cH) / span;
+    float t = Math.max(0f, Math.min(1f, (p - 0.30f) / 0.45f));
+    float a = t * t * (3f - 2f * t);
+    content.setAlpha(a);
+    float s = 0.9f + 0.1f * a;
+    content.setScaleX(s);
+    content.setScaleY(s);
+  }
+
+  /* ---------- isi notifikasi ---------- */
+
+  private View makeRow(final Entry e, boolean single) {
+    LinearLayout row = new LinearLayout(this);
+    row.setOrientation(LinearLayout.HORIZONTAL);
+    row.setGravity(Gravity.CENTER_VERTICAL);
+    row.setPadding(0, dp(8), 0, dp(8));
+    row.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+    // avatar (foto profil -> bulat + lencana ikon aplikasi di pojok, seperti iOS)
+    FrameLayout box = new FrameLayout(this);
+    box.setLayoutParams(new LinearLayout.LayoutParams(dp(48), dp(48)));
+    final boolean circle = e.badge != null;
+    ImageView av = new ImageView(this);
+    av.setLayoutParams(new FrameLayout.LayoutParams(dp(44), dp(44), Gravity.TOP | Gravity.START));
+    av.setScaleType(ImageView.ScaleType.CENTER_CROP);
+    av.setClipToOutline(true);
+    av.setOutlineProvider(new ViewOutlineProvider() {
+      @Override public void getOutline(View v, Outline o) {
+        if (circle) o.setOval(0, 0, v.getWidth(), v.getHeight());
+        else o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(11));
+      }
+    });
+    av.setImageDrawable(e.avatar);
+    box.addView(av);
+    if (e.badge != null) {
+      ImageView bd = new ImageView(this);
+      bd.setLayoutParams(new FrameLayout.LayoutParams(dp(22), dp(22), Gravity.BOTTOM | Gravity.END));
+      bd.setScaleType(ImageView.ScaleType.CENTER_CROP);
+      bd.setPadding(dp(2), dp(2), dp(2), dp(2));
+      GradientDrawable rg = new GradientDrawable();
+      rg.setColor(ring);
+      rg.setCornerRadius(dp(7));
+      bd.setBackground(rg);
+      bd.setClipToOutline(true);
+      bd.setOutlineProvider(new ViewOutlineProvider() {
+        @Override public void getOutline(View v, Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(7)); }
+      });
+      bd.setImageDrawable(e.badge);
+      box.addView(bd);
+    }
+    if (e.avatar == null) box.setVisibility(View.GONE);
+    row.addView(box);
+
+    // teks
+    LinearLayout col = new LinearLayout(this);
+    col.setOrientation(LinearLayout.VERTICAL);
+    LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+    cl.setMarginStart(e.avatar == null ? 0 : dp(12));
+    col.setLayoutParams(cl);
+
+    LinearLayout line = new LinearLayout(this);
+    line.setOrientation(LinearLayout.HORIZONTAL);
+    line.setGravity(Gravity.CENTER_VERTICAL);
+    TextView tv = new TextView(this);
+    tv.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+    tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+    tv.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+    tv.setTextColor(tc);
+    tv.setMaxLines(1);
+    tv.setEllipsize(TextUtils.TruncateAt.END);
+    tv.setText(e.title);
+    TextView tm = new TextView(this);
+    LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+    tl.setMarginStart(dp(8));
+    tm.setLayoutParams(tl);
+    tm.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+    tm.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+    tm.setTextColor(dc);
+    tm.setText("sekarang");
+    line.addView(tv);
+    line.addView(tm);
+
+    TextView xv = new TextView(this);
+    xv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+    xv.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+    xv.setTextColor(sc);
+    xv.setMaxLines(single ? 2 : 1);
+    xv.setEllipsize(TextUtils.TruncateAt.END);
+    xv.setText(e.text);
+    if (e.text == null || e.text.length() == 0) xv.setVisibility(View.GONE);
+
+    col.addView(line);
+    col.addView(xv);
+    row.addView(col);
+    return row;
+  }
+
+  /** Semua notifikasi ada di SATU island yang sama: teks baru muncul di bawah teks sebelumnya. */
+  private void rebuildRows() {
+    content.removeAllViews();
+    boolean single = entries.size() == 1;
+    for (Entry e : entries) content.addView(makeRow(e, single));
+  }
+
+  private int contentHeight() {
+    content.measure(View.MeasureSpec.makeMeasureSpec(eW, View.MeasureSpec.EXACTLY),
+        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+    return Math.max(dp(64), content.getMeasuredHeight());
+  }
+
+  /** Baris masuk: naik sedikit dari bawah, avatarnya "pop" membal. */
+  private void rowIn(View row, long delay, boolean fade) {
+    row.setTranslationY(dp(10));
+    if (fade) row.setAlpha(0f);
+    row.animate().translationY(0f).alpha(1f).setStartDelay(delay).setDuration(340)
+        .setInterpolator(new DecelerateInterpolator(1.6f)).start();
+    View av = ((ViewGroup) row).getChildAt(0);
+    av.setScaleX(0.6f);
+    av.setScaleY(0.6f);
+    av.animate().scaleX(1f).scaleY(1f).setStartDelay(delay + 40).setDuration(420)
+        .setInterpolator(new OvershootInterpolator(1.8f)).start();
+  }
+
+  /** Denyut kecil saat ada notifikasi baru masuk ke island yang sudah terbuka. */
+  private void pulse() {
+    island.animate().cancel();
+    island.animate().scaleX(1.035f).scaleY(1.035f).setDuration(110).setInterpolator(new DecelerateInterpolator())
+        .withEndAction(new Runnable() { public void run() {
+          if (island != null) island.animate().scaleX(1f).scaleY(1f).setDuration(320).setInterpolator(new OvershootInterpolator(2.5f)).start();
+        } }).start();
+  }
+
+  public void show(final String title, final String text, final Drawable avatar, final Drawable badge, final PendingIntent pi) {
     main.post(new Runnable() { public void run() {
       if (root == null) return;
-      if (expanded && hasContent) {
-        addExtra(title, text, icon, pi);
-        main.removeCallbacks(collapseRun);
-        main.postDelayed(collapseRun, SHOW_MS);
-        return;
-      }
-      curIntent = pi; hasContent = true;
-      titleView.setText(title);
-      textView.setText(text);
-      iconView.setImageDrawable(icon);
-      iconView.setVisibility(icon == null ? View.GONE : View.VISIBLE);
-      expand();
+      Entry e = new Entry();
+      e.title = title; e.text = text; e.avatar = avatar; e.badge = badge; e.pi = pi;
+      if (!expanded) entries.clear();
+      entries.add(e);
+      while (entries.size() > MAX_ROWS) entries.remove(0);
+      playSound();
+      if (!expanded) { expandFresh(); return; }
+      if (openingFx) { openingFx = false; content.setAlpha(1f); content.setScaleX(1f); content.setScaleY(1f); }
+      rebuildRows();
+      springTo(eW, contentHeight(), true);
+      rowIn(content.getChildAt(content.getChildCount() - 1), 60, true);
+      pulse();
       main.removeCallbacks(collapseRun);
       main.postDelayed(collapseRun, SHOW_MS);
     } });
   }
 
-  private void expand() {
+  private void expandFresh() {
+    rebuildRows();
+    int h = contentHeight();
     expanded = true;
-    animateTo(eW, eH);
+    openingFx = true;
+    place(true);
     content.animate().cancel();
-    content.setTranslationY(-dp(6));
-    content.animate().alpha(1f).translationY(0f).setStartDelay(110).setDuration(260)
-        .setInterpolator(new DecelerateInterpolator()).start();
+    content.setPivotX(eW / 2f);
+    content.setAlpha(0f);
+    content.setScaleX(0.9f);
+    content.setScaleY(0.9f);
+    for (int i = 0; i < content.getChildCount(); i++) rowIn(content.getChildAt(i), 120 + i * 60, false);
+    springTo(eW, h, true);
+    main.removeCallbacks(collapseRun);
+    main.postDelayed(collapseRun, SHOW_MS);
   }
 
   private void collapse() {
+    if (island == null) return;
     expanded = false;
+    openingFx = false;
     main.removeCallbacks(collapseRun);
-    clearExtras();
     content.animate().cancel();
-    content.animate().alpha(0f).translationY(-dp(4)).setStartDelay(0).setDuration(130).start();
-    animateTo(cW, cH);
+    content.animate().alpha(0f).scaleX(0.92f).scaleY(0.92f).setStartDelay(0).setDuration(120).start();
+    springTo(cW, cH, false);
+    place(false);
   }
 
-  private void onTap() {
-    if (expanded) {
-      if (curIntent != null) { try { curIntent.send(); } catch (Exception ignored) {} }
-      collapse();
-    } else if (hasContent) {
-      expand();
-      main.postDelayed(collapseRun, SHOW_MS);
+  private void tapAt(float y) {
+    if (!expanded) return;
+    float yy = y - content.getTop() - content.getTranslationY();
+    PendingIntent pi = null;
+    for (int i = 0; i < content.getChildCount() && i < entries.size(); i++) {
+      View r = content.getChildAt(i);
+      if (yy >= r.getTop() && yy < r.getBottom()) { pi = entries.get(i).pi; break; }
     }
+    // saklar "ketuk membuka aplikasi": kalau mati, ketukan hanya menutup island
+    if (!getSharedPreferences("island", MODE_PRIVATE).getBoolean("tapopen", true)) pi = null;
+    if (pi != null) { try { pi.send(); } catch (Exception ignored) {} }
+    collapse();
   }
 
-  /** Notifikasi baru saat island sudah terbuka: muncul sebagai kartu di bawah yang sebelumnya. */
-  private void addExtra(String title, String text, Drawable icon, final PendingIntent pi) {
-    if (extras.size() >= MAX_EXTRA) fadeRemove(extras.remove(0));
-    View c = makeCard(title, text, icon, pi);
-    extras.add(c);
-    root.addView(c);
-    c.setAlpha(0f);
-    c.setTranslationY(-dp(8));
-    c.animate().alpha(1f).translationY(0f).setDuration(260).setInterpolator(new DecelerateInterpolator()).start();
-  }
+  private Ringtone tone;
 
-  private View makeCard(String title, String text, Drawable icon, final PendingIntent pi) {
-    GradientDrawable g = new GradientDrawable();
-    g.setOrientation(GradientDrawable.Orientation.TOP_BOTTOM);
-    g.setColors(new int[] { colTop, colBottom });
-    g.setStroke(dp(1), Color.argb(110, 255, 255, 255));
-    g.setCornerRadius(dp(26));
-
-    ImageView iv = new ImageView(this);
-    iv.setLayoutParams(new LinearLayout.LayoutParams(dp(40), dp(40)));
-    iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
-    iv.setClipToOutline(true);
-    iv.setOutlineProvider(new ViewOutlineProvider() {
-      @Override public void getOutline(View v, Outline o) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), dp(11)); }
-    });
-    iv.setImageDrawable(icon);
-    iv.setVisibility(icon == null ? View.GONE : View.VISIBLE);
-
-    TextView tv = new TextView(this);
-    tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-    tv.setTypeface(Typeface.DEFAULT_BOLD);
-    tv.setMaxLines(1);
-    tv.setEllipsize(TextUtils.TruncateAt.END);
-    tv.setTextColor(tc);
-    tv.setText(title);
-    TextView xv = new TextView(this);
-    xv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-    xv.setMaxLines(1);
-    xv.setEllipsize(TextUtils.TruncateAt.END);
-    xv.setTextColor(sc);
-    xv.setText(text);
-
-    LinearLayout col = new LinearLayout(this);
-    col.setOrientation(LinearLayout.VERTICAL);
-    LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-    cl.setMarginStart(dp(12));
-    col.setLayoutParams(cl);
-    col.addView(tv);
-    col.addView(xv);
-
-    LinearLayout row = new LinearLayout(this);
-    row.setOrientation(LinearLayout.HORIZONTAL);
-    row.setGravity(Gravity.CENTER_VERTICAL);
-    row.setPadding(dp(18), 0, dp(18), 0);
-    row.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-    row.addView(iv);
-    row.addView(col);
-
-    FrameLayout card = new FrameLayout(this);
-    card.setBackground(g);
-    card.addView(row);
-    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(eW, eH);
-    lp.topMargin = dp(6);
-    lp.gravity = Gravity.CENTER_HORIZONTAL;
-    card.setLayoutParams(lp);
-    card.setOnClickListener(new View.OnClickListener() { public void onClick(View v) {
-      if (pi != null) { try { pi.send(); } catch (Exception ignored) {} }
-      collapse();
-    } });
-    return card;
-  }
-
-  private void fadeRemove(final View v) {
-    v.animate().cancel();
-    v.animate().alpha(0f).setDuration(150).withEndAction(new Runnable() { public void run() {
-      if (root != null) { try { root.removeView(v); } catch (Exception ignored) {} }
-    } }).start();
-  }
-
-  private void clearExtras() {
-    for (View v : new ArrayList<View>(extras)) fadeRemove(v);
-    extras.clear();
+  private void playSound() {
+    try {
+      SharedPreferences p = getSharedPreferences("island", MODE_PRIVATE);
+      if (!p.getBoolean("snd", true)) return;
+      AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+      if (am != null && am.getRingerMode() != AudioManager.RINGER_MODE_NORMAL) return;
+      Uri def = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+      String saved = p.getString("suri", "");
+      Ringtone r = null;
+      if (saved != null && saved.length() > 0) {
+        try { r = RingtoneManager.getRingtone(this, Uri.parse(saved)); } catch (Exception ignored) {}
+      }
+      if (r == null) r = RingtoneManager.getRingtone(this, def);   // nada pilihan hilang/rusak -> pakai bawaan HP
+      if (r == null) return;
+      if (tone != null) { try { tone.stop(); } catch (Exception ignored) {} }
+      if (Build.VERSION.SDK_INT >= 28) r.setVolume(Math.max(0, Math.min(100, p.getInt("svol", 100))) / 100f);
+      tone = r;
+      r.play();
+    } catch (Exception ignored) {}
   }
 }
