@@ -186,6 +186,7 @@ public class IslandBridge {
       o.put("snd", p.getBoolean("snd", true));
       o.put("anim", p.getBoolean("anim", false));
       o.put("hide", p.getBoolean("hidenotif", false));
+      o.put("dur", p.getInt("dur", 4500));
       o.put("tapopen", p.getBoolean("tapopen", true));
       String su = p.getString("suri", "");
       o.put("suri", su == null ? "" : su);
@@ -230,6 +231,10 @@ public class IslandBridge {
   /** true = notifikasi asli dihapus dari bayangan notifikasi (hanya yang tampil di island). */
   @JavascriptInterface
   public void setHideNotif(boolean on) { sp().edit().putBoolean("hidenotif", on).apply(); }
+
+  /** Lama island terbuka dalam milidetik (2000 - 20000). */
+  @JavascriptInterface
+  public void setDuration(int ms) { sp().edit().putInt("dur", Math.max(2000, Math.min(20000, ms))).apply(); }
 
   @JavascriptInterface
   public void setSound(boolean on) { sp().edit().putBoolean("snd", on).apply(); }
