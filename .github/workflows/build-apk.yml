@@ -283,6 +283,7 @@ jobs:
               if (SECURE) getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE, android.view.WindowManager.LayoutParams.FLAG_SECURE);
               super.onCreate(savedInstanceState);
               setupPullToRefresh();
+              smoothEnter();
               if (OVERLAY) addOverlayBridge();
               if (OFFLINE.length() > 0) {
                 try {
@@ -297,6 +298,35 @@ jobs:
                   });
                 } catch (Exception ignored) {}
               }
+            }
+
+            private boolean closing = false;
+
+            /** Animasi buka: isi aplikasi mengendap halus (sedikit lebih besar -> ukuran normal) saat splash memudar. */
+            private void smoothEnter() {
+              new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                try {
+                  final android.view.View w = getBridge().getWebView();
+                  w.setScaleX(1.05f);
+                  w.setScaleY(1.05f);
+                  w.setAlpha(0.85f);
+                  w.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(600)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator(2f)).start();
+                } catch (Exception ignored) {}
+              }, 1700);
+            }
+
+            /** Animasi tutup: isi mengecil dan memudar, baru aplikasi benar-benar ditutup. */
+            private void smoothExit() {
+              if (closing) return;
+              closing = true;
+              try {
+                final android.view.View v = findViewById(android.R.id.content);
+                if (v == null) { finishAndRemoveTask(); return; }
+                v.animate().alpha(0f).scaleX(0.92f).scaleY(0.92f).setDuration(220)
+                  .setInterpolator(new android.view.animation.AccelerateInterpolator(1.4f))
+                  .withEndAction(() -> finishAndRemoveTask()).start();
+              } catch (Exception e) { finishAndRemoveTask(); }
             }
 
             private void setupPullToRefresh() {
@@ -329,7 +359,7 @@ jobs:
                 .setTitle("Keluar aplikasi?")
                 .setMessage("Yakin ingin keluar?")
                 .setCancelable(true)
-                .setPositiveButton("Keluar", (d, w) -> finishAndRemoveTask())
+                .setPositiveButton("Keluar", (d, w) -> smoothExit())
                 .setNegativeButton("Batal", (d, w) -> exiting = false)
                 .setOnCancelListener(d -> exiting = false)
                 .show();
@@ -401,7 +431,7 @@ jobs:
               super.onActivityResult(req, res, data);
               if (req == 7421) {
                 prompting = false;
-                if (res == RESULT_OK) unlockOk(); else finishAndRemoveTask();
+                if (res == RESULT_OK) unlockOk(); else smoothExit();
               }
             }
 
@@ -421,7 +451,7 @@ jobs:
                   @Override
                   public void onAuthenticationSucceeded(android.hardware.biometrics.BiometricPrompt.AuthenticationResult r) { prompting = false; unlockOk(); }
                   @Override
-                  public void onAuthenticationError(int code, CharSequence m) { prompting = false; finishAndRemoveTask(); }
+                  public void onAuthenticationError(int code, CharSequence m) { prompting = false; smoothExit(); }
                 });
                 shown = true;
               } catch (Exception e) { shown = false; } }
@@ -588,7 +618,12 @@ jobs:
                  '      <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>\n'
                  '    </service>\n') % (pkg, pkg)
           assert m.count("</application>") == 1
-          open(M, "w", encoding="utf-8").write(m.replace("</application>", ENT + "  </application>"))
+          m = m.replace("</application>", ENT + "  </application>")
+          Q = ('  <queries>\n    <intent>\n      <action android:name="android.intent.action.MAIN" />\n'
+               '      <category android:name="android.intent.category.LAUNCHER" />\n    </intent>\n  </queries>\n')
+          assert m.count("</manifest>") == 1
+          m = m.replace("</manifest>", Q + "</manifest>")
+          open(M, "w", encoding="utf-8").write(m)
           print("Dynamic Island native dipasang, paket:", pkg)
           PY
 
