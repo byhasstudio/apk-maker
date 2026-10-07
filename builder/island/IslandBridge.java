@@ -50,6 +50,8 @@ public class IslandBridge {
       o.put("running", IslandService.instance != null);
       o.put("supported", Build.VERSION.SDK_INT >= 26);
       o.put("cam", IslandService.instance != null && IslandService.camFound);
+      String ax = Settings.Secure.getString(a.getContentResolver(), "enabled_accessibility_services");
+      o.put("a11y", ax != null && ax.contains(a.getPackageName() + "/" + a.getPackageName() + ".IslandAnim"));
       return o.toString();
     } catch (Exception e) {
       return "{}";
@@ -156,10 +158,11 @@ public class IslandBridge {
   @JavascriptInterface
   public String getIcon(String pkg) {
     try {
-      Drawable d = a.getPackageManager().getApplicationIcon(pkg);
-      int s = 72;
+      int s = 96;
+      Drawable d = IslandService.flat(a.getPackageManager().getApplicationIcon(pkg), s);
       Bitmap b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888);
       Canvas c = new Canvas(b);
+      c.clipPath(IslandService.squircle(s, s));
       d.setBounds(0, 0, s, s);
       d.draw(c);
       ByteArrayOutputStream bo = new ByteArrayOutputStream();
@@ -181,6 +184,8 @@ public class IslandBridge {
       if (s != null) for (String x : s) arr.put(x);
       o.put("apps", arr);
       o.put("snd", p.getBoolean("snd", true));
+      o.put("anim", p.getBoolean("anim", false));
+      o.put("hide", p.getBoolean("hidenotif", false));
       o.put("tapopen", p.getBoolean("tapopen", true));
       String su = p.getString("suri", "");
       o.put("suri", su == null ? "" : su);
@@ -210,6 +215,21 @@ public class IslandBridge {
   /** true = ketuk notifikasi membuka aplikasinya; false = ketukan hanya menutup island. */
   @JavascriptInterface
   public void setTapOpen(boolean on) { sp().edit().putBoolean("tapopen", on).apply(); }
+
+  /** Animasi buka/tutup ala iOS untuk semua aplikasi (butuh layanan aksesibilitas aktif). */
+  @JavascriptInterface
+  public void setAnim(boolean on) { sp().edit().putBoolean("anim", on).apply(); }
+
+  @JavascriptInterface
+  public void openAccessibility() {
+    a.runOnUiThread(new Runnable() { public void run() {
+      try { a.startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); } catch (Exception ignored) {}
+    } });
+  }
+
+  /** true = notifikasi asli dihapus dari bayangan notifikasi (hanya yang tampil di island). */
+  @JavascriptInterface
+  public void setHideNotif(boolean on) { sp().edit().putBoolean("hidenotif", on).apply(); }
 
   @JavascriptInterface
   public void setSound(boolean on) { sp().edit().putBoolean("snd", on).apply(); }
