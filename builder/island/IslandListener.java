@@ -42,9 +42,16 @@ public class IslandListener extends NotificationListenerService {
     if (x == null) x = ex.getCharSequence(Notification.EXTRA_SUB_TEXT);
     String text = x == null ? "" : x.toString();
 
+    // sembunyikan notifikasi asli HP supaya tidak tabrakan dengan island (musik/timer/tidak-bisa-dihapus tetap dibiarkan)
+    boolean hide = sp.getBoolean("hidenotif", false) && !media && !timer && !ongoing
+        && (n.flags & Notification.FLAG_NO_CLEAR) == 0;
+
     String sig = sbn.getKey() + "|" + t + "|" + text;
     long now = System.currentTimeMillis();
-    if (sig.equals(lastSig) && now - lastTime < 3000) return;
+    if (sig.equals(lastSig) && now - lastTime < 3000) {
+      if (hide) { try { cancelNotification(sbn.getKey()); } catch (Exception ignored) {} }
+      return;
+    }
     lastSig = sig;
     lastTime = now;
 
@@ -62,5 +69,6 @@ public class IslandListener extends NotificationListenerService {
 
     if (avatar != null && appIcon != null) svc.show(prefix + t, text, avatar, appIcon, n.contentIntent);
     else svc.show(prefix + t, text, appIcon, null, n.contentIntent);
+    if (hide) { try { cancelNotification(sbn.getKey()); } catch (Exception ignored) {} }
   }
 }
