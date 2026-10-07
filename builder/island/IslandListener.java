@@ -1,10 +1,13 @@
 package __PKG__;
 
 import android.app.Notification;
+import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Icon;
 import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
+import java.util.Set;
 
 public class IslandListener extends NotificationListenerService {
   private String lastSig = "";
@@ -13,7 +16,16 @@ public class IslandListener extends NotificationListenerService {
   @Override public void onNotificationPosted(StatusBarNotification sbn) {
     IslandService svc = IslandService.instance;
     if (svc == null) return;
-    if (sbn.getPackageName().equals(getPackageName())) return;
+    String pkg = sbn.getPackageName();
+    if (pkg.equals(getPackageName())) return;
+
+    // filter aplikasi: 0 = semua aplikasi, 1 = hanya aplikasi yang dipilih
+    SharedPreferences sp = getSharedPreferences("island", MODE_PRIVATE);
+    if (sp.getInt("fmode", 0) == 1) {
+      Set<String> allow = sp.getStringSet("fapps", null);
+      if (allow == null || !allow.contains(pkg)) return;
+    }
+
     Notification n = sbn.getNotification();
     if ((n.flags & Notification.FLAG_GROUP_SUMMARY) != 0) return;
 
@@ -37,8 +49,18 @@ public class IslandListener extends NotificationListenerService {
     lastTime = now;
 
     String prefix = media ? "\u266A " : (timer ? "\u23F1 " : "");
-    Drawable icon = null;
-    try { icon = getPackageManager().getApplicationIcon(sbn.getPackageName()); } catch (Exception ignored) {}
-    svc.show(prefix + t, text, icon, n.contentIntent);
+
+    Drawable appIcon = null;
+    try { appIcon = getPackageManager().getApplicationIcon(pkg); } catch (Exception ignored) {}
+
+    // foto profil pengirim (WhatsApp dll) / sampul album; kalau ada, ikon aplikasi jadi lencana kecil
+    Drawable avatar = null;
+    try {
+      Icon li = n.getLargeIcon();
+      if (li != null) avatar = li.loadDrawable(this);
+    } catch (Exception ignored) {}
+
+    if (avatar != null && appIcon != null) svc.show(prefix + t, text, avatar, appIcon, n.contentIntent);
+    else svc.show(prefix + t, text, appIcon, null, n.contentIntent);
   }
 }
