@@ -32,6 +32,11 @@ on:
         required: false
         type: string
         default: "false"
+      fx:
+        description: "modul Windows: Dynamic Island + animasi jendela (true/false)"
+        required: false
+        type: string
+        default: "false"
 
 permissions:
   contents: write
@@ -51,6 +56,7 @@ jobs:
       HAS_ICON: ${{ inputs.has_icon }}
       VERSION: ${{ inputs.version }}
       TRAY: ${{ inputs.tray }}
+      FX: ${{ inputs.fx }}
       VT_API_KEY: ${{ secrets.VT_API_KEY }}
       WORKER_URL: ${{ secrets.WORKER_URL }}
       BUILD_SECRET: ${{ secrets.BUILD_SECRET }}
@@ -64,6 +70,7 @@ jobs:
           [[ "$MODE" == "url" || "$MODE" == "upload" ]] || { echo "::error::mode tidak valid"; exit 1; }
           [[ "$HAS_ICON" == "true" || "$HAS_ICON" == "false" ]] || { echo "::error::has_icon tidak valid"; exit 1; }
           [[ "$VERSION" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || { echo "::error::versi tidak valid"; exit 1; }
+          [[ "$FX" == "true" || "$FX" == "false" ]] || { echo "::error::fx tidak valid"; exit 1; }
           test -f builder/make-icon.js || { echo "::error::builder/make-icon.js tidak ada di repo"; exit 1; }
 
       - name: Siapkan pelapor progres
@@ -103,6 +110,1684 @@ jobs:
           pg 30 "Proyek siap"
           cp ../builder/make-icon.js .
           mkdir www build
+
+      - name: Pasang modul Windows (island dan animasi)
+        if: ${{ inputs.fx == 'true' }}
+        run: |
+          set -euo pipefail
+          . "${GITHUB_WORKSPACE//\\//}/.pg.sh"
+          pg 32 "Memasang modul Windows"
+          cd app
+          mkdir -p fx/bin
+          cat > fx/fxhelper.cs <<'FX_EOS'
+          // fxhelper.exe - pembantu sistem untuk Dynamic Island Windows.
+          // Dikompilasi dengan csc.exe bawaan Windows (C# 5), jadi JANGAN pakai sintaks baru (?., $"", out var, dll).
+          //   fxhelper.exe notif          -> baca notifikasi Windows baru, satu JSON per baris
+          //   fxhelper.exe win <pidSaya>  -> pantau jendela aplikasi dibuka/ditutup, satu JSON per baris
+          //   fxhelper.exe icon <id> <px> -> cetak ikon (PNG base64) dari path .exe atau AUMID
+          using System;
+          using System.Collections.Generic;
+          using System.Diagnostics;
+          using System.Drawing;
+          using System.Drawing.Imaging;
+          using System.IO;
+          using System.Runtime.InteropServices;
+          using System.Text;
+          using System.Threading;
+          using System.Xml;
+
+          static class Program
+          {
+              static readonly object O = new object();
+
+              public static void Emit(string json)
+              {
+                  lock (O)
+                  {
+                      Console.Out.WriteLine(json);
+                      Console.Out.Flush();
+                  }
+              }
+
+              // JSON string, semua karakter non-ASCII di-escape supaya aman dari masalah encoding stdout.
+              public static string J(string s)
+              {
+                  if (s == null) return "\"\"";
+                  StringBuilder sb = new StringBuilder();
+                  sb.Append('"');
+                  foreach (char c in s)
+                  {
+                      if (c == '"') sb.Append("\\\"");
+                      else if (c == '\\') sb.Append("\\\\");
+                      else if (c == '\n') sb.Append("\\n");
+                      else if (c == '\r') sb.Append("\\r");
+                      else if (c == '\t') sb.Append("\\t");
+                      else if (c < 32 || c > 126) sb.Append("\\u").Append(((int)c).ToString("x4"));
+                      else sb.Append(c);
+                  }
+                  sb.Append('"');
+                  return sb.ToString();
+              }
+
+              [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+              [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr ctx);
+
+              [STAThread]
+              static int Main(string[] a)
+              {
+                  try { SetProcessDpiAwarenessContext(new IntPtr(-4)); }
+                  catch (Exception)
+                  {
+                      try { SetProcessDPIAware(); } catch (Exception) { }
+                  }
+                  string mode = a.Length > 0 ? a[0] : "";
+                  try
+                  {
+                      if (mode == "icon")
+                      {
+                          if (a.Length < 3) return 2;
+                          int px = 96;
+                          int.TryParse(a[2], out px);
+                          byte[] png = IconUtil.Png(a[1], px);
+                          if (png == null) return 1;
+                          Console.Out.Write(Convert.ToBase64String(png));
+                          Console.Out.Flush();
+                          return 0;
+                      }
+                      // mode berjalan terus: berhenti sendiri kalau aplikasi induk menutup stdin
+                      Thread g = new Thread(delegate ()
+                      {
+                          try { while (Console.In.ReadLine() != null) { } } catch (Exception) { }
+                          Environment.Exit(0);
+                      });
+                      g.IsBackground = true;
+                      g.Start();
+                      if (mode == "notif") { Notif.Run(); return 0; }
+                      if (mode == "win")
+                      {
+                          uint own = 0;
+                          if (a.Length > 1) uint.TryParse(a[1], out own);
+                          WinWatch.Run(own);
+                          return 0;
+                      }
+                  }
+                  catch (Exception e)
+                  {
+                      Emit("{\"t\":\"err\",\"m\":" + J(e.GetType().Name + ": " + e.Message) + "}");
+                      return 3;
+                  }
+                  return 2;
+              }
+          }
+
+          // ---------------------------------------------------------------- ikon
+
+          static class IconUtil
+          {
+              [ComImport, Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+              interface IShellItemImageFactory
+              {
+                  [PreserveSig] int GetImage(SIZE size, int flags, out IntPtr phbm);
+              }
+
+              [StructLayout(LayoutKind.Sequential)]
+              struct SIZE { public int cx; public int cy; }
+
+              [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
+              static extern void SHCreateItemFromParsingName(
+                  [In, MarshalAs(UnmanagedType.LPWStr)] string path, IntPtr pbc,
+                  [In, MarshalAs(UnmanagedType.LPStruct)] Guid riid,
+                  [Out, MarshalAs(UnmanagedType.Interface)] out IShellItemImageFactory ppv);
+
+              [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr h);
+
+              static readonly Guid IID = new Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b");
+
+              // id: path file .exe ATAU AUMID (aplikasi Store / terdaftar)
+              public static byte[] Png(string id, int px)
+              {
+                  if (string.IsNullOrEmpty(id)) return null;
+                  if (px < 16) px = 16;
+                  if (px > 256) px = 256;
+                  string p = File.Exists(id) ? id : "shell:AppsFolder\\" + id;
+                  IShellItemImageFactory f = null;
+                  IntPtr hbm = IntPtr.Zero;
+                  try
+                  {
+                      SHCreateItemFromParsingName(p, IntPtr.Zero, IID, out f);
+                      SIZE s; s.cx = px; s.cy = px;
+                      int hr = f.GetImage(s, 4 /* SIIGBF_ICONONLY */, out hbm);
+                      if (hr != 0 || hbm == IntPtr.Zero) return null;
+                      using (Bitmap src = Image.FromHbitmap(hbm))
+                      {
+                          BitmapData d = src.LockBits(new Rectangle(0, 0, src.Width, src.Height), ImageLockMode.ReadOnly, src.PixelFormat);
+                          try
+                          {
+                              if (Image.GetPixelFormatSize(src.PixelFormat) < 32)
+                              {
+                                  using (MemoryStream m0 = new MemoryStream()) { src.Save(m0, ImageFormat.Png); return m0.ToArray(); }
+                              }
+                              using (Bitmap argb = new Bitmap(d.Width, d.Height, d.Stride, PixelFormat.Format32bppArgb, d.Scan0))
+                              using (MemoryStream m = new MemoryStream())
+                              {
+                                  argb.Save(m, ImageFormat.Png);
+                                  return m.ToArray();
+                              }
+                          }
+                          finally { src.UnlockBits(d); }
+                      }
+                  }
+                  catch (Exception) { return null; }
+                  finally
+                  {
+                      if (hbm != IntPtr.Zero) DeleteObject(hbm);
+                      if (f != null) { try { Marshal.ReleaseComObject(f); } catch (Exception) { } }
+                  }
+              }
+          }
+
+          // ---------------------------------------------------------------- notifikasi Windows
+
+          static class Notif
+          {
+              const string Dll = "winsqlite3.dll";
+              [DllImport(Dll, EntryPoint = "sqlite3_open16", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+              static extern int Open(string file, out IntPtr db);
+              [DllImport(Dll, EntryPoint = "sqlite3_close", CallingConvention = CallingConvention.Cdecl)]
+              static extern int Close(IntPtr db);
+              [DllImport(Dll, EntryPoint = "sqlite3_prepare16_v2", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
+              static extern int Prepare(IntPtr db, string sql, int n, out IntPtr st, IntPtr tail);
+              [DllImport(Dll, EntryPoint = "sqlite3_step", CallingConvention = CallingConvention.Cdecl)]
+              static extern int Step(IntPtr st);
+              [DllImport(Dll, EntryPoint = "sqlite3_finalize", CallingConvention = CallingConvention.Cdecl)]
+              static extern int Finalize(IntPtr st);
+              [DllImport(Dll, EntryPoint = "sqlite3_bind_int64", CallingConvention = CallingConvention.Cdecl)]
+              static extern int BindInt64(IntPtr st, int idx, long v);
+              [DllImport(Dll, EntryPoint = "sqlite3_column_int64", CallingConvention = CallingConvention.Cdecl)]
+              static extern long ColInt64(IntPtr st, int col);
+              [DllImport(Dll, EntryPoint = "sqlite3_column_text16", CallingConvention = CallingConvention.Cdecl)]
+              static extern IntPtr ColText16(IntPtr st, int col);
+              [DllImport(Dll, EntryPoint = "sqlite3_column_blob", CallingConvention = CallingConvention.Cdecl)]
+              static extern IntPtr ColBlob(IntPtr st, int col);
+              [DllImport(Dll, EntryPoint = "sqlite3_column_bytes", CallingConvention = CallingConvention.Cdecl)]
+              static extern int ColBytes(IntPtr st, int col);
+
+              class Row { public long Id; public string App; public byte[] Payload; }
+
+              static long Sig(string f)
+              {
+                  try
+                  {
+                      FileInfo fi = new FileInfo(f);
+                      if (!fi.Exists) return 0;
+                      return fi.LastWriteTimeUtc.Ticks ^ fi.Length;
+                  }
+                  catch (Exception) { return 0; }
+              }
+
+              static void CopyShared(string src, string dst)
+              {
+                  if (!File.Exists(src))
+                  {
+                      try { if (File.Exists(dst)) File.Delete(dst); } catch (Exception) { }
+                      return;
+                  }
+                  using (FileStream i = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                  using (FileStream o = new FileStream(dst, FileMode.Create, FileAccess.Write, FileShare.None))
+                  {
+                      byte[] buf = new byte[81920];
+                      int n;
+                      while ((n = i.Read(buf, 0, buf.Length)) > 0) o.Write(buf, 0, n);
+                  }
+              }
+
+              static List<Row> Query(string file, long after, bool maxOnly, out long maxId)
+              {
+                  List<Row> rows = new List<Row>();
+                  maxId = after;
+                  IntPtr db = IntPtr.Zero, st = IntPtr.Zero;
+                  if (Open(file, out db) != 0) { if (db != IntPtr.Zero) Close(db); throw new Exception("Gagal membuka salinan database notifikasi"); }
+                  try
+                  {
+                      string sql = maxOnly
+                          ? "SELECT IFNULL(MAX(Id),0) FROM Notification"
+                          : "SELECT n.Id, IFNULL(h.PrimaryId,''), n.Payload FROM Notification n LEFT JOIN NotificationHandler h ON h.RecordId = n.HandlerId WHERE n.Type = 'toast' AND n.Id > ?1 ORDER BY n.Id LIMIT 20";
+                      if (Prepare(db, sql, -1, out st, IntPtr.Zero) != 0) throw new Exception("Gagal membaca tabel notifikasi");
+                      if (!maxOnly) BindInt64(st, 1, after);
+                      while (Step(st) == 100 /* SQLITE_ROW */)
+                      {
+                          if (maxOnly) { maxId = ColInt64(st, 0); continue; }
+                          Row r = new Row();
+                          r.Id = ColInt64(st, 0);
+                          IntPtr tp = ColText16(st, 1);
+                          r.App = tp == IntPtr.Zero ? "" : Marshal.PtrToStringUni(tp);
+                          IntPtr bp = ColBlob(st, 2);
+                          int bn = ColBytes(st, 2);
+                          if (bp != IntPtr.Zero && bn > 0)
+                          {
+                              r.Payload = new byte[bn];
+                              Marshal.Copy(bp, r.Payload, 0, bn);
+                          }
+                          rows.Add(r);
+                          if (r.Id > maxId) maxId = r.Id;
+                      }
+                  }
+                  finally
+                  {
+                      if (st != IntPtr.Zero) Finalize(st);
+                      Close(db);
+                  }
+                  return rows;
+              }
+
+              static void Handle(Row r)
+              {
+                  if (r.Payload == null) return;
+                  string xml = Encoding.UTF8.GetString(r.Payload).Trim('\0', '﻿', ' ', '\r', '\n', '\t');
+                  if (xml.Length == 0) return;
+                  XmlDocument doc = new XmlDocument();
+                  try { doc.LoadXml(xml); } catch (Exception) { return; }
+                  XmlNodeList texts = doc.SelectNodes("//binding/text");
+                  List<string> list = new List<string>();
+                  if (texts != null)
+                  {
+                      foreach (XmlNode t in texts)
+                      {
+                          XmlAttribute pl = t.Attributes == null ? null : t.Attributes["placement"];
+                          if (pl != null && pl.Value == "attribution") continue;
+                          string v = (t.InnerText ?? "").Trim();
+                          if (v.Length > 0) list.Add(v);
+                      }
+                  }
+                  if (list.Count == 0) return;
+                  string title = list[0];
+                  StringBuilder body = new StringBuilder();
+                  for (int i = 1; i < list.Count; i++)
+                  {
+                      if (body.Length > 0) body.Append('\n');
+                      body.Append(list[i]);
+                  }
+                  string body2 = body.ToString();
+                  if (body2.Length > 400) body2 = body2.Substring(0, 400);
+                  if (title.Length > 200) title = title.Substring(0, 200);
+                  string img = "";
+                  XmlNode im = doc.SelectSingleNode("//binding/image[@placement='appLogoOverride']");
+                  if (im != null && im.Attributes != null && im.Attributes["src"] != null) img = im.Attributes["src"].Value;
+                  Program.Emit("{\"t\":\"toast\",\"id\":" + r.Id + ",\"app\":" + Program.J(r.App) + ",\"title\":" + Program.J(title)
+                      + ",\"body\":" + Program.J(body2) + ",\"img\":" + Program.J(img) + "}");
+              }
+
+              public static void Run()
+              {
+                  string local = Environment.GetEnvironmentVariable("LOCALAPPDATA");
+                  string dir = Path.Combine(local ?? "", "Microsoft\\Windows\\Notifications");
+                  string db = Path.Combine(dir, "wpndatabase.db");
+                  if (!File.Exists(db))
+                  {
+                      Program.Emit("{\"t\":\"err\",\"m\":\"Database notifikasi Windows tidak ditemukan\"}");
+                      Thread.Sleep(Timeout.Infinite);
+                      return;
+                  }
+                  string tmp = Path.Combine(Path.GetTempPath(), "fxn" + Process.GetCurrentProcess().Id);
+                  Directory.CreateDirectory(tmp);
+                  string tdb = Path.Combine(tmp, "w.db");
+                  long last = -1, sig = 0;
+                  string lastErr = "";
+                  while (true)
+                  {
+                      try
+                      {
+                          long s = Sig(db) ^ (Sig(db + "-wal") * 31);
+                          if (s != sig || last < 0)
+                          {
+                              sig = s;
+                              CopyShared(db, tdb);
+                              CopyShared(db + "-wal", tdb + "-wal");
+                              CopyShared(db + "-shm", tdb + "-shm");
+                              long mx;
+                              if (last < 0)
+                              {
+                                  Query(tdb, 0, true, out mx);
+                                  last = mx;
+                                  Program.Emit("{\"t\":\"ready\"}");
+                                  lastErr = "";
+                              }
+                              else
+                              {
+                                  List<Row> rows = Query(tdb, last, false, out mx);
+                                  foreach (Row r in rows)
+                                  {
+                                      try { Handle(r); } catch (Exception) { }
+                                  }
+                                  if (mx > last) last = mx;
+                                  lastErr = "";
+                              }
+                          }
+                      }
+                      catch (Exception e)
+                      {
+                          string m = e.GetType().Name + ": " + e.Message;
+                          if (m != lastErr)
+                          {
+                              lastErr = m;
+                              Program.Emit("{\"t\":\"err\",\"m\":" + Program.J(m) + "}");
+                          }
+                          sig = 0;
+                      }
+                      Thread.Sleep(600);
+                  }
+              }
+          }
+
+          // ---------------------------------------------------------------- pemantau jendela
+
+          static class WinWatch
+          {
+              delegate bool EnumProc(IntPtr h, IntPtr l);
+              [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc p, IntPtr l);
+              [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr h, EnumProc p, IntPtr l);
+              [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+              [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+              [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+              [DllImport("user32.dll")] static extern bool IsZoomed(IntPtr h);
+              [DllImport("user32.dll", EntryPoint = "GetWindowLongW")] static extern int GetWindowLong(IntPtr h, int idx);
+              [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowTextLength(IntPtr h);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder sb, int n);
+              [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+              [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out int val, int size);
+              [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out RECT r, int size);
+              [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, uint pid);
+              [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+              [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr p, int flags, StringBuilder sb, ref int n);
+              [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern int GetApplicationUserModelId(IntPtr p, ref int n, StringBuilder sb);
+
+              [StructLayout(LayoutKind.Sequential)]
+              struct RECT { public int L; public int T; public int R; public int B; }
+
+              class Info
+              {
+                  public IntPtr H;
+                  public uint Pid;
+                  public string Exe = "";
+                  public string IconId = "";
+                  public string Icon = "";
+                  public RECT R;
+                  public RECT Prev;
+                  public bool Zoomed;
+                  public bool Min;
+                  public int Stable;
+                  public bool Announced;
+                  public bool Away;
+              }
+
+              static readonly Dictionary<IntPtr, Info> known = new Dictionary<IntPtr, Info>();
+              static readonly Dictionary<uint, string[]> procCache = new Dictionary<uint, string[]>();
+              static readonly Dictionary<string, string> iconCache = new Dictionary<string, string>();
+              static readonly HashSet<string> skipClass = new HashSet<string>(new string[] {
+                  "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "NotifyIconOverflowWindow",
+                  "TopLevelWindowForOverflowXamlIsland", "XamlExplorerHostIslandWindow", "Windows.UI.Core.CoreWindow",
+                  "ForegroundStaging", "MultitaskingViewFrame", "Windows.UI.Input.InputSite.WindowClass", "SysShadow",
+                  "tooltips_class32", "#32768", "#32770"
+              });
+              static readonly HashSet<string> skipExe = new HashSet<string>(new string[] {
+                  "searchhost.exe", "searchapp.exe", "startmenuexperiencehost.exe", "shellexperiencehost.exe",
+                  "textinputhost.exe", "lockapp.exe", "dwm.exe", "taskmgr_overlay.exe", "nvidia overlay.exe",
+                  "gamebar.exe", "gamebarftserver.exe", "screenclippinghost.exe", "widgets.exe", "widgetservice.exe"
+              });
+
+              static string ClassOf(IntPtr h)
+              {
+                  StringBuilder sb = new StringBuilder(128);
+                  GetClassName(h, sb, 128);
+                  return sb.ToString();
+              }
+
+              static string[] ProcInfo(uint pid)
+              {
+                  string[] r;
+                  if (procCache.TryGetValue(pid, out r)) return r;
+                  string exe = "", aumid = "";
+                  IntPtr hp = OpenProcess(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */, false, pid);
+                  if (hp != IntPtr.Zero)
+                  {
+                      try
+                      {
+                          StringBuilder sb = new StringBuilder(1024);
+                          int n = sb.Capacity;
+                          if (QueryFullProcessImageName(hp, 0, sb, ref n)) exe = sb.ToString();
+                          StringBuilder ab = new StringBuilder(256);
+                          int an = ab.Capacity;
+                          if (GetApplicationUserModelId(hp, ref an, ab) == 0) aumid = ab.ToString();
+                      }
+                      catch (Exception) { }
+                      finally { CloseHandle(hp); }
+                  }
+                  r = new string[] { exe, aumid };
+                  if (procCache.Count > 400) procCache.Clear();
+                  procCache[pid] = r;
+                  return r;
+              }
+
+              // Jendela aplikasi UWP dibungkus ApplicationFrameHost; proses sebenarnya ada di jendela anak CoreWindow.
+              static uint RealPid(IntPtr h, uint pid)
+              {
+                  string[] pi = ProcInfo(pid);
+                  if (pi[0].ToLowerInvariant().EndsWith("applicationframehost.exe"))
+                  {
+                      uint found = 0;
+                      EnumChildWindows(h, delegate (IntPtr c, IntPtr l)
+                      {
+                          uint cp;
+                          GetWindowThreadProcessId(c, out cp);
+                          if (cp != pid && ClassOf(c) == "Windows.UI.Core.CoreWindow") { found = cp; return false; }
+                          return true;
+                      }, IntPtr.Zero);
+                      if (found != 0) return found;
+                  }
+                  return pid;
+              }
+
+              static string IconFor(string id)
+              {
+                  if (string.IsNullOrEmpty(id)) return "";
+                  string v;
+                  if (iconCache.TryGetValue(id, out v)) return v;
+                  byte[] png = null;
+                  try { png = IconUtil.Png(id, 96); } catch (Exception) { }
+                  v = png == null ? "" : Convert.ToBase64String(png);
+                  if (iconCache.Count > 150) iconCache.Clear();
+                  iconCache[id] = v;
+                  return v;
+              }
+
+              // 0 = tidak tersembunyi, 1 = tersembunyi oleh aplikasi (dianggap ditutup), 2 = disembunyikan desktop virtual
+              static int CloakKind(IntPtr h)
+              {
+                  int c = 0;
+                  try { DwmGetWindowAttribute(h, 14, out c, 4); } catch (Exception) { return 0; }
+                  if (c == 0) return 0;
+                  if ((c & 2) != 0) return 2;
+                  return 1;
+              }
+
+              static bool Candidate(IntPtr h, uint own, out Info info, out int hidden)
+              {
+                  info = null;
+                  hidden = 0;
+                  if (!IsWindowVisible(h)) { hidden = 1; return false; }
+                  int ck = CloakKind(h);
+                  if (ck != 0) { hidden = ck == 2 ? 2 : 1; return false; }
+                  int ex = GetWindowLong(h, -20);
+                  bool appw = (ex & 0x40000) != 0;
+                  if ((ex & 0x80) != 0 && !appw) return false;
+                  if ((ex & 0x08000000) != 0 && !appw) return false;
+                  if (GetWindow(h, 4) != IntPtr.Zero) return false;
+                  if (GetWindowTextLength(h) <= 0) return false;
+                  string cls = ClassOf(h);
+                  if (skipClass.Contains(cls)) return false;
+                  uint pid;
+                  GetWindowThreadProcessId(h, out pid);
+                  if (pid == own) return false;
+                  bool min = IsIconic(h);
+                  RECT r = new RECT();
+                  if (!min)
+                  {
+                      if (DwmGetWindowAttribute(h, 9, out r, 16) != 0) return false;
+                      if (r.R - r.L < 160 || r.B - r.T < 100) return false;
+                  }
+                  info = new Info();
+                  info.H = h;
+                  info.Pid = pid;
+                  info.R = r;
+                  info.Min = min;
+                  info.Zoomed = IsZoomed(h);
+                  return true;
+              }
+
+              static string Ev(string t, Info i)
+              {
+                  return "{\"t\":\"" + t + "\",\"x\":" + i.R.L + ",\"y\":" + i.R.T + ",\"w\":" + (i.R.R - i.R.L) + ",\"h\":" + (i.R.B - i.R.T)
+                      + ",\"max\":" + (i.Zoomed ? 1 : 0) + ",\"exe\":" + Program.J(i.Exe) + ",\"icon\":" + Program.J(i.Icon) + "}";
+              }
+
+              static void Fill(Info i)
+              {
+                  uint rp = RealPid(i.H, i.Pid);
+                  string[] pi = ProcInfo(rp);
+                  i.Exe = pi[0];
+                  i.IconId = pi[1].Length > 0 ? pi[1] : pi[0];
+                  i.Icon = IconFor(i.IconId);
+              }
+
+              public static void Run(uint own)
+              {
+                  DateTime start = DateTime.UtcNow;
+                  bool first = true;
+                  while (true)
+                  {
+                      List<string> events = new List<string>();
+                      Dictionary<IntPtr, Info> now = new Dictionary<IntPtr, Info>();
+                      HashSet<IntPtr> away = new HashSet<IntPtr>();
+                      bool armed = (DateTime.UtcNow - start).TotalMilliseconds > 1500;
+                      try
+                      {
+                          EnumWindows(delegate (IntPtr h, IntPtr l)
+                          {
+                              Info c;
+                              int hid;
+                              if (Candidate(h, own, out c, out hid)) now[h] = c;
+                              else if (hid == 2) away.Add(h);
+                              return true;
+                          }, IntPtr.Zero);
+
+                          foreach (KeyValuePair<IntPtr, Info> kv in now)
+                          {
+                              Info c = kv.Value;
+                              Info k;
+                              if (known.TryGetValue(kv.Key, out k))
+                              {
+                                  k.Away = false;
+                                  bool wasMin = k.Min;
+                                  k.Zoomed = c.Zoomed;
+                                  k.Min = c.Min;
+                                  if (!c.Min) { k.Prev = k.R; k.R = c.R; }
+                                  if (k.Announced)
+                                  {
+                                      if (!wasMin && c.Min) events.Add(Ev("minimize", k));
+                                      else if (wasMin && !c.Min) events.Add(Ev("restore", k));
+                                  }
+                                  else if (!c.Min)
+                                  {
+                                      bool same = k.Prev.L == k.R.L && k.Prev.T == k.R.T && k.Prev.R == k.R.R && k.Prev.B == k.R.B;
+                                      k.Stable = same ? k.Stable + 1 : 0;
+                                      if (k.Stable >= 2)
+                                      {
+                                          k.Announced = true;
+                                          if (armed) { Fill(k); events.Add(Ev("open", k)); }
+                                          else Fill(k);
+                                      }
+                                  }
+                              }
+                              else
+                              {
+                                  c.Prev = new RECT();
+                                  // jendela yang sudah ada saat mulai: dianggap sudah dibuka, tanpa animasi
+                                  if (first || !armed)
+                                  {
+                                      c.Announced = true;
+                                      Fill(c);
+                                  }
+                                  known[kv.Key] = c;
+                              }
+                          }
+
+                          List<IntPtr> gone = new List<IntPtr>();
+                          foreach (KeyValuePair<IntPtr, Info> kv in known)
+                          {
+                              if (now.ContainsKey(kv.Key)) continue;
+                              if (away.Contains(kv.Key)) { kv.Value.Away = true; continue; }
+                              Info k = kv.Value;
+                              if (k.Announced && !k.Min && !k.Away && armed) events.Add(Ev("close", k));
+                              gone.Add(kv.Key);
+                          }
+                          foreach (IntPtr g in gone) known.Remove(g);
+                      }
+                      catch (Exception) { }
+                      first = false;
+                      // lonjakan peristiwa (mis. bangun dari tidur, ganti monitor) bukan buka/tutup sungguhan
+                      if (events.Count > 3) events.Clear();
+                      foreach (string e in events) Program.Emit(e);
+                      Thread.Sleep(45);
+                  }
+              }
+          }
+          FX_EOS
+          cat > fx/fx.js <<'FX_EOS'
+          "use strict";
+          // Modul efek Windows: Dynamic Island (membaca notifikasi Windows) + animasi buka/tutup jendela ala iOS.
+          // Dipakai oleh main.js lewat: const fx = require("./fx/fx.js"); fx.start({ app, win, cfg });
+          const { app, BrowserWindow, screen, ipcMain, shell, nativeImage, clipboard, globalShortcut } = require("electron");
+          const fs = require("fs");
+          const path = require("path");
+          const { spawn, execFile } = require("child_process");
+          const { fileURLToPath, pathToFileURL } = require("url");
+
+          const DEF = {
+            enabled: false, anim: false, animmin: false, pill: true,
+            bg: "#000000", op: 100, dy: 0, cw: 110, ew: 340, cx: 0, dh: 0,
+            fmode: 0, fapps: [], snd: false, dur: 4500, tapopen: true, suri: "", svol: 100, seen: {},
+            edge: "top", bat: true, clip: false, glow: true, dnd: false, qon: false, qfrom: "22:00", qto: "07:00", hot: true, mon: "primary", hist: true
+          };
+
+          let ctx = null, S = Object.assign({}, DEF), started = false, quitting = false;
+          let isl = null, islReady = false, islPend = [];
+          const anims = new Map();            // id layar -> { win, ready, pend }
+          const procs = { notif: null, win: null };
+          let notifState = { ok: false, err: "" }, notifTries = 0;
+          const appNames = new Map(), iconCache = new Map(), iconBusy = new Map();
+          let startApps = [], appsReady = false, saveT = null, ownIcon = "";
+          let hist = [], histT = null, clipLast = null, clipT = null, topT = null;
+
+          /* ---------- penyimpanan ---------- */
+          const storeFile = () => path.join(app.getPath("userData"), "island.json");
+          function load() {
+            let had = false;
+            try { const j = JSON.parse(fs.readFileSync(storeFile(), "utf8")); S = Object.assign({}, DEF, j); had = true; } catch (_) { S = Object.assign({}, DEF); }
+            // mode URL tidak punya halaman pengaturan: nyalakan langsung
+            if (!had && ctx && ctx.cfg && ctx.cfg.url) { S.enabled = true; S.anim = true; }
+            if (!Array.isArray(S.fapps)) S.fapps = [];
+            if (!S.seen || typeof S.seen !== "object") S.seen = {};
+          }
+          function save() {
+            clearTimeout(saveT);
+            saveT = setTimeout(() => { try { fs.writeFileSync(storeFile(), JSON.stringify(S)); } catch (_) {} }, 250);
+          }
+          const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
+
+          /* ---------- pembantu sistem (fxhelper.exe) ---------- */
+          function helperExe() {
+            return app.isPackaged ? path.join(process.resourcesPath, "fxhelper.exe") : path.join(__dirname, "bin", "fxhelper.exe");
+          }
+          function runHelper(args, onLine, onExit) {
+            const p = spawn(helperExe(), args, { windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
+            let buf = "";
+            p.stdout.setEncoding("utf8");
+            p.stdout.on("data", d => {
+              buf += d;
+              let i;
+              while ((i = buf.indexOf("\n")) >= 0) {
+                const l = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+                if (!l) continue;
+                try { onLine(JSON.parse(l)); } catch (_) {}
+              }
+            });
+            p.stdin.on("error", () => {});
+            p.on("error", () => { onExit && onExit(-1); });
+            p.on("exit", c => { onExit && onExit(c); });
+            return p;
+          }
+          function killHelper(p) { if (!p) return; try { p.stdin.end(); } catch (_) {} try { p.kill(); } catch (_) {} }
+
+          function appIcon(id, px) {
+            if (!id) return Promise.resolve("");
+            const k = id + "|" + px;
+            if (iconCache.has(k)) return Promise.resolve(iconCache.get(k));
+            if (iconBusy.has(k)) return iconBusy.get(k);
+            const pr = new Promise(res => {
+              try {
+                execFile(helperExe(), ["icon", id, String(px)], { windowsHide: true, timeout: 6000, maxBuffer: 4 * 1024 * 1024, encoding: "utf8" }, (err, out) => {
+                  const v = (!err && out && out.length > 40) ? "data:image/png;base64," + String(out).trim() : "";
+                  iconCache.set(k, v); iconBusy.delete(k); res(v);
+                });
+              } catch (_) { iconBusy.delete(k); res(""); }
+            });
+            iconBusy.set(k, pr);
+            return pr;
+          }
+          const wait = (ms, v) => new Promise(r => setTimeout(() => r(v), ms));
+
+          function refreshApps() {
+            const ps = "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-StartApps | ForEach-Object { $_.AppID + [char]9 + $_.Name }";
+            try {
+              execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps],
+                { windowsHide: true, timeout: 40000, maxBuffer: 16 * 1024 * 1024, encoding: "utf8" }, (err, out) => {
+                  const list = [], seen = new Set();
+                  if (!err && out) {
+                    String(out).split(/\r?\n/).forEach(l => {
+                      const i = l.indexOf("\t");
+                      if (i <= 0) return;
+                      const id = l.slice(0, i).trim(), name = l.slice(i + 1).trim();
+                      if (!id || !name || seen.has(id)) return;
+                      seen.add(id); list.push({ n: name, p: id }); appNames.set(id, name);
+                    });
+                  }
+                  startApps = list; appsReady = true;
+                });
+            } catch (_) { appsReady = true; }
+          }
+
+          function prettyApp(id) {
+            if (!id) return "Windows";
+            const n = appNames.get(id) || (S.seen && S.seen[id]);
+            if (n) return n;
+            let s = String(id);
+            if (/^[a-z]:[\\/]/i.test(s) || /\.exe$/i.test(s)) s = path.basename(s).replace(/\.exe$/i, "");
+            else if (s.indexOf("!") >= 0) { s = s.split("!")[0].split("_")[0].split(".").pop(); }
+            else if (s.indexOf(".") >= 0) s = s.split(".").pop();
+            s = s.replace(/[_-]+/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").trim();
+            return s ? s.charAt(0).toUpperCase() + s.slice(1) : "Windows";
+          }
+
+          /* ---------- suara ---------- */
+          const mediaDir = () => path.join(process.env.WINDIR || "C:\\Windows", "Media");
+          function soundList() {
+            const out = [];
+            try {
+              fs.readdirSync(mediaDir()).forEach(f => {
+                if (!/\.wav$/i.test(f)) return;
+                let sz = 0; try { sz = fs.statSync(path.join(mediaDir(), f)).size; } catch (_) {}
+                if (sz > 700 * 1024) return;
+                out.push({ t: f.replace(/\.wav$/i, ""), u: pathToFileURL(path.join(mediaDir(), f)).href });
+              });
+            } catch (_) {}
+            out.sort((a, b) => a.t.localeCompare(b.t));
+            return out;
+          }
+          function defaultSoundUrl() {
+            const f = path.join(mediaDir(), "Windows Notify System Generic.wav");
+            if (fs.existsSync(f)) return pathToFileURL(f).href;
+            const l = soundList();
+            return l.length ? l[0].u : "";
+          }
+          const soundUrl = u => (u && String(u).length ? u : defaultSoundUrl());
+
+          /* ---------- jendela island ---------- */
+          function islDisplay() {
+            try { if (S.mon === "cursor") return screen.getDisplayNearestPoint(screen.getCursorScreenPoint()); } catch (_) {}
+            return screen.getPrimaryDisplay();
+          }
+          function islandBounds() {
+            const d = islDisplay();
+            const b = d.bounds, ew = Math.min(S.ew, b.width - 40), mg = Math.max(0, S.dy), side = S.edge === "left" || S.edge === "right";
+            const W = ew + 100 + (side ? mg : 0), H = (side ? Math.max(320, S.cw + 80) : 300) + (side ? 0 : mg);
+            const along = (len, box, org) => Math.round(Math.max(org, Math.min(org + box - len, org + (box - len) / 2 + S.cx)));
+            if (S.edge === "bottom") return { x: along(W, b.width, b.x), y: b.y + b.height - H, width: W, height: H };
+            if (S.edge === "left") return { x: b.x, y: along(H, b.height, b.y), width: W, height: H };
+            if (S.edge === "right") return { x: b.x + b.width - W, y: along(H, b.height, b.y), width: W, height: H };
+            return { x: along(W, b.width, b.x), y: b.y, width: W, height: H };
+          }
+          function overlayPrefs() {
+            return { preload: path.join(__dirname, "overlay-preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false, autoplayPolicy: "no-user-gesture-required" };
+          }
+          function overlayOpts(b) {
+            return Object.assign({}, b, {
+              frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false,
+              focusable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false, show: false, backgroundColor: "#00000000", webPreferences: overlayPrefs()
+            });
+          }
+          function islCfg() {
+            return { bg: S.bg, op: S.op, cw: S.cw, ew: S.ew, dh: S.dh, top: 8 + S.dy, edge: S.edge, always: !!S.pill, dur: S.dur, glow: !!S.glow, bat: !!S.bat, snd: !!S.snd, surl: soundUrl(S.suri), svol: S.svol };
+          }
+          function ensureIsland() {
+            if (isl && !isl.isDestroyed()) return isl;
+            isl = new BrowserWindow(overlayOpts(islandBounds()));
+            islReady = false; islPend = [];
+            isl.setAlwaysOnTop(true, "screen-saver");
+            isl.setIgnoreMouseEvents(true, { forward: true });
+            isl.webContents.once("did-finish-load", () => {
+              islReady = true;
+              isl.webContents.send("fx:cfg", islCfg());
+              islPend.forEach(m => isl.webContents.send("fx:" + m[0], m[1]));
+              islPend = [];
+              if (S.pill && S.enabled) { try { isl.showInactive(); } catch (_) {} }
+            });
+            isl.on("closed", () => { isl = null; islReady = false; });
+            // kalau ada yang menyembunyikannya (bukan kita), munculkan lagi: island tidak boleh hilang sampai dimatikan
+            isl.on("hide", () => { setTimeout(() => { if (S.enabled && S.pill && isl && !isl.isDestroyed() && !isl.isVisible()) { try { isl.showInactive(); } catch (_) {} } }, 250); });
+            isl.loadFile(path.join(__dirname, "island.html"));
+            return isl;
+          }
+          function toIsl(ch, d) {
+            const w = ensureIsland();
+            if (islReady) w.webContents.send("fx:" + ch, d); else islPend.push([ch, d]);
+          }
+          function placeIsland() {
+            if (!isl || isl.isDestroyed()) return;
+            try { isl.setBounds(islandBounds()); } catch (_) {}
+          }
+          function sendCfg() {
+            if (!isl || isl.isDestroyed()) return;
+            placeIsland();
+            if (islReady) isl.webContents.send("fx:cfg", islCfg());
+            if (S.pill && S.enabled) { try { isl.showInactive(); } catch (_) {} }
+          }
+          function showIsland(p) {
+            if (!S.enabled) return;
+            const w = ensureIsland();
+            placeIsland();
+            try { w.setAlwaysOnTop(true, "screen-saver"); if (!w.isVisible()) w.showInactive(); } catch (_) {}
+            toIsl("show", p);
+          }
+          // Aplikasi layar penuh bisa mendorong dirinya ke atas: tegaskan lagi posisi paling atas secara berkala.
+          function keepTop() {
+            if (topT) return;
+            topT = setInterval(() => {
+              if (!S.enabled || !isl || isl.isDestroyed()) return;
+              try {
+                isl.setAlwaysOnTop(true, "screen-saver");
+                if (S.pill && !isl.isVisible()) isl.showInactive();
+                if (isl.isVisible()) isl.moveTop();
+              } catch (_) {}
+            }, 1200);
+          }
+          function stopTop() { if (topT) { clearInterval(topT); topT = null; } }
+          function destroyIsland() {
+            if (isl && !isl.isDestroyed()) { try { isl.destroy(); } catch (_) {} }
+            isl = null; islReady = false; islPend = [];
+          }
+
+          /* ---------- notifikasi Windows ---------- */
+          function readImg(p) {
+            try {
+              if (!p) return "";
+              if (/^file:/i.test(p)) p = fileURLToPath(p);
+              else if (/^[a-z][a-z0-9+.-]*:/i.test(p) && !/^[a-z]:[\\/]/i.test(p)) return "";
+              if (!fs.existsSync(p) || fs.statSync(p).size > 3 * 1024 * 1024) return "";
+              const ni = nativeImage.createFromPath(p);
+              if (ni.isEmpty()) return "";
+              const s = ni.getSize(), k = 128 / Math.max(s.width, s.height);
+              return (k < 1 ? ni.resize({ width: Math.max(1, Math.round(s.width * k)), height: Math.max(1, Math.round(s.height * k)) }) : ni).toDataURL();
+            } catch (_) { return ""; }
+          }
+          async function onToast(m) {
+            if (!S.enabled) return;
+            const id = String(m.app || "");
+            if (S.fmode === 1 && S.fapps.indexOf(id) < 0) return;
+            const label = prettyApp(id);
+            if (id && S.seen[id] !== label) {
+              S.seen[id] = label;
+              const ks = Object.keys(S.seen);
+              if (ks.length > 80) delete S.seen[ks[0]];
+              save();
+            }
+            if (S.hist) addHist({ title: m.title || label, text: m.body || "", app: label, appId: id });
+            if (quiet()) return;
+            const img = readImg(m.img);
+            const icon = await Promise.race([appIcon(id, 64), wait(700, "")]);
+            showIsland({ title: m.title || label, text: m.body || "", img: img, icon: icon, app: label, appId: id });
+          }
+          function startNotif() {
+            if (procs.notif || !S.enabled) return;
+            if (!fs.existsSync(helperExe())) { notifState = { ok: false, err: "fxhelper.exe tidak ditemukan" }; return; }
+            procs.notif = runHelper(["notif"], m => {
+              if (m.t === "ready") { notifState = { ok: true, err: "" }; notifTries = 0; }
+              else if (m.t === "err") notifState = { ok: false, err: String(m.m || "") };
+              else if (m.t === "toast") onToast(m);
+            }, () => {
+              procs.notif = null; notifState = { ok: false, err: notifState.err || "pembaca berhenti" };
+              if (S.enabled && !quitting && notifTries++ < 5) setTimeout(startNotif, 2500);
+            });
+          }
+          function stopNotif() { const p = procs.notif; procs.notif = null; killHelper(p); notifState = { ok: false, err: "" }; }
+
+          function openApp(id) {
+            if (!id || !appNames.has(id)) return;
+            try { spawn("explorer.exe", ["shell:AppsFolder\\" + id], { detached: true, stdio: "ignore", windowsHide: true }).unref(); } catch (_) {}
+          }
+
+          /* ---------- animasi buka/tutup jendela ---------- */
+          function animFor(d) {
+            let o = anims.get(d.id);
+            if (o && !o.win.isDestroyed()) return o;
+            const win = new BrowserWindow(overlayOpts(d.bounds));
+            o = { win: win, ready: false, pend: [] };
+            win.setAlwaysOnTop(true, "screen-saver");
+            win.setIgnoreMouseEvents(true);
+            win.webContents.once("did-finish-load", () => { o.ready = true; o.pend.forEach(x => win.webContents.send("fx:play", x)); o.pend = []; });
+            win.on("closed", () => { if (anims.get(d.id) === o) anims.delete(d.id); });
+            win.loadFile(path.join(__dirname, "anim.html"));
+            anims.set(d.id, o);
+            return o;
+          }
+          function taskbarOrigin(d, r) {
+            const b = d.bounds, w = d.workArea;
+            const gb = (b.y + b.height) - (w.y + w.height), gt = w.y - b.y, gl = w.x - b.x, gr = (b.x + b.width) - (w.x + w.width);
+            const m = Math.max(gb, gt, gl, gr);
+            const mid = b.x + b.width / 2;
+            const cx = Math.min(Math.max(r.x + r.width / 2, mid - 260), mid + 260);
+            if (m < 8) return { x: cx, y: b.y + b.height - 28 };
+            if (m === gb) return { x: cx, y: b.y + b.height - gb / 2 };
+            if (m === gt) return { x: cx, y: b.y + gt / 2 };
+            if (m === gl) return { x: b.x + gl / 2, y: r.y + r.height / 2 };
+            return { x: b.x + b.width - gr / 2, y: r.y + r.height / 2 };
+          }
+          function playAnim(opening, r, icon, max) {
+            const d = screen.getDisplayMatching(r);
+            const o = animFor(d);
+            const org = taskbarOrigin(d, r);
+            const msg = {
+              opening: !!opening, max: !!max, icon: icon || "",
+              rect: { x: r.x - d.bounds.x, y: r.y - d.bounds.y, w: r.width, h: r.height },
+              origin: { x: org.x - d.bounds.x, y: org.y - d.bounds.y }
+            };
+            try { o.win.setBounds(d.bounds); o.win.setAlwaysOnTop(true, "screen-saver"); o.win.showInactive(); } catch (_) {}
+            if (o.ready) setTimeout(() => { try { o.win.webContents.send("fx:play", msg); } catch (_) {} }, 28); else o.pend.push(msg);
+          }
+          function onWin(m) {
+            if (!S.anim) return;
+            if ((m.t === "minimize" || m.t === "restore") && !S.animmin) return;
+            const opening = m.t === "open" || m.t === "restore";
+            const r = screen.screenToDipRect(null, { x: m.x, y: m.y, width: m.w, height: m.h });
+            if (m.icon) { playAnim(opening, r, "data:image/png;base64," + m.icon, m.max); return; }
+            const fin = d => playAnim(opening, r, d, m.max);
+            if (m.exe) app.getFileIcon(m.exe, { size: "large" }).then(i => fin(i.toDataURL())).catch(() => fin(""));
+            else fin("");
+          }
+          function startWin() {
+            if (procs.win || !S.anim) return;
+            if (!fs.existsSync(helperExe())) return;
+            procs.win = runHelper(["win", String(process.pid)], onWin, () => { procs.win = null; });
+            // siapkan jendela overlay lebih awal supaya animasi pertama tidak tersendat
+            try { animFor(screen.getPrimaryDisplay()); } catch (_) {}
+          }
+          function stopWin() { const p = procs.win; procs.win = null; killHelper(p); }
+          function demo() {
+            const d = screen.getPrimaryDisplay(), w = Math.round(d.workArea.width * 0.55), h = Math.round(d.workArea.height * 0.6);
+            const r = { x: d.workArea.x + Math.round((d.workArea.width - w) / 2), y: d.workArea.y + Math.round((d.workArea.height - h) / 2), width: w, height: h };
+            playAnim(true, r, ownIcon, false);
+            setTimeout(() => playAnim(false, r, ownIcon, false), 1900);
+          }
+
+
+          /* ---------- fitur pintar: jangan ganggu, riwayat, papan klip, tombol pintas ---------- */
+          function svgIcon(color, glyph) {
+            const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><rect width='96' height='96' fill='" + color + "'/><text x='48' y='67' font-size='52' text-anchor='middle'>" + glyph + "</text></svg>";
+            return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+          }
+          function hm(s) { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || "")); return m ? (Math.min(23, +m[1]) * 60 + Math.min(59, +m[2])) : 0; }
+          function quiet() {
+            if (S.dnd) return true;
+            if (!S.qon) return false;
+            const n = new Date(), cur = n.getHours() * 60 + n.getMinutes(), a = hm(S.qfrom), b = hm(S.qto);
+            if (a === b) return false;
+            return a < b ? (cur >= a && cur < b) : (cur >= a || cur < b);
+          }
+          const histFile = () => path.join(app.getPath("userData"), "island-history.json");
+          function loadHist() { try { const j = JSON.parse(fs.readFileSync(histFile(), "utf8")); hist = Array.isArray(j) ? j.slice(0, 40) : []; } catch (_) { hist = []; } }
+          function saveHist() {
+            clearTimeout(histT);
+            histT = setTimeout(() => { try { fs.writeFileSync(histFile(), JSON.stringify(hist)); } catch (_) {} }, 600);
+          }
+          function addHist(h) {
+            hist.unshift({ t: Date.now(), title: String(h.title || "").slice(0, 120), text: String(h.text || "").slice(0, 300), app: String(h.app || ""), appId: String(h.appId || "") });
+            if (hist.length > 40) hist.length = 40;
+            saveHist();
+          }
+          function startClip() {
+            if (clipT || !S.enabled || !S.clip) return;
+            try { clipLast = clipboard.readText(); } catch (_) { clipLast = ""; }
+            clipT = setInterval(() => {
+              let t = "";
+              try { t = clipboard.readText(); } catch (_) { return; }
+              if (!t) { clipLast = t; return; }
+              if (t === clipLast) return;
+              clipLast = t;
+              if (quiet()) return;
+              showIsland({ title: "Disalin", text: t.replace(/\s+/g, " ").trim().slice(0, 90), app: "Papan klip", icon: svgIcon("#0a84ff", "📋"), appId: "" });
+            }, 700);
+          }
+          function stopClip() { if (clipT) { clearInterval(clipT); clipT = null; } }
+          function toggleDnd(on) {
+            S.dnd = on === undefined ? !S.dnd : !!on; save();
+            showIsland(S.dnd
+              ? { title: "Jangan ganggu aktif", text: "Notifikasi tidak ditampilkan di island", app: "Dynamic Island", icon: svgIcon("#5e5ce6", "🌙"), appId: "" }
+              : { title: "Jangan ganggu mati", text: "Notifikasi tampil lagi", app: "Dynamic Island", icon: svgIcon("#30d158", "🔔"), appId: "" });
+          }
+          function startKeys() {
+            stopKeys();
+            if (!S.enabled || !S.hot) return;
+            try { globalShortcut.register("CommandOrControl+Alt+N", () => toggleDnd()); } catch (_) {}
+            try { globalShortcut.register("CommandOrControl+Alt+I", () => { if (isl && !isl.isDestroyed() && islReady) isl.webContents.send("fx:stop", 1); }); } catch (_) {}
+          }
+          function stopKeys() {
+            try { globalShortcut.unregister("CommandOrControl+Alt+N"); globalShortcut.unregister("CommandOrControl+Alt+I"); } catch (_) {}
+          }
+
+          /* ---------- penerapan pengaturan ---------- */
+          function applyEnabled() {
+            if (S.enabled) {
+              ensureIsland(); startNotif(); startClip(); startKeys(); keepTop();
+            } else {
+              stopNotif(); destroyIsland(); stopClip(); stopKeys(); stopTop();
+            }
+          }
+          function applyAnim() { if (S.anim) startWin(); else { stopWin(); } }
+
+          function appsJson() {
+            const m = new Map();
+            startApps.forEach(a => m.set(a.p, { n: a.n, p: a.p }));
+            Object.keys(S.seen || {}).forEach(id => { if (!m.has(id)) m.set(id, { n: S.seen[id], p: id, s: 1 }); });
+            return JSON.stringify(Array.from(m.values()).sort((a, b) => a.n.localeCompare(b.n)));
+          }
+          function filterJson() {
+            const su = S.suri || "";
+            let sname = "Bawaan Windows";
+            if (su) { const f = soundList().find(x => x.u === su); sname = f ? f.t : "Nada pilihan"; }
+            return JSON.stringify({
+              mode: S.fmode, apps: S.fapps, snd: !!S.snd, anim: !!S.anim, animmin: !!S.animmin, pill: !!S.pill, hide: false,
+              dur: S.dur, tapopen: !!S.tapopen, suri: su, svol: S.svol, sname: sname,
+              edge: S.edge, bat: !!S.bat, clip: !!S.clip, glow: !!S.glow, dnd: !!S.dnd, qon: !!S.qon, qfrom: S.qfrom, qto: S.qto, hot: !!S.hot, mon: S.mon, hist: !!S.hist
+            });
+          }
+
+          const SYNC = {
+            getState: () => JSON.stringify({ overlay: true, listener: !!notifState.ok, running: !!S.enabled && !!isl, supported: true, cam: true, a11y: true }),
+            getInfo: () => JSON.stringify({
+              platform: "windows", version: (ctx && ctx.cfg && ctx.cfg.version) || "", helper: fs.existsSync(helperExe()),
+              notif: notifState, enabled: !!S.enabled, anim: !!procs.win, appsReady: appsReady, nApps: startApps.length
+            }),
+            getApps: () => appsJson(),
+            getIcon: id => iconCache.get(String(id || "") + "|64") || "",
+            getFilter: () => filterJson(),
+            getSounds: () => JSON.stringify([{ t: "Bawaan Windows", u: "" }].concat(soundList())),
+            getHistory: () => JSON.stringify(hist)
+          };
+
+          const CAST = {
+            openOverlay() {}, requestNotif() {}, openAccessibility() {}, setHideNotif() {},
+            openListener() { try { shell.openExternal("ms-settings:notifications"); } catch (_) {} },
+            openWinSettings() { try { shell.openExternal("ms-settings:notifications"); } catch (_) {} },
+            start() { S.enabled = true; save(); applyEnabled(); },
+            stop() { S.enabled = false; save(); applyEnabled(); },
+            test(title, text) { showIsland({ title: String(title || "Notifikasi").slice(0, 80), text: String(text || "").slice(0, 300), app: "Dynamic Island", icon: ownIcon, appId: "" }); },
+            setStyle(hex, op, dy, cw, ew, cx, dh) {
+              if (/^#[0-9a-f]{6}$/i.test(String(hex))) S.bg = String(hex);
+              S.op = clamp(op, 40, 100); S.dy = clamp(dy, -30, 120); S.cw = clamp(cw, 40, 400); S.ew = clamp(ew, 160, 700);
+              S.cx = clamp(cx, -300, 300); S.dh = clamp(dh, -20, 80); save(); sendCfg();
+            },
+            reload() { sendCfg(); },
+            setFilter(mode, json) {
+              try { const a = JSON.parse(json); S.fapps = Array.isArray(a) ? a.map(String).slice(0, 2000) : []; } catch (_) {}
+              S.fmode = Number(mode) === 1 ? 1 : 0; save();
+            },
+            setTapOpen(on) { S.tapopen = !!on; save(); },
+            setAnim(on) { S.anim = !!on; save(); applyAnim(); },
+            setAnimMin(on) { S.animmin = !!on; save(); },
+            setPillAlways(on) { S.pill = !!on; save(); if (isl) { sendCfg(); if (!S.pill) { /* pulau yang idle akan menyembunyikan dirinya */ } } },
+            setDuration(ms) { S.dur = clamp(ms, 2000, 20000); save(); sendCfg(); },
+            setSound(on) { S.snd = !!on; save(); sendCfg(); },
+            setSoundUri(u) { S.suri = String(u || ""); save(); sendCfg(); },
+            setSoundVol(v) { S.svol = clamp(v, 0, 100); save(); sendCfg(); },
+            previewSound(u) { if (S.enabled) toIsl("sound", { url: soundUrl(u), vol: S.svol }); },
+            demoAnim() { demo(); },
+            setEdge(e) { S.edge = ["top", "bottom", "left", "right"].indexOf(e) >= 0 ? e : "top"; save(); sendCfg(); },
+            setBat(on) { S.bat = !!on; save(); sendCfg(); },
+            setGlow(on) { S.glow = !!on; save(); sendCfg(); },
+            setClip(on) { S.clip = !!on; save(); if (S.clip) startClip(); else stopClip(); },
+            setDnd(on) { S.dnd = !!on; save(); },
+            setQuiet(on, from, to) { S.qon = !!on; S.qfrom = /^\d{1,2}:\d{2}$/.test(String(from)) ? String(from) : "22:00"; S.qto = /^\d{1,2}:\d{2}$/.test(String(to)) ? String(to) : "07:00"; save(); },
+            setHotkeys(on) { S.hot = !!on; save(); if (S.hot) startKeys(); else stopKeys(); },
+            setMonitor(m) { S.mon = m === "cursor" ? "cursor" : "primary"; save(); placeIsland(); },
+            setHistOn(on) { S.hist = !!on; save(); },
+            clearHistory() { hist = []; saveHist(); },
+            reshow(i) { const h = hist[Number(i)]; if (h) showIsland({ title: h.title, text: h.text, app: h.app, appId: h.appId, time: "tadi" }); }
+          };
+
+          function trusted(e) {
+            try { return !!ctx && !ctx.win.isDestroyed() && e.sender === ctx.win.webContents && /^file:/i.test(e.senderFrame ? e.senderFrame.url : ""); } catch (_) { return false; }
+          }
+          function bindIpc() {
+            ipcMain.on("fx:call", (e, name, args) => {
+              let r = null;
+              try { if (trusted(e) && SYNC[name]) r = SYNC[name].apply(null, Array.isArray(args) ? args : []); } catch (_) { r = null; }
+              e.returnValue = r === undefined ? null : r;
+            });
+            ipcMain.on("fx:cast", (e, name, args) => {
+              try { if (trusted(e) && CAST[name]) CAST[name].apply(null, Array.isArray(args) ? args : []); } catch (_) {}
+            });
+            ipcMain.handle("fx:icon", (e, id) => (trusted(e) ? appIcon(String(id || "").slice(0, 400), 64) : ""));
+            // dari jendela overlay
+            ipcMain.on("fx:mouse", (e, inside) => {
+              if (isl && !isl.isDestroyed() && e.sender === isl.webContents) { try { isl.setIgnoreMouseEvents(!inside, { forward: true }); } catch (_) {} }
+            });
+            ipcMain.on("fx:local", (e, p) => {
+              if (!(isl && !isl.isDestroyed() && e.sender === isl.webContents) || !p || quiet()) return;
+              const ic = String(p.icon || "");
+              showIsland({ title: String(p.title || "").slice(0, 80), text: String(p.text || "").slice(0, 200), app: String(p.app || "").slice(0, 40),
+                icon: /^data:image\/svg\+xml/.test(ic) && ic.length < 4000 ? ic : "", appId: "" });
+            });
+            ipcMain.on("fx:tap", (e, id) => {
+              if (isl && !isl.isDestroyed() && e.sender === isl.webContents && S.tapopen) openApp(String(id || ""));
+            });
+            ipcMain.on("fx:idle", e => {
+              if (isl && !isl.isDestroyed() && e.sender === isl.webContents) {
+                if (!S.pill) { try { isl.setIgnoreMouseEvents(true, { forward: true }); isl.hide(); } catch (_) {} }
+                return;
+              }
+              anims.forEach(o => { if (!o.win.isDestroyed() && e.sender === o.win.webContents) { try { o.win.hide(); } catch (_) {} } });
+            });
+          }
+
+          function stop() {
+            quitting = true;
+            stopNotif(); stopWin(); destroyIsland(); stopClip(); stopKeys(); stopTop();
+            anims.forEach(o => { try { if (!o.win.isDestroyed()) o.win.destroy(); } catch (_) {} });
+            anims.clear();
+          }
+
+          function start(c) {
+            if (started) return;
+            started = true; ctx = c; quitting = false;
+            load();
+            try {
+              const ni = nativeImage.createFromPath(path.join(__dirname, "..", "icon.png"));
+              if (!ni.isEmpty()) ownIcon = ni.resize({ width: 96 }).toDataURL();
+            } catch (_) {}
+            bindIpc();
+            c.win.on("closed", stop);
+            app.on("before-quit", () => { quitting = true; });
+            const redo = () => { placeIsland(); };
+            screen.on("display-metrics-changed", redo);
+            screen.on("display-added", redo);
+            screen.on("display-removed", () => { anims.forEach((o, id) => { if (!screen.getAllDisplays().some(d => d.id === id)) { try { o.win.destroy(); } catch (_) {} anims.delete(id); } }); redo(); });
+            loadHist();
+            refreshApps();
+            applyEnabled();
+            applyAnim();
+          }
+
+          function trayItems() {
+            return [
+              { label: "Dynamic Island", type: "checkbox", checked: !!S.enabled, click: it => { S.enabled = it.checked; save(); applyEnabled(); } },
+              { label: "Animasi buka/tutup jendela", type: "checkbox", checked: !!S.anim, click: it => { S.anim = it.checked; save(); applyAnim(); } },
+              { label: "Jangan ganggu (Ctrl+Alt+N)", type: "checkbox", checked: !!S.dnd, click: it => { S.dnd = it.checked; save(); } }
+            ];
+          }
+
+          module.exports = { start, stop, trayItems };
+          FX_EOS
+          cat > fx/preload.js <<'FX_EOS'
+          "use strict";
+          // Jembatan untuk halaman pengaturan (hanya dipasang saat halaman berasal dari file lokal di dalam aplikasi).
+          // Nama dan bentuknya sama dengan jembatan Android (window.AndroidIsland), jadi halaman yang sama bisa dipakai di keduanya.
+          const { contextBridge, ipcRenderer } = require("electron");
+          if (location.protocol === "file:") {
+            const SYNC = ["getState", "getInfo", "getApps", "getIcon", "getFilter", "getSounds", "getHistory"];
+            const CAST = ["openOverlay", "openListener", "requestNotif", "start", "stop", "test", "setStyle", "reload", "setFilter",
+              "setTapOpen", "setAnim", "setAnimMin", "setPillAlways", "openAccessibility", "setHideNotif", "setDuration", "setSound",
+              "previewSound", "setSoundUri", "setSoundVol", "demoAnim", "openWinSettings",
+              "setEdge", "setBat", "setGlow", "setClip", "setDnd", "setQuiet", "setHotkeys", "setMonitor", "setHistOn", "clearHistory", "reshow"];
+            const api = {};
+            SYNC.forEach(n => { api[n] = function () { return ipcRenderer.sendSync("fx:call", n, Array.prototype.slice.call(arguments)); }; });
+            CAST.forEach(n => { api[n] = function () { ipcRenderer.send("fx:cast", n, Array.prototype.slice.call(arguments)); }; });
+            api.getIconAsync = function (id) { return ipcRenderer.invoke("fx:icon", String(id || "")); };
+            api.platform = "windows";
+            contextBridge.exposeInMainWorld("AndroidIsland", api);
+            contextBridge.exposeInMainWorld("WinIsland", api);
+          }
+          FX_EOS
+          cat > fx/overlay-preload.js <<'FX_EOS'
+          "use strict";
+          const { contextBridge, ipcRenderer } = require("electron");
+          const OK_IN = ["cfg", "show", "play", "sound", "stop"];
+          const OK_OUT = ["mouse", "tap", "idle", "ready", "local"];
+          contextBridge.exposeInMainWorld("fxo", {
+            on: (ch, cb) => { if (OK_IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("fx:" + ch, (_e, d) => cb(d)); },
+            send: (ch, d) => { if (OK_OUT.indexOf(ch) >= 0) ipcRenderer.send("fx:" + ch, d); }
+          });
+          FX_EOS
+          cat > fx/island.html <<'FX_EOS'
+          <!doctype html>
+          <html><head><meta charset="utf-8">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: file:; media-src file:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+          <title>Island</title>
+          <style>html,body{margin:0;height:100%;overflow:hidden;background:transparent}body{position:relative}</style>
+          </head><body>
+          <script>
+          /* ===== inti Dynamic Island (dipakai island.html dan pratinjau di halaman pengaturan) ===== */
+          (function (g) {
+            var CSS = [
+              '.fxi{position:absolute;left:50%;transform:translate3d(-50%,0,0);will-change:width,height,opacity,scale;contain:layout style;backface-visibility:hidden;overflow:hidden;box-sizing:border-box;opacity:0;pointer-events:none;scale:1;transform-origin:50% 0;transition:opacity .16s ease,scale .12s ease-out;user-select:none;-webkit-user-select:none;cursor:default;font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif}',
+              '.fxi.on{opacity:1;pointer-events:auto}',
+              '.fxi.rel{transition:opacity .16s ease,scale .3s cubic-bezier(.3,1.9,.5,1)}',
+              '.fxi-ct{position:absolute;top:0;left:50%;transform:translate3d(-50%,0,0);will-change:opacity,scale;box-sizing:border-box;padding:10px 18px;opacity:0;transform-origin:50% 0}',
+              '.fxr{display:flex;align-items:center;padding:8px 0}',
+              '.fxa{position:relative;width:48px;height:48px;flex:none}',
+              '.fxa .pic{position:absolute;left:0;top:0;width:44px;height:44px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:#fff}',
+              '.fxa .pic img{width:100%;height:100%;object-fit:cover;display:block}',
+              '.fxa .bd{position:absolute;right:0;bottom:0;width:22px;height:22px}',
+              '.fxa .bd>div{position:absolute;left:2px;top:2px;right:2px;bottom:2px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;overflow:hidden}',
+              '.fxa .bd img{width:100%;height:100%;object-fit:cover;display:block}',
+              '.fxt{flex:1;min-width:0;margin-left:12px}',
+              '.fxl{display:flex;align-items:center}',
+              '.fxl b{flex:1;min-width:0;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+              '.fxl i{font-style:normal;font-size:12px;margin-left:8px;flex:none}',
+              '.fxx{font-size:14px;line-height:1.28;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-word}',
+              '.fxx.one{-webkit-line-clamp:1}'
+            ].join('');
+
+            var SQ = (function () {
+              var p = [], n = 5, N = 72;
+              for (var i = 0; i < N; i++) {
+                var t = 2 * Math.PI * i / N, c = Math.cos(t), s = Math.sin(t);
+                var x = 50 + (c < 0 ? -1 : 1) * Math.pow(Math.abs(c), 2 / n) * 50;
+                var y = 50 + (s < 0 ? -1 : 1) * Math.pow(Math.abs(s), 2 / n) * 50;
+                p.push(x.toFixed(2) + '% ' + y.toFixed(2) + '%');
+              }
+              return 'polygon(' + p.join(',') + ')';
+            })();
+
+            function hueOf(s) { var h = 0; s = String(s || ''); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
+            function letter(s) { s = String(s || '?').trim(); return (s.charAt(0) || '?').toUpperCase(); }
+            function grad(h) { return 'linear-gradient(135deg,hsl(' + h + ',72%,64%),hsl(' + ((h + 28) % 360) + ',62%,44%))'; }
+            function hexRgb(hex) { hex = String(hex || '#000000').replace('#', ''); if (hex.length === 3) hex = hex.replace(/(.)/g, '$1$1'); return [parseInt(hex.substr(0, 2), 16) || 0, parseInt(hex.substr(2, 2), 16) || 0, parseInt(hex.substr(4, 2), 16) || 0]; }
+            function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+            g.makeIsland = function (host, o) {
+              o = o || {};
+              var C = { bg: '#000000', op: 100, cw: 110, ew: 340, dh: 0, top: 8, always: false, dur: 4500, edge: 'top' };
+              var entries = [], open = false, openingFx = false, hover = false, timer = null;
+              var S = { w: 0, h: 0, vw: 0, vh: 0, tw: 0, th: 0, run: false, last: 0, kw: 420, dw: 29, kh: 420, dh: 29 };
+              var tc = '#fff', sc = '#b0b0b8', dc = '#8e8e93', ring = '#000';
+              var downY = 0, glowRgb = null;
+
+              var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
+              var isl = document.createElement('div'); isl.className = 'fxi';
+              var ct = document.createElement('div'); ct.className = 'fxi-ct';
+              isl.appendChild(ct); host.appendChild(isl);
+
+              function cH() { return Math.max(20, 32 + (+C.dh || 0)); }
+              function cW() { return Math.max(40, +C.cw || 110); }
+              function eW() { return Math.max(160, Math.min(+C.ew || 340, (host.clientWidth || 400) - 24)); }
+              function side() { return C.edge === 'left' || C.edge === 'right'; }
+              function pw() { return side() ? cH() : cW(); }   // lebar pill kecil (di tepi kiri/kanan pill berdiri tegak)
+              function ph() { return side() ? cW() : cH(); }
+              function rad(h, w) { return Math.min(h / 2, (w || 9999) / 2, 42); }
+
+              function style() {
+                var rgb = hexRgb(C.bg), a = clamp(+C.op || 100, 40, 100) / 100;
+                var lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
+                var light = lum > 0.6;
+                isl.style.background = 'rgba(' + rgb.join(',') + ',' + a + ')';
+                var gl = (C.glow && glowRgb && open) ? '0 0 26px 2px rgba(' + glowRgb.join(',') + ',.55),' : '';
+                isl.style.boxShadow = (lum > 0.12 ? 'inset 0 0 0 1px rgba(255,255,255,.3),' : '') + gl + '0 10px 24px rgba(0,0,0,.34),0 2px 6px rgba(0,0,0,.22)';
+                var m = Math.max(0, +C.top || 0) + 'px', e = C.edge || 'top', st = isl.style;
+                st.top = st.bottom = st.left = st.right = 'auto';
+                if (e === 'bottom') { st.bottom = m; st.left = '50%'; st.transform = 'translate3d(-50%,0,0)'; st.transformOrigin = '50% 100%'; }
+                else if (e === 'left') { st.left = m; st.top = '50%'; st.transform = 'translate3d(0,-50%,0)'; st.transformOrigin = '0 50%'; }
+                else if (e === 'right') { st.right = m; st.top = '50%'; st.transform = 'translate3d(0,-50%,0)'; st.transformOrigin = '100% 50%'; }
+                else { st.top = m; st.left = '50%'; st.transform = 'translate3d(-50%,0,0)'; st.transformOrigin = '50% 0'; }
+                ring = 'rgb(' + rgb.join(',') + ')';
+                tc = light ? '#1c1c1e' : '#ffffff';
+                sc = light ? '#55555c' : '#b0b0b8';
+                dc = light ? '#77777e' : '#8e8e93';
+              }
+
+              function applySize(w, h) {
+                isl.style.width = Math.max(1, w) + 'px';
+                isl.style.height = Math.max(1, h) + 'px';
+                isl.style.borderRadius = rad(h, w) + 'px';
+              }
+
+              /* ---------- baris notifikasi ---------- */
+              function squircle(el) { el.style.clipPath = SQ; el.style.webkitClipPath = SQ; }
+
+              function makeRow(e, single) {
+                var r = document.createElement('div'); r.className = 'fxr';
+                var a = document.createElement('div'); a.className = 'fxa';
+                var pic = document.createElement('div'); pic.className = 'pic';
+                var h = hueOf(e.app || e.title);
+                if (e.img) {
+                  pic.style.borderRadius = '50%';
+                  var im = document.createElement('img'); im.src = e.img; im.draggable = false; pic.appendChild(im);
+                } else if (e.icon) {
+                  squircle(pic);
+                  var im2 = document.createElement('img'); im2.src = e.icon; im2.draggable = false; pic.appendChild(im2);
+                } else {
+                  squircle(pic); pic.style.background = grad(h); pic.textContent = letter(e.app || e.title);
+                }
+                a.appendChild(pic);
+                if (e.img && (e.icon || e.app)) {
+                  var bd = document.createElement('div'); bd.className = 'bd'; bd.style.background = ring; squircle(bd);
+                  var bi = document.createElement('div'); squircle(bi);
+                  if (e.icon) { var bimg = document.createElement('img'); bimg.src = e.icon; bi.appendChild(bimg); }
+                  else { bi.style.background = grad(h); bi.textContent = letter(e.app); }
+                  bd.appendChild(bi); a.appendChild(bd);
+                }
+                var t = document.createElement('div'); t.className = 'fxt';
+                var l = document.createElement('div'); l.className = 'fxl';
+                var b = document.createElement('b'); b.style.color = tc; b.textContent = e.title || '';
+                var tm = document.createElement('i'); tm.style.color = dc; tm.textContent = e.time || 'sekarang';
+                l.appendChild(b); l.appendChild(tm); t.appendChild(l);
+                if (e.text) {
+                  var x = document.createElement('div'); x.className = 'fxx' + (single ? '' : ' one'); x.style.color = sc; x.textContent = e.text; t.appendChild(x);
+                }
+                r.appendChild(a); r.appendChild(t);
+                return r;
+              }
+
+              function rebuild() {
+                ct.textContent = '';
+                var single = entries.length === 1;
+                for (var i = 0; i < entries.length; i++) ct.appendChild(makeRow(entries[i], single));
+                ct.style.width = eW() + 'px';
+              }
+
+              function contentH() {
+                ct.style.width = eW() + 'px';
+                return Math.max(64, ct.offsetHeight);
+              }
+
+              function rowIn(r, delay, fade) {
+                if (!r || !r.animate) return;
+                r.animate([{ transform: 'translateY(10px)', opacity: fade ? 0 : 1 }, { transform: 'none', opacity: 1 }],
+                  { duration: 340, delay: delay, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'backwards' });
+                var av = r.firstChild;
+                if (av && av.animate) av.animate([{ transform: 'scale(.6)' }, { transform: 'scale(1)' }],
+                  { duration: 420, delay: delay + 40, easing: 'cubic-bezier(.3,1.7,.5,1)', fill: 'backwards' });
+              }
+
+              /* ---------- pegas ---------- */
+              function springTo(w, h, opening) {
+                S.tw = w; S.th = h;
+                if (opening) { S.kw = 230; S.dw = 16; S.kh = 270; S.dh = 18; } else { S.kw = 420; S.dw = 29; S.kh = 420; S.dh = 29; }
+                if (!S.run) { S.run = true; S.last = 0; requestAnimationFrame(frame); }
+              }
+
+              function frame(t) {
+                if (!S.run) return;
+                var dt = S.last ? Math.min((t - S.last) / 1000, 1 / 30) : 1 / 60; S.last = t;
+                for (var i = 0; i < 4; i++) {
+                  var d = dt / 4;
+                  S.vw += (-S.kw * (S.w - S.tw) - S.dw * S.vw) * d; S.w += S.vw * d;
+                  S.vh += (-S.kh * (S.h - S.th) - S.dh * S.vh) * d; S.h += S.vh * d;
+                }
+                var done = Math.abs(S.w - S.tw) < 0.4 && Math.abs(S.h - S.th) < 0.4 && Math.abs(S.vw) < 3 && Math.abs(S.vh) < 3;
+                if (done) {
+                  S.w = S.tw; S.h = S.th; S.vw = 0; S.vh = 0; S.run = false;
+                  if (openingFx) { openingFx = false; ct.style.opacity = 1; ct.style.scale = 1; }
+                }
+                applySize(S.w, S.h);
+                progress();
+                if (done) { if (!open && !C.always) { isl.classList.remove('on'); if (o.onIdle) o.onIdle(); } return; }
+                requestAnimationFrame(frame);
+              }
+
+              function progress() {
+                if (!openingFx) return;
+                var span = S.th - ph();
+                var p = span <= 0 ? 1 : (S.h - ph()) / span;
+                var t = clamp((p - 0.30) / 0.45, 0, 1), a = t * t * (3 - 2 * t);
+                ct.style.opacity = a; ct.style.scale = 0.9 + 0.1 * a;
+              }
+
+              function arm() {
+                clearTimeout(timer);
+                if (hover || !open) return;
+                timer = setTimeout(collapse, clamp(+C.dur || 4500, 2000, 20000));
+              }
+
+              function expandFresh() {
+                rebuild();
+                var h = contentH();
+                open = true; openingFx = true;
+                if (!S.w) { S.w = pw(); S.h = ph(); applySize(S.w, S.h); }
+                isl.classList.add('on');
+                ct.style.opacity = 0; ct.style.scale = 0.9;
+                for (var i = 0; i < ct.children.length; i++) rowIn(ct.children[i], 120 + i * 60, false);
+                springTo(eW(), h, true);
+                arm();
+              }
+
+              function pulse() {
+                isl.classList.remove('rel');
+                isl.style.scale = 1.035;
+                setTimeout(function () { isl.classList.add('rel'); isl.style.scale = 1; }, 110);
+              }
+
+              function collapse() {
+                clearTimeout(timer);
+                if (!open) return;
+                open = false; openingFx = false; glowRgb = null; style();
+                if (ct.animate) { ct.style.opacity = 0; } else ct.style.opacity = 0;
+                springTo(pw(), ph(), false);
+                if (o.onCollapse) o.onCollapse();
+              }
+
+              function tint(src) {
+                if (!src || !C.glow) { glowRgb = null; style(); return; }
+                var im = new Image();
+                im.onload = function () {
+                  try {
+                    var s = 20, cv = document.createElement('canvas'); cv.width = cv.height = s;
+                    var cx = cv.getContext('2d'); cx.drawImage(im, 0, 0, s, s);
+                    var d = cx.getImageData(0, 0, s, s).data, r = 0, g = 0, b = 0, n = 0;
+                    for (var i = 0; i < d.length; i += 4) {
+                      if (d[i + 3] < 200) continue;
+                      var mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+                      if (mx - mn < 40) continue;            // abaikan abu-abu/putih/hitam, ambil warna yang berwarna
+                      r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+                    }
+                    glowRgb = n > 3 ? [Math.round(r / n), Math.round(g / n), Math.round(b / n)] : null;
+                  } catch (x) { glowRgb = null; }
+                  style();
+                };
+                im.onerror = function () { glowRgb = null; style(); };
+                im.src = src;
+              }
+
+              function show(e) {
+                tint(e.icon || e.img);
+                if (!open) entries = [];
+                entries.push(e);
+                while (entries.length > 3) entries.shift();
+                if (o.sound) { try { o.sound(e); } catch (x) {} }
+                if (!open) { expandFresh(); return; }
+                if (openingFx) { openingFx = false; ct.style.opacity = 1; ct.style.scale = 1; }
+                rebuild();
+                springTo(eW(), contentH(), true);
+                rowIn(ct.lastChild, 60, true);
+                pulse();
+                arm();
+              }
+
+              /* ---------- sentuhan ---------- */
+              isl.addEventListener('pointerdown', function (ev) {
+                downY = ev.clientY;
+                isl.classList.remove('rel'); isl.style.scale = 0.965;
+                try { isl.setPointerCapture(ev.pointerId); } catch (x) {}
+              });
+              function release() { isl.classList.add('rel'); isl.style.scale = 1; }
+              isl.addEventListener('pointercancel', release);
+              isl.addEventListener('pointerup', function (ev) {
+                release();
+                if (downY - ev.clientY > 18) { collapse(); return; }
+                var rc = isl.getBoundingClientRect();
+                if (ev.clientX < rc.left || ev.clientX > rc.right || ev.clientY < rc.top || ev.clientY > rc.bottom) return;
+                if (!open) { if (o.onPill) o.onPill(); return; }
+                var el = document.elementFromPoint(ev.clientX, ev.clientY), row = el && el.closest ? el.closest('.fxr') : null, idx = -1;
+                if (row) for (var i = 0; i < ct.children.length; i++) if (ct.children[i] === row) idx = i;
+                if (idx < 0) idx = entries.length - 1;
+                if (o.onTap) o.onTap(entries[idx], idx);
+                collapse();
+              });
+              isl.addEventListener('mouseenter', function () { hover = true; clearTimeout(timer); });
+              isl.addEventListener('mouseleave', function () { hover = false; arm(); });
+
+              /* ---------- konfigurasi ---------- */
+              function config(c) {
+                for (var k in c) if (c.hasOwnProperty(k)) C[k] = c[k];
+                style();
+                if (!open && !S.run) {
+                  S.w = pw(); S.h = ph(); applySize(S.w, S.h);
+                  if (C.always) isl.classList.add('on'); else if (!S.run) isl.classList.remove('on');
+                } else if (open) {
+                  rebuild(); springTo(eW(), contentH(), true);
+                }
+              }
+              style(); S.w = pw(); S.h = ph(); applySize(S.w, S.h);
+
+              return {
+                config: config, show: show, collapse: collapse,
+                isOpen: function () { return open; },
+                rect: function () { return isl.classList.contains('on') ? isl.getBoundingClientRect() : null; },
+                el: isl
+              };
+            };
+          })(window);
+          </script>
+          <script>
+          (function () {
+            var cur = { snd: false, surl: '', svol: 100, bat: false };
+            function play(url, vol) {
+              if (!url) return;
+              try {
+                var a = new Audio(url);
+                a.volume = Math.max(0, Math.min(1, (+vol || 0) / 100));
+                var p = a.play(); if (p && p.catch) p.catch(function () {});
+              } catch (e) {}
+            }
+            var core = makeIsland(document.body, {
+              sound: function () { if (cur.snd) play(cur.surl, cur.svol); },
+              onTap: function (e) { fxo.send('tap', (e && e.appId) || ''); },
+              onIdle: function () { inside = false; fxo.send('idle'); }
+            });
+            var inside = false;
+            document.addEventListener('mousemove', function (ev) {
+              var r = core.rect();
+              var i = core.isOpen() && !!r && ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
+              if (i !== inside) { inside = i; fxo.send('mouse', i); }
+            });
+            document.addEventListener('mouseleave', function () { if (inside) { inside = false; fxo.send('mouse', false); } });
+            fxo.on('cfg', function (c) {
+              cur = { snd: !!c.snd, surl: c.surl, svol: c.svol, bat: !!c.bat };
+              core.config({ bg: c.bg, op: c.op, cw: c.cw, ew: c.ew, dh: c.dh, top: c.top, always: c.always, dur: c.dur, glow: !!c.glow, edge: c.edge });
+              if (!c.always && !core.isOpen()) fxo.send('idle');
+            });
+            fxo.on('show', function (e) { core.show(e); });
+            fxo.on('sound', function (d) { play(d.url, d.vol); });
+            fxo.on('stop', function () { core.collapse(); });
+            function svg(c, g) {
+              return 'data:image/svg+xml;utf8,' + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><rect width='96' height='96' fill='" + c + "'/><text x='48' y='67' font-size='52' text-anchor='middle'>" + g + '</text></svg>');
+            }
+            function local(t, x, c, g) { fxo.send('local', { title: t, text: x, app: 'Baterai', icon: svg(c, g) }); }
+            if (navigator.getBattery) {
+              navigator.getBattery().then(function (b) {
+                var warned = 0, full = b.level >= 1;
+                function lv() { return Math.round(b.level * 100); }
+                b.addEventListener('chargingchange', function () {
+                  if (!cur.bat) return;
+                  warned = 0;
+                  if (b.charging) local('Mengisi daya', lv() + '%', '#30d158', '\u26A1'); else local('Daya dicabut', 'Baterai ' + lv() + '%', '#ff9f0a', '\uD83D\uDD0C');
+                });
+                b.addEventListener('levelchange', function () {
+                  if (!cur.bat) return;
+                  var l = lv();
+                  if (b.charging) {
+                    if (l >= 100 && !full) { full = true; local('Baterai penuh', 'Bisa dicabut dari charger', '#30d158', '\uD83D\uDD0B'); }
+                    if (l < 95) full = false;
+                  } else if (l <= 10 && warned < 2) { warned = 2; local('Baterai kritis', l + '% tersisa', '#ff453a', '\uD83E\uDEAB'); }
+                  else if (l <= 20 && warned < 1) { warned = 1; local('Baterai lemah', l + '% tersisa', '#ff9f0a', '\uD83D\uDD0B'); }
+                });
+              }).catch(function () {});
+            }
+            fxo.send('ready', 1);
+          })();
+          </script>
+          </body></html>
+          FX_EOS
+          cat > fx/anim.html <<'FX_EOS'
+          <!doctype html>
+          <html><head><meta charset="utf-8">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+          <title>Anim</title>
+          <style>
+          html,body{margin:0;height:100%;overflow:hidden;background:transparent}
+          .card{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform,opacity;box-shadow:0 14px 34px rgba(0,0,0,.32)}
+          .ic{position:absolute;left:0;top:0;width:60px;height:60px;will-change:transform,opacity;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35))}
+          .ic img{width:100%;height:100%;display:block}
+          </style>
+          </head><body>
+          <script>
+          (function () {
+            var ICON = 60, active = 0;
+            function bez(x1, y1, x2, y2) {
+              return function (x) {
+                if (x <= 0) return 0; if (x >= 1) return 1;
+                var lo = 0, hi = 1, t = x;
+                for (var i = 0; i < 24; i++) {
+                  var cx = 3 * x1 * t * (1 - t) * (1 - t) + 3 * x2 * t * t * (1 - t) + t * t * t;
+                  if (Math.abs(cx - x) < 1e-5) break;
+                  if (cx < x) lo = t; else hi = t;
+                  t = (lo + hi) / 2;
+                }
+                return 3 * y1 * t * (1 - t) * (1 - t) + 3 * y2 * t * t * (1 - t) + t * t * t;
+              };
+            }
+            var EASE_OPEN = bez(0.22, 0.9, 0.25, 1), EASE_CLOSE = bez(0.3, 0, 0.2, 1);
+            function lerp(a, b, t) { return a + (b - a) * t; }
+            function c01(v) { return Math.max(0, Math.min(1, v)); }
+
+            function avgColor(src, cb) {
+              if (!src) { cb([58, 58, 62]); return; }
+              var im = new Image();
+              im.onload = function () {
+                try {
+                  var s = 24, cv = document.createElement('canvas'); cv.width = cv.height = s;
+                  var cx = cv.getContext('2d'); cx.drawImage(im, 0, 0, s, s);
+                  var d = cx.getImageData(0, 0, s, s).data, r = 0, g = 0, b = 0, n = 0;
+                  for (var i = 0; i < d.length; i += 4) { if (d[i + 3] < 200) continue; r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
+                  cb(n ? [Math.round(r / n), Math.round(g / n), Math.round(b / n)] : [58, 58, 62]);
+                } catch (e) { cb([58, 58, 62]); }
+              };
+              im.onerror = function () { cb([58, 58, 62]); };
+              im.src = src;
+            }
+
+            function play(d) {
+              var R = d.rect, W = Math.max(1, R.w), H = Math.max(1, R.h);
+              avgColor(d.icon, function (col) {
+                var c1 = 'rgb(' + col.join(',') + ')';
+                var c2 = 'rgb(' + col.map(function (v) { return Math.round(v * 0.72); }).join(',') + ')';
+                var card = document.createElement('div'); card.className = 'card';
+                card.style.left = R.x + 'px'; card.style.top = R.y + 'px'; card.style.width = W + 'px'; card.style.height = H + 'px';
+                card.style.background = 'linear-gradient(160deg,' + c1 + ',' + c2 + ')';
+                var ic = document.createElement('div'); ic.className = 'ic';
+                if (d.icon) { var im = document.createElement('img'); im.src = d.icon; ic.appendChild(im); }
+                document.body.appendChild(card); document.body.appendChild(ic);
+                active++;
+                var opening = !!d.opening, endR = d.max ? 0 : 9;
+                var ease = opening ? EASE_OPEN : EASE_CLOSE, dur = opening ? 440 : 370;
+                var ox = d.origin.x, oy = d.origin.y;
+                var cx1 = R.x + W / 2, cy1 = R.y + H / 2;
+                var t0 = 0;
+                function step(ts) {
+                  if (!t0) t0 = ts;
+                  var f = c01((ts - t0) / dur), g = ease(f);
+                  var t = opening ? g : 1 - g;                      // 0 = ukuran ikon, 1 = ukuran jendela
+                  var sx = lerp(ICON / W, 1, t), sy = lerp(ICON / H, 1, t);
+                  var tx = lerp(ox - ICON / 2 - R.x, 0, t), ty = lerp(oy - ICON / 2 - R.y, 0, t);
+                  card.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + sx + ',' + sy + ')';
+                  card.style.borderRadius = (lerp(14, endR, t) / Math.max(0.02, Math.min(sx, sy))) + 'px';
+                  var ca, ia;
+                  if (opening) {
+                    ca = f < 0.6 ? 1 : 1 - c01((f - 0.6) / 0.4);
+                    ia = 1 - c01(f / 0.3);
+                  } else {
+                    ca = f < 0.12 ? 0.95 * (f / 0.12) : (f < 0.72 ? 0.95 : 0.95 * (1 - c01((f - 0.72) / 0.28)));
+                    ia = c01((f - 0.45) / 0.35) * (1 - c01((f - 0.8) / 0.2));
+                  }
+                  card.style.opacity = ca;
+                  // ikon mengikuti pusat kartu
+                  var px = lerp(ox, cx1, t), py = lerp(oy, cy1, t);
+                  var is = opening ? 1 + 0.5 * g : 1.5 - 0.5 * g;
+                  ic.style.transform = 'translate(' + (px - ICON / 2) + 'px,' + (py - ICON / 2) + 'px) scale(' + is + ')';
+                  ic.style.opacity = ia;
+                  if (f < 1) requestAnimationFrame(step);
+                  else {
+                    card.remove(); ic.remove(); active--;
+                    if (active <= 0) { active = 0; fxo.send('idle', 1); }
+                  }
+                }
+                card.style.opacity = opening ? 1 : 0; ic.style.opacity = 0;
+                requestAnimationFrame(step);
+              });
+            }
+            fxo.on('play', play);
+            fxo.send('ready', 1);
+          })();
+          </script>
+          </body></html>
+          FX_EOS
+          pg 38 "Mengompilasi pembantu sistem"
+          CSC="$(cygpath -u "${WINDIR:-C:\\Windows}")/Microsoft.NET/Framework64/v4.0.30319/csc.exe"
+          test -f "$CSC" || { echo "::error::csc.exe tidak ditemukan di runner"; exit 1; }
+          "$CSC" -nologo -target:exe -optimize+ -platform:anycpu -warn:0 -out:fx/bin/fxhelper.exe -r:System.Drawing.dll -r:System.Xml.dll fx/fxhelper.cs
+          test -f fx/bin/fxhelper.exe || { echo "::error::fxhelper.exe gagal dibuat"; exit 1; }
+          echo "Uji ikon pembantu (tidak wajib berhasil):"
+          fx/bin/fxhelper.exe icon "C:\\Windows\\System32\\notepad.exe" 64 | head -c 24 || true
+          echo
 
       - name: Mode upload - unduh dan siapkan file
         if: ${{ inputs.mode == 'upload' }}
@@ -176,14 +1861,15 @@ jobs:
             if (u.protocol !== "https:") throw new Error("URL harus https");
             url = u.href;
           }
-          fs.writeFileSync("app-config.json", JSON.stringify({ name, url, version: e.VERSION || "", tray: e.TRAY === "true", jobId: e.JOB_ID || "", api: (e.WORKER_URL || "").replace(/\/+$/, "") }));
+          fs.writeFileSync("app-config.json", JSON.stringify({ name, url, version: e.VERSION || "", tray: e.TRAY === "true" || e.FX === "true", fx: e.FX === "true", jobId: e.JOB_ID || "", api: (e.WORKER_URL || "").replace(/\/+$/, "") }));
           const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
           Object.assign(pkg, {
             name: "app", version: e.VERSION || "1.0.0", main: "main.js", description: name, author: name,
             build: {
               appId: "com.apkmaker.app", productName: name,
               directories: { output: "dist", buildResources: "build" },
-              files: ["main.js", "app-config.json", "icon.png", "www/**/*"],
+              files: ["main.js", "app-config.json", "icon.png", "www/**/*"].concat(e.FX === "true" ? ["fx/**/*", "!fx/bin", "!fx/**/*.cs"] : []),
+              extraResources: e.FX === "true" ? [{ from: "fx/bin/fxhelper.exe", to: "fxhelper.exe" }] : undefined,
               win: { target: "nsis", icon: "build/icon.png" },
               nsis: { oneClick: false, perMachine: false, allowToChangeInstallationDirectory: true, runAfterFinish: true, createDesktopShortcut: true, createStartMenuShortcut: true },
               artifactName: "app.${ext}"
@@ -194,6 +1880,7 @@ jobs:
           const fs = require("fs");
           const path = require("path");
           const cfg = require("./app-config.json");
+          const fx = cfg.fx ? require("./fx/fx.js") : null;
           const safe = u => /^https?:/i.test(u);
           const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
           let win = null, blocked = false, forced = "", tray = null, quitting = false;
@@ -241,7 +1928,7 @@ jobs:
           async function create() {
             Menu.setApplicationMenu(null);
             win = new BrowserWindow({ width: 1100, height: 760, title: cfg.name, autoHideMenuBar: true,
-              webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
+              webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: (fx && !cfg.url) ? path.join(__dirname, "fx", "preload.js") : undefined } });
             // F11 / Alt+Enter = layar penuh, Esc = keluar dari layar penuh (menu dimatikan, jadi harus ditangani manual)
             win.webContents.on("before-input-event", (ev, input) => {
               if (input.type !== "keyDown") return;
@@ -255,6 +1942,7 @@ jobs:
               });
             }
             win.webContents.setWindowOpenHandler(({ url }) => { if (safe(url)) shell.openExternal(url); return { action: "deny" }; });
+            if (fx) { try { fx.start({ app, win, cfg }); } catch (e) { console.error(e); } }
             if (cfg.tray) {
               try {
                 tray = new Tray(path.join(__dirname, "icon.png"));
@@ -262,6 +1950,7 @@ jobs:
                 tray.setContextMenu(Menu.buildFromTemplate([
                   { label: "Buka " + cfg.name, click: () => { win.show(); win.focus(); } },
                   { label: "Jalan otomatis saat Windows menyala", type: "checkbox", checked: app.getLoginItemSettings().openAtLogin, click: it => app.setLoginItemSettings({ openAtLogin: it.checked }) },
+                  ...(fx ? fx.trayItems() : []),
                   { type: "separator" },
                   { label: "Keluar", click: () => { quitting = true; app.quit(); } }
                 ]));
