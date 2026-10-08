@@ -1783,7 +1783,10 @@ jobs:
           pg 38 "Mengompilasi pembantu sistem"
           CSC="$(cygpath -u "${WINDIR:-C:\\Windows}")/Microsoft.NET/Framework64/v4.0.30319/csc.exe"
           test -f "$CSC" || { echo "::error::csc.exe tidak ditemukan di runner"; exit 1; }
-          "$CSC" -nologo -target:exe -optimize+ -platform:anycpu -warn:0 -out:fx/bin/fxhelper.exe -r:System.Drawing.dll -r:System.Xml.dll fx/fxhelper.cs
+          export MSYS_NO_PATHCONV=1
+          ls -la fx; test -s fx/fxhelper.cs || { echo "::error::fx/fxhelper.cs tidak ada"; exit 1; }
+          (cd fx && "$CSC" -nologo -target:exe -optimize+ -platform:anycpu -warn:0 -out:fxhelper.exe -r:System.Drawing.dll -r:System.Xml.dll fxhelper.cs) || { echo "::error::kompilasi fxhelper.cs gagal"; exit 1; }
+          mv fx/fxhelper.exe fx/bin/fxhelper.exe
           test -f fx/bin/fxhelper.exe || { echo "::error::fxhelper.exe gagal dibuat"; exit 1; }
           echo "Uji ikon pembantu (tidak wajib berhasil):"
           fx/bin/fxhelper.exe icon "C:\\Windows\\System32\\notepad.exe" 64 | head -c 24 || true
