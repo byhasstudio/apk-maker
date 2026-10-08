@@ -660,16 +660,12 @@ jobs:
                   i.Icon = IconFor(i.IconId);
               }
 
-              public static void Run(uint own)
+              static void Poll(uint own, bool armed, bool first)
               {
-                  DateTime start = DateTime.UtcNow;
-                  bool first = true;
-                  while (true)
                   {
                       List<string> events = new List<string>();
                       Dictionary<IntPtr, Info> now = new Dictionary<IntPtr, Info>();
                       HashSet<IntPtr> away = new HashSet<IntPtr>();
-                      bool armed = (DateTime.UtcNow - start).TotalMilliseconds > 1500;
                       try
                       {
                           EnumWindows(delegate (IntPtr h, IntPtr l)
@@ -734,11 +730,87 @@ jobs:
                           foreach (IntPtr g in gone) known.Remove(g);
                       }
                       catch (Exception) { }
-                      first = false;
                       // lonjakan peristiwa (mis. bangun dari tidur, ganti monitor) bukan buka/tutup sungguhan
                       if (events.Count > 3) events.Clear();
                       foreach (string e in events) Program.Emit(e);
-                      Thread.Sleep(45);
+                  }
+              }
+
+              delegate void HookProc(IntPtr hook, uint ev, IntPtr hwnd, int idObj, int idChild, uint thr, uint time);
+              [StructLayout(LayoutKind.Sequential)] struct PT { public int X, Y; }
+              [StructLayout(LayoutKind.Sequential)] struct MSG { public IntPtr H; public uint M; public UIntPtr W; public IntPtr L; public uint T; public PT P; }
+              [DllImport("user32.dll")] static extern IntPtr SetWinEventHook(uint min, uint max, IntPtr mod, HookProc p, uint pid, uint tid, uint flags);
+              [DllImport("user32.dll")] static extern bool PeekMessage(out MSG m, IntPtr h, uint a, uint b, uint remove);
+              [DllImport("user32.dll")] static extern bool TranslateMessage(ref MSG m);
+              [DllImport("user32.dll")] static extern IntPtr DispatchMessage(ref MSG m);
+              [DllImport("user32.dll")] static extern uint MsgWaitForMultipleObjects(uint n, IntPtr[] h, bool all, uint ms, uint mask);
+
+              static HookProc hookProc;
+              static readonly List<IntPtr> pendShow = new List<IntPtr>();
+              static readonly List<IntPtr> pendHide = new List<IntPtr>();
+
+              static void OnHook(IntPtr hook, uint ev, IntPtr hwnd, int idObj, int idChild, uint thr, uint time)
+              {
+                  if (idObj != 0 || idChild != 0 || hwnd == IntPtr.Zero) return;
+                  if (ev == 0x8002) pendShow.Add(hwnd);
+                  else if (ev == 0x8003) pendHide.Add(hwnd);
+              }
+
+              // jalur cepat: dipanggil begitu jendela muncul (tanpa menunggu polling)
+              static void OnShow(IntPtr h, uint own, bool armed)
+              {
+                  if (known.ContainsKey(h)) return;
+                  Info c;
+                  int hid;
+                  if (!Candidate(h, own, out c, out hid) || c.Min) return;
+                  c.Prev = c.R;
+                  c.Stable = 9;
+                  c.Announced = true;
+                  Fill(c);
+                  known[h] = c;
+                  if (armed) Program.Emit(Ev("open", c));
+              }
+
+              static void OnHide(IntPtr h, bool armed)
+              {
+                  Info k;
+                  if (!known.TryGetValue(h, out k)) return;
+                  if (IsWindowVisible(h) || IsIconic(h)) return;
+                  if (CloakKind(h) == 2) return;
+                  known.Remove(h);
+                  if (k.Announced && !k.Min && !k.Away && armed) Program.Emit(Ev("close", k));
+              }
+
+              public static void Run(uint own)
+              {
+                  DateTime start = DateTime.UtcNow;
+                  DateTime lastPoll = DateTime.MinValue;
+                  bool first = true;
+                  hookProc = new HookProc(OnHook);
+                  IntPtr hk = IntPtr.Zero;
+                  try { hk = SetWinEventHook(0x8002, 0x8003, IntPtr.Zero, hookProc, 0, 0, 2); } catch (Exception) { }
+                  while (true)
+                  {
+                      MSG m;
+                      while (PeekMessage(out m, IntPtr.Zero, 0, 0, 1)) { TranslateMessage(ref m); DispatchMessage(ref m); }
+                      bool armed = (DateTime.UtcNow - start).TotalMilliseconds > 1500;
+                      try
+                      {
+                          if (pendShow.Count > 6 || pendHide.Count > 6) { pendShow.Clear(); pendHide.Clear(); }
+                          List<IntPtr> sh = new List<IntPtr>(pendShow); pendShow.Clear();
+                          List<IntPtr> hi = new List<IntPtr>(pendHide); pendHide.Clear();
+                          foreach (IntPtr h in hi) OnHide(h, armed);
+                          foreach (IntPtr h in sh) OnShow(h, own, armed);
+                      }
+                      catch (Exception) { }
+                      double since = (DateTime.UtcNow - lastPoll).TotalMilliseconds;
+                      if (hk == IntPtr.Zero ? since >= 45 : since >= 60)
+                      {
+                          lastPoll = DateTime.UtcNow;
+                          Poll(own, armed, first);
+                          first = false;
+                      }
+                      MsgWaitForMultipleObjects(0, null, false, 8, 0x04FF);
                   }
               }
           }
@@ -1051,8 +1123,13 @@ jobs:
               rect: { x: r.x - d.bounds.x, y: r.y - d.bounds.y, w: r.width, h: r.height },
               origin: { x: org.x - d.bounds.x, y: org.y - d.bounds.y }
             };
-            try { o.win.setBounds(d.bounds); o.win.setAlwaysOnTop(true, "screen-saver"); o.win.showInactive(); } catch (_) {}
-            if (o.ready) setTimeout(() => { try { o.win.webContents.send("fx:play", msg); } catch (_) {} }, 28); else o.pend.push(msg);
+            try {
+              const b = o.win.getBounds();
+              if (b.x !== d.bounds.x || b.y !== d.bounds.y || b.width !== d.bounds.width || b.height !== d.bounds.height) o.win.setBounds(d.bounds);
+              if (o.ready) o.win.webContents.send("fx:play", msg);
+              if (!o.win.isVisible()) { o.win.setAlwaysOnTop(true, "screen-saver"); o.win.showInactive(); }
+            } catch (_) {}
+            if (!o.ready) o.pend.push(msg);
           }
           function onWin(m) {
             if (!S.anim) return;
@@ -1725,9 +1802,12 @@ jobs:
               im.src = src;
             }
 
+            var COLC = {};
             function play(d) {
               var R = d.rect, W = Math.max(1, R.w), H = Math.max(1, R.h);
-              avgColor(d.icon, function (col) {
+              var COLK = d.icon ? d.icon.slice(-40) : '';
+              var cached = COLC[COLK] || [58, 58, 62];
+              (function (col) {
                 var c1 = 'rgb(' + col.join(',') + ')';
                 var c2 = 'rgb(' + col.map(function (v) { return Math.round(v * 0.72); }).join(',') + ')';
                 var card = document.createElement('div'); card.className = 'card';
@@ -1772,7 +1852,8 @@ jobs:
                 }
                 card.style.opacity = opening ? 1 : 0; ic.style.opacity = 0;
                 requestAnimationFrame(step);
-              });
+              })(cached);
+              if (d.icon && !COLC[COLK]) avgColor(d.icon, function (col) { COLC[COLK] = col; });
             }
             fxo.on('play', play);
             fxo.send('ready', 1);
