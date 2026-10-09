@@ -1015,6 +1015,7 @@ jobs:
                   else if (c == "btn") BtnOn = p.Length > 1 && p[1] == "1";
                   else if (c == "games") Sys.Extra = Sys.Names(p.Length > 1 ? p[1] : "");
                   else if (c == "nogames") Sys.NoGame = Sys.Names(p.Length > 1 ? p[1] : "");
+                  else if (c == "wins") Spawn(delegate () { Guard(Sys.Wins); });
                   else if (c == "cursor")
                   {
                       if (p.Length > 1 && p[1] == "off") { CursorFx.Restore(); return; }
@@ -1766,6 +1767,30 @@ jobs:
                   }
               }
 
+              // ----- daftar aplikasi yang jendelanya sedang terbuka (untuk pemilih game manual)
+              public static void Wins()
+              {
+                  string[] skipExe = new string[] { "textinputhost", "searchhost", "startmenuexperiencehost", "shellexperiencehost", "applicationframehost", "lockapp", "systemsettings" };
+                  string[] skipCls = new string[] { "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd" };
+                  List<string> seen = new List<string>();
+                  StringBuilder sb = new StringBuilder("{\"t\":\"wins\",\"l\":[");
+                  int n = 0;
+                  foreach (Wnd.Item it in Wnd.Visible())
+                  {
+                      if (n >= 40) break;
+                      if (it.Exe.Length == 0 || seen.Contains(it.Exe)) continue;
+                      if (Array.IndexOf(skipExe, it.Exe) >= 0) continue;
+                      if (Array.IndexOf(skipCls, Wnd.Cls(it.H)) >= 0) continue;
+                      seen.Add(it.Exe);
+                      string t = it.Title.Length > 60 ? it.Title.Substring(0, 60) : it.Title;
+                      if (n > 0) sb.Append(',');
+                      sb.Append("{\"n\":").Append(Program.J(it.Exe)).Append(",\"t\":").Append(Program.J(t)).Append('}');
+                      n++;
+                  }
+                  sb.Append("]}");
+                  Program.Emit(sb.ToString());
+              }
+
               // ----- ping
               public static void PingLoop()
               {
@@ -1957,7 +1982,7 @@ jobs:
             bg: "#000000", op: 100, dy: 0, cw: 110, ew: 340, cx: 0, dh: 0,
             fmode: 0, fapps: [], snd: false, dur: 4500, tapopen: true, suri: "", svol: 100, seen: {},
             edge: "top", bat: true, clip: false, glow: true, dnd: false, qon: false, qfrom: "22:00", qto: "07:00", hot: true, mon: "primary", hist: true,
-            appnotif: true, live: true, media: true, devs: true, net: true, rmon: 1, prog: true, hub: true, game: true,
+            appnotif: true, live: true, media: true, mtoast: true, devs: true, net: true, rmon: 1, prog: true, hub: true, game: true,
             curs: false, cstyle: "ring", ccolor: "#ffffff", csize: 36,
             auto: true, fpsreal: true, gamelist: [], nogame: [], xh: false, xhgame: false, xhstyle: "cross", xhcolor: "#00ff66", xhsize: 14, xhthick: 2, xhgap: 4, xhop: 90, cal: true, city: ""
           };
@@ -2476,6 +2501,7 @@ jobs:
           let mediaState = { play: false, app: "", title: "", artist: "" }, mediaWas = false, mediaToastAt = 0, mediaToastKey = "", mediaGone = null;
           let progState = { pct: -1, app: "", what: "", max: 0 };
           let gameHidden = "";
+          let winsList = [];
           let gameState = { full: false, exe: "", cur: "", fps: -1, low: -1, real: false, ping: -1, jit: -1 };
           const pingHist = [];
           let hubItems = [], hubSeq = 1, hubArmed = false, hubDropPanel = false, hubDropAt = 0, dragTimer = null, pressInZone = false;
@@ -2537,7 +2563,7 @@ jobs:
             if (S.curs) sysCmd("cursor " + S.cstyle + " " + String(S.ccolor).replace("#", "") + " " + (S.csize | 0));
             else sysCmd("cursor off");
           }
-          const BOOLOPT = ["auto", "fpsreal", "appnotif", "live", "media", "devs", "net", "prog", "hub", "game", "curs", "xh", "xhgame", "cal"];
+          const BOOLOPT = ["auto", "fpsreal", "appnotif", "live", "media", "mtoast", "devs", "net", "prog", "hub", "game", "curs", "xh", "xhgame", "cal"];
           function setOpt(key, val) {
             if (BOOLOPT.indexOf(key) >= 0) S[key] = !!val;
             else if (key === "rmon") S.rmon = Math.round(clamp(val, 0, 2));
@@ -2582,6 +2608,7 @@ jobs:
               case "lvl": if (L.media && mediaState.play) toIsl("lvl", m.p | 0); break;
               case "prog": onProg(m); break;
               case "fg": onFg(m); break;
+              case "wins": winsList = (Array.isArray(m.l) ? m.l : []).filter(x => x && typeof x.n === "string").map(x => ({ n: x.n.slice(0, 60), t: String(x.t || "").slice(0, 60) })).slice(0, 40); break;
               case "fps": if (!pm.p || !pm.got) { gameState.fps = m.v | 0; gameState.real = false; refreshGame(); } break;
               case "ping": onPing(m); break;
               case "btn": onBtn(m); break;
@@ -2652,7 +2679,7 @@ jobs:
               clearTimeout(mediaGone); mediaGone = null;
               setLive("media", mediaActivity());
               const key = mediaState.app + "|" + mediaState.title;
-              if ((!mediaWas || key !== mediaToastKey) && Date.now() - mediaToastAt > 8000 && !quiet()) {
+              if (S.mtoast && (!mediaWas || key !== mediaToastKey) && Date.now() - mediaToastAt > 8000 && !quiet()) {
                 mediaToastAt = Date.now(); mediaToastKey = key;
                 showIsland({
                   title: mediaState.title || "Audio sedang diputar",
@@ -2786,15 +2813,52 @@ jobs:
             pm.ok = true; gameState.fps = fps; gameState.low = low; gameState.real = true;
             refreshGame();
           }
-          // sekali saja: masukkan akun ini ke grup "Performance Log Users" supaya PresentMon boleh membaca event tanpa admin
+          // sekali saja: masukkan akun ini ke grup "Performance Log Users" (dikenali lewat SID, jadi tidak tergantung bahasa Windows)
+          // supaya PresentMon boleh membaca event tanpa admin. Berlaku setelah sign out.
+          let pmGrpV = -1, pmGrpAt = 0;
+          function pmGrpCheck(cb) {
+            pmGrpAt = Date.now();
+            try { execFile("whoami", ["/groups"], { windowsHide: true }, (e, out) => { if (!e) pmGrpV = /S-1-5-32-559/i.test(String(out)) ? 1 : 0; if (cb) cb(); }); } catch (_) { if (cb) cb(); }
+          }
+          function pmGrp() { if (Date.now() - pmGrpAt > 20000) pmGrpCheck(); return pmGrpV; }
+          const GRP_NAME_PS = "$g=(New-Object System.Security.Principal.SecurityIdentifier 'S-1-5-32-559').Translate([System.Security.Principal.NTAccount]).Value.Split('\\')[-1]";
           function grantFps() {
             let u = "";
             try { u = require("os").userInfo().username; } catch (_) {}
             if (!/^[\w .-]{1,40}$/.test(u)) return;
-            const cmd = "Start-Process cmd -Verb RunAs -WindowStyle Hidden -ArgumentList '/c net localgroup \"Performance Log Users\" \"" + u + "\" /add'";
-            try { execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", cmd], { windowsHide: true }, () => {}); } catch (_) {}
+            const dom = String(process.env.USERDOMAIN || "");
+            const member = /^[\w .-]{1,40}$/.test(dom) ? dom + "\\" + u : u;
+            const ps = "$ErrorActionPreference='Stop'; " + GRP_NAME_PS + "; net localgroup $g '" + member + "' /add";
+            const b64 = Buffer.from(ps, "utf16le").toString("base64");
+            const cmd = "Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-EncodedCommand','" + b64 + "'";
             pm.tries = 0; pm.warned = false;
-            showIsland({ title: "Izin diminta", text: "Setujui jendela admin, lalu keluar-masuk (sign out) Windows sekali.", app: "FPS", icon: svgIcon("#0a84ff", "\u2713"), appId: "", quiet: true });
+            showIsland({ title: "Izin diminta", text: "Setujui jendela admin (Yes). Hasilnya aku cek otomatis.", app: "FPS", icon: svgIcon("#0a84ff", "\u2713"), appId: "", quiet: true });
+            try {
+              execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", cmd], { windowsHide: true }, () => {
+                // cek apakah akun sudah ada di grup, lalu apakah sesi Windows ini sudah memuatnya (butuh sign out)
+                execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", GRP_NAME_PS + "; net localgroup $g"], { windowsHide: true }, (e, out) => {
+                  const inGroup = !e && String(out).toLowerCase().indexOf(u.toLowerCase()) >= 0;
+                  pmGrpCheck(() => {
+                    let t, x, col, gl;
+                    if (!inGroup) { t = "Izin belum masuk"; x = "Jendela admin tadi ditolak atau ditutup. Tekan Beri izin FPS lagi lalu pilih Yes."; col = "#ff453a"; gl = "\u2715"; }
+                    else if (pmGrpV === 1) { t = "Izin FPS aktif"; x = "Sudah berlaku di sesi ini. Buka game, lalu tandai sebagai game di pengaturan bila belum muncul."; col = "#30d158"; gl = "\u2713"; }
+                    else { t = "Izin terpasang"; x = "Tinggal keluar-masuk (sign out) Windows sekali supaya berlaku."; col = "#ff9f0a"; gl = "\u26A0"; }
+                    showIsland({ title: t, text: x, app: "FPS", icon: svgIcon(col, gl), appId: "", quiet: true });
+                    pmSync();
+                  });
+                });
+              });
+            } catch (_) {}
+          }
+
+          /* ----- pilih game manual dari pengaturan: mode "game" | "notgame" | "auto" (hapus tanda) ----- */
+          function setGameMark(name, mode) {
+            const n = String(name || "").trim().toLowerCase().replace(/\.exe$/, "");
+            if (!/^[\w.() -]{1,60}$/.test(n)) return;
+            const gl = (S.gamelist || []).filter(x => x !== n), ng = (S.nogame || []).filter(x => x !== n);
+            if (mode === "game") gl.push(n); else if (mode === "notgame") ng.push(n);
+            S.gamelist = gl.slice(-60); S.nogame = ng.slice(-60);
+            save(); syncSysFlags();
           }
 
           /* ----- hub seret & lepas ----- */
@@ -3081,7 +3145,7 @@ jobs:
               mode: S.fmode, apps: S.fapps, snd: !!S.snd, anim: !!S.anim, animmin: !!S.animmin, pill: !!S.pill, hide: false,
               dur: S.dur, tapopen: !!S.tapopen, suri: su, svol: S.svol, sname: sname,
               edge: S.edge, bat: !!S.bat, clip: !!S.clip, glow: !!S.glow, dnd: !!S.dnd, qon: !!S.qon, qfrom: S.qfrom, qto: S.qto, hot: !!S.hot, mon: S.mon, hist: !!S.hist,
-                appnotif: !!S.appnotif, live: !!S.live, media: !!S.media, devs: !!S.devs, net: !!S.net, rmon: S.rmon | 0, prog: !!S.prog, hub: !!S.hub, game: !!S.game,
+                appnotif: !!S.appnotif, live: !!S.live, media: !!S.media, mtoast: S.mtoast !== false, devs: !!S.devs, net: !!S.net, rmon: S.rmon | 0, prog: !!S.prog, hub: !!S.hub, game: !!S.game,
                 curs: !!S.curs, cstyle: S.cstyle, ccolor: S.ccolor, csize: S.csize,
                 auto: !!S.auto, fpsreal: !!S.fpsreal, xh: !!S.xh, xhgame: !!S.xhgame, xhstyle: S.xhstyle, xhcolor: S.xhcolor, xhsize: S.xhsize, xhthick: S.xhthick, xhgap: S.xhgap, xhop: S.xhop, cal: !!S.cal, city: S.city || ""
             });
@@ -3091,13 +3155,14 @@ jobs:
             getState: () => JSON.stringify({ overlay: true, listener: !!notifState.ok, running: !!S.enabled && !!isl, supported: true, cam: true, a11y: true }),
             getInfo: () => JSON.stringify({
               platform: "windows", version: (ctx && ctx.cfg && ctx.cfg.version) || "", helper: fs.existsSync(helperExe()),
-              notif: notifState, enabled: !!S.enabled, anim: !!procs.win, pm: { ok: !!pm.ok, exists: pmExists(), err: pm.err || "" }, sys: { ok: !!sysState.ok, err: sysState.err || "", exists: sysExists() }, appsReady: appsReady, nApps: startApps.length
+              notif: notifState, enabled: !!S.enabled, anim: !!procs.win, pm: { ok: !!pm.ok, exists: pmExists(), err: pm.err || "", grp: pmGrp(), game: !!gameState.full, got: pm.got | 0 }, sys: { ok: !!sysState.ok, err: sysState.err || "", exists: sysExists() }, appsReady: appsReady, nApps: startApps.length
             }),
             getApps: () => appsJson(),
             getIcon: id => iconCache.get(String(id || "") + "|64") || "",
             getFilter: () => filterJson(),
             getSounds: () => JSON.stringify([{ t: "Bawaan Windows", u: "" }].concat(soundList())),
-            getHistory: () => JSON.stringify(hist)
+            getHistory: () => JSON.stringify(hist),
+            getGameApps: () => { sysCmd("wins"); return JSON.stringify({ wins: winsList, games: S.gamelist || [], nogame: S.nogame || [], exe: gameState.exe || "", full: !!gameState.full }); }
           };
 
           const CAST = {
@@ -3140,6 +3205,7 @@ jobs:
             setOpt(key, val) { setOpt(key, val); },
             openCal() { openCal(); },
             grantFps() { grantFps(); },
+            setGameMark(name, mode) { setGameMark(name, mode); },
             reshow(i) { const h = hist[Number(i)]; if (h) showIsland({ title: h.title, text: h.text, app: h.app, appId: h.appId, time: "tadi" }); }
           };
 
@@ -3233,11 +3299,11 @@ jobs:
           // Nama dan bentuknya sama dengan jembatan Android (window.AndroidIsland), jadi halaman yang sama bisa dipakai di keduanya.
           const { contextBridge, ipcRenderer } = require("electron");
           if (location.protocol === "file:") {
-            const SYNC = ["getState", "getInfo", "getApps", "getIcon", "getFilter", "getSounds", "getHistory"];
+            const SYNC = ["getState", "getInfo", "getApps", "getIcon", "getFilter", "getSounds", "getHistory", "getGameApps"];
             const CAST = ["openOverlay", "openListener", "requestNotif", "start", "stop", "test", "setStyle", "reload", "setFilter",
               "setTapOpen", "setAnim", "setAnimMin", "setPillAlways", "openAccessibility", "setHideNotif", "setDuration", "setSound",
               "previewSound", "setSoundUri", "setSoundVol", "demoAnim", "openWinSettings",
-              "setEdge", "setBat", "setGlow", "setClip", "setDnd", "setQuiet", "setHotkeys", "setMonitor", "setHistOn", "clearHistory", "reshow", "setOpt", "openCal", "grantFps"];
+              "setEdge", "setBat", "setGlow", "setClip", "setDnd", "setQuiet", "setHotkeys", "setMonitor", "setHistOn", "clearHistory", "reshow", "setOpt", "openCal", "grantFps", "setGameMark"];
             const api = {};
             SYNC.forEach(n => { api[n] = function () { return ipcRenderer.sendSync("fx:call", n, Array.prototype.slice.call(arguments)); }; });
             CAST.forEach(n => { api[n] = function () { ipcRenderer.send("fx:cast", n, Array.prototype.slice.call(arguments)); }; });
