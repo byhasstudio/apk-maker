@@ -2029,13 +2029,38 @@ jobs:
           }
           const wait = (ms, v) => new Promise(r => setTimeout(() => r(v), ms));
 
-          function refreshApps() {
+          // Cadangan kalau Get-StartApps gagal/lambat: baca pintasan (.lnk) di folder Start Menu.
+          function scanStartMenu(list, seen) {
+            const roots = [path.join(process.env.ProgramData || "C:\\ProgramData", "Microsoft", "Windows", "Start Menu", "Programs"),
+                           path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs")];
+            const walk = (d, depth) => {
+              if (depth > 4 || !d) return;
+              let es = [];
+              try { es = fs.readdirSync(d, { withFileTypes: true }); } catch (_) { return; }
+              es.forEach(e => {
+                const f = path.join(d, e.name);
+                if (e.isDirectory()) { walk(f, depth + 1); return; }
+                if (!/\.lnk$/i.test(e.name)) return;
+                const name = e.name.replace(/\.lnk$/i, "");
+                if (/uninstall|hapus|readme|license/i.test(name) || seen.has(f)) return;
+                seen.add(f); list.push({ n: name, p: f }); appNames.set(f, name);
+              });
+            };
+            roots.forEach(r => walk(r, 0));
+          }
+          function refreshApps(tries) {
+            tries = tries | 0;
             const ps = "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-StartApps | ForEach-Object { $_.AppID + [char]9 + $_.Name }";
+            const done = list => {
+              if (!list.length && tries < 2) { setTimeout(() => refreshApps(tries + 1), 4000); return; }   // coba lagi, jangan langsung menyerah
+              if (!list.length) scanStartMenu(list, new Set());
+              startApps = list; appsReady = true;
+            };
             try {
               execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps],
-                { windowsHide: true, timeout: 40000, maxBuffer: 16 * 1024 * 1024, encoding: "utf8" }, (err, out) => {
+                { windowsHide: true, timeout: 60000, maxBuffer: 16 * 1024 * 1024, encoding: "utf8" }, (err, out) => {
                   const list = [], seen = new Set();
-                  if (!err && out) {
+                  if (out) {
                     String(out).split(/\r?\n/).forEach(l => {
                       const i = l.indexOf("\t");
                       if (i <= 0) return;
@@ -2044,9 +2069,9 @@ jobs:
                       seen.add(id); list.push({ n: name, p: id }); appNames.set(id, name);
                     });
                   }
-                  startApps = list; appsReady = true;
+                  done(list);
                 });
-            } catch (_) { appsReady = true; }
+            } catch (_) { done([]); }
           }
 
           function prettyApp(id) {
@@ -2164,6 +2189,25 @@ jobs:
             }, 1200);
           }
           function stopTop() { if (topT) { clearInterval(topT); topT = null; } }
+          // Cadangan klik: jendela island "tembus klik" dan baru bisa diklik setelah halaman menerima mousemove yang diteruskan Windows.
+          // Pada sebagian PC kiriman itu tidak datang, jadi island tidak pernah bisa dipencet. Di sini posisi kursor dibaca langsung dari sistem.
+          let curT = null, lastCur = "";
+          function startCur() {
+            if (curT) return;
+            curT = setInterval(() => {
+              if (!S.enabled || !isl || isl.isDestroyed() || !islReady || hubArmed || !isl.isVisible()) return;
+              try {
+                const pt = screen.getCursorScreenPoint(), b = isl.getBounds();
+                const x = pt.x - b.x, y = pt.y - b.y;
+                const inb = x >= 0 && y >= 0 && x <= b.width && y <= b.height;
+                const k = inb ? x + "," + y : "o";
+                if (k === lastCur) return;
+                lastCur = k;
+                isl.webContents.send("fx:cur", inb ? { x: x, y: y } : null);
+              } catch (_) {}
+            }, 40);
+          }
+          function stopCur() { if (curT) { clearInterval(curT); curT = null; } lastCur = ""; }
           function destroyIsland() {
             if (isl && !isl.isDestroyed()) { try { isl.destroy(); } catch (_) {} }
             isl = null; islReady = false; islPend = [];
@@ -2213,9 +2257,15 @@ jobs:
           }
           function stopNotif() { const p = procs.notif; procs.notif = null; killHelper(p); notifState = { ok: false, err: "" }; }
 
+          // Tidak lagi bergantung pada daftar Get-StartApps: ID dari notifikasi Windows (AUMID) atau path .exe/.lnk langsung dibuka.
           function openApp(id) {
-            if (!id || !appNames.has(id)) return;
-            try { spawn("explorer.exe", ["shell:AppsFolder\\" + id], { detached: true, stdio: "ignore", windowsHide: true }).unref(); } catch (_) {}
+            id = String(id || "");
+            if (!id) return;
+            try {
+              if (/^[a-z]:[\\/]/i.test(id)) { if (fs.existsSync(id)) shell.openPath(id); return; }
+              if (!appNames.has(id) && !(S.seen && S.seen[id]) && !/^[\w.{}!\-\\ ()]{1,300}$/.test(id)) return;
+              spawn("explorer.exe", ["shell:AppsFolder\\" + id], { detached: true, stdio: "ignore", windowsHide: true }).unref();
+            } catch (_) {}
           }
 
           /* ---------- animasi buka/tutup jendela ---------- */
@@ -3005,9 +3055,9 @@ jobs:
           /* ---------- penerapan pengaturan ---------- */
           function applyEnabled() {
             if (S.enabled) {
-              ensureIsland(); startNotif(); startClip(); startKeys(); keepTop(); startSys(); xhUpdate();
+              ensureIsland(); startNotif(); startClip(); startKeys(); keepTop(); startCur(); startSys(); xhUpdate();
             } else {
-              stopNotif(); stopSys(); xhStop(); destroyIsland(); stopClip(); stopKeys(); stopTop();
+              stopNotif(); stopSys(); xhStop(); destroyIsland(); stopClip(); stopKeys(); stopTop(); stopCur();
             }
           }
           // Jalan otomatis saat Windows menyala (diam-diam, tanpa membuka jendela utama). Island ikut muncul lagi karena status "aktif" tersimpan.
@@ -3200,7 +3250,7 @@ jobs:
           cat > fx/overlay-preload.js <<'FX_EOS'
           "use strict";
           const { contextBridge, ipcRenderer, webUtils } = require("electron");
-          const OK_IN = ["cfg", "show", "play", "sound", "stop", "live", "lvl", "panel", "dz"];
+          const OK_IN = ["cfg", "show", "play", "sound", "stop", "live", "lvl", "panel", "dz", "cur"];
           const OK_OUT = ["mouse", "tap", "idle", "ready", "local", "act", "dragout", "pill"];
           contextBridge.exposeInMainWorld("fxo", {
             on: (ch, cb) => { if (OK_IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("fx:" + ch, (_e, d) => cb(d)); },
@@ -3945,6 +3995,12 @@ jobs:
               if (i !== inside) { inside = i; fxo.send('mouse', i); }
             });
             document.addEventListener('mouseleave', function () { if (inside) { inside = false; fxo.send('mouse', false); } });
+            fxo.on('cur', function (c) {
+              if (!c) { if (inside) { inside = false; fxo.send('mouse', false); } return; }
+              var r = core.rect();
+              var i = interactive() && !!r && c.x >= r.left && c.x <= r.right && c.y >= r.top && c.y <= r.bottom;
+              if (i !== inside) { inside = i; fxo.send('mouse', i); }
+            });
             fxo.on('cfg', function (c) {
               cur = { snd: !!c.snd, surl: c.surl, svol: c.svol, bat: !!c.bat };
               core.config({ bg: c.bg, op: c.op, cw: c.cw, ew: c.ew, dh: c.dh, top: c.top, always: c.always, dur: c.dur, glow: !!c.glow, edge: c.edge });
@@ -4101,13 +4157,13 @@ jobs:
           ls -la fx; test -s fx/fxhelper.cs || { echo "::error::fx/fxhelper.cs tidak ada"; exit 1; }
           (cd fx && "$CSC" -nologo -target:exe -optimize+ -platform:anycpu -warn:0 -out:fxhelper.exe -r:System.Drawing.dll -r:System.Xml.dll fxhelper.cs) || { echo "::error::kompilasi fxhelper.cs gagal"; exit 1; }
           mv fx/fxhelper.exe fx/bin/fxhelper.exe
-          # pembantu tambahan (media, jaringan, monitor, kursor, dll). Opsional: kalau gagal dikompilasi, EXE tetap jadi tanpa fitur itu.
+          # pembantu tambahan (media, jaringan, monitor, kursor, game/FPS, dll). WAJIB: tanpa ini fitur live tidak jalan, jadi build digagalkan supaya errornya kelihatan.
           if (cd fx && "$CSC" -nologo -target:exe -optimize+ -platform:anycpu -warn:0 -out:fxsys.exe -r:System.Drawing.dll -r:System.dll fxsys.cs); then
             mv fx/fxsys.exe fx/bin/fxsys.exe
             echo "fxsys.exe OK"
           else
-            echo "::warning::fxsys.cs gagal dikompilasi - fitur tambahan dinonaktifkan"
-            head -c 4096 /dev/zero > fx/bin/fxsys.exe
+            echo "::error::fxsys.cs gagal dikompilasi (lihat pesan error csc di atas). Tanpa fxsys.exe, FPS/ping, media, jaringan, game, dll tidak akan muncul."
+            exit 1
           fi
           # PresentMon (Intel, lisensi MIT) untuk FPS akurat. Opsional: kalau gagal diunduh, FPS kembali ke perkiraan DWM.
           if curl -fsSL --retry 3 -o fx/bin/PresentMon.exe "https://github.com/GameTechDev/PresentMon/releases/download/v1.10.0/PresentMon-1.10.0-x64.exe" && [ "$(wc -c < fx/bin/PresentMon.exe)" -gt 100000 ]; then
