@@ -1013,6 +1013,8 @@ jobs:
                   else if (c == "top") TopOn = p.Length > 1 && p[1] == "1";
                   else if (c == "ping") PingOn = p.Length > 1 && p[1] == "1";
                   else if (c == "btn") BtnOn = p.Length > 1 && p[1] == "1";
+                  else if (c == "games") Sys.Extra = Sys.Names(p.Length > 1 ? p[1] : "");
+                  else if (c == "nogames") Sys.NoGame = Sys.Names(p.Length > 1 ? p[1] : "");
                   else if (c == "cursor")
                   {
                       if (p.Length > 1 && p[1] == "off") { CursorFx.Restore(); return; }
@@ -1602,7 +1604,97 @@ jobs:
                   }
               }
 
-              // ----- mode game: layar penuh / tanpa bingkai + perkiraan FPS dari penyusun jendela (DWM)
+              // ----- deteksi game: nama proses dikenal, folder pustaka game, daftar game dari Windows (Game Bar), atau daftar buatan pengguna
+              public static volatile string[] Extra = new string[0];
+              public static volatile string[] NoGame = new string[0];
+
+              public static string[] Names(string csv)
+              {
+                  List<string> l = new List<string>();
+                  foreach (string x in csv.Split(','))
+                  {
+                      string n = x.Trim().ToLowerInvariant();
+                      if (n.EndsWith(".exe")) n = n.Substring(0, n.Length - 4);
+                      if (n.Length > 0 && n.Length < 80) l.Add(n);
+                  }
+                  return l.ToArray();
+              }
+
+              static readonly string[] GAMES = new string[] {
+                  "robloxplayerbeta", "robloxplayer", "valorant-win64-shipping", "valorant", "cs2", "csgo", "dota2", "r5apex", "r5apex_dx12", "overwatch", "tslgame",
+                  "rustclient", "destiny2", "cyberpunk2077", "genshinimpact", "yuanshen", "starrail", "zenlesszonezero", "warframe.x64", "rocketleague", "fallguys_client",
+                  "minecraft.windows", "gta5", "gtav", "rdr2", "eldenring", "nightreign", "witcher3", "bg3", "bg3_dx11", "hogwartslegacy", "leagueoflegends", "league of legends",
+                  "fortniteclient-win64-shipping", "pubg", "pointblank", "freefire", "terraria", "stardewvalley", "among us", "amongus", "fifa23", "fc24", "fc25",
+                  "eurotrucks2", "ets2", "left4dead2", "hl2", "tf2", "payday2", "helldivers2", "deadbydaylight-win64-shipping", "wowclassic", "diablo iv", "osu!",
+                  "gta_sa", "pes2021", "efootball", "modernwarfare", "blackops", "warzone", "escapefromtarkov", "r6", "rainbowsix", "rainbowsix_vulkan" };
+              static readonly string[] NOTGAME = new string[] {
+                  "chrome", "msedge", "firefox", "brave", "opera", "vivaldi", "vlc", "mpc-hc64", "mpc-hc", "potplayermini64", "potplayermini", "wmplayer", "spotify", "explorer",
+                  "code", "devenv", "steam", "steamwebhelper", "epicgameslauncher", "riotclientservices", "riotclientux", "battle.net", "discord", "obs64", "obs32",
+                  "robloxstudiobeta", "wallpaper32", "wallpaper64", "ui32", "searchhost", "startmenuexperiencehost", "shellexperiencehost", "applicationframehost",
+                  "textinputhost", "lockapp", "taskmgr", "cmd", "powershell", "windowsterminal", "notepad", "winword", "excel", "powerpnt", "photoshop", "premiere pro", "blender",
+                  "claude", "telegram", "whatsapp", "slack", "teams", "zoom" };
+              static readonly string[] GPATHS = new string[] {
+                  "\\steamapps\\common\\", "\\epic games\\", "\\riot games\\", "\\roblox\\versions\\", "\\xboxgames\\", "\\gog galaxy\\games\\", "\\ubisoft game launcher\\games\\",
+                  "\\origin games\\", "\\ea games\\", "\\hoyoverse\\", "\\genshin impact\\", "\\garena\\", "\\games\\" };
+              static readonly HashSet<string> gcs = new HashSet<string>();
+
+              static void LoadGcs()
+              {
+                  try
+                  {
+                      using (RegistryKey rk = Registry.CurrentUser.OpenSubKey("System\\GameConfigStore\\Children"))
+                      {
+                          if (rk == null) return;
+                          HashSet<string> n = new HashSet<string>();
+                          foreach (string sn in rk.GetSubKeyNames())
+                          {
+                              using (RegistryKey k = rk.OpenSubKey(sn))
+                              {
+                                  if (k == null) continue;
+                                  object v = k.GetValue("MatchedExeFullPath");
+                                  if (v == null) continue;
+                                  string f = System.IO.Path.GetFileNameWithoutExtension(v.ToString()).ToLowerInvariant();
+                                  if (f.Length > 0) n.Add(f);
+                              }
+                          }
+                          lock (gcs) { gcs.Clear(); foreach (string x in n) gcs.Add(x); }
+                      }
+                  }
+                  catch (Exception) { }
+              }
+
+              [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint acc, bool inh, uint pid);
+              [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+              [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, uint flags, StringBuilder sb, ref uint size);
+
+              static string FullPath(uint pid)
+              {
+                  IntPtr h = OpenProcess(0x1000, false, pid);
+                  if (h == IntPtr.Zero) return "";
+                  try
+                  {
+                      StringBuilder sb = new StringBuilder(1024);
+                      uint n = 1024;
+                      if (QueryFullProcessImageName(h, 0, sb, ref n)) return sb.ToString();
+                  }
+                  finally { CloseHandle(h); }
+                  return "";
+              }
+
+              static bool IsGame(string ne, string path)
+              {
+                  if (ne.Length == 0) return false;
+                  if (Array.IndexOf(NoGame, ne) >= 0) return false;
+                  if (Array.IndexOf(Extra, ne) >= 0) return true;
+                  if (Array.IndexOf(NOTGAME, ne) >= 0) return false;
+                  if (Array.IndexOf(GAMES, ne) >= 0) return true;
+                  if (ne.EndsWith("-win64-shipping") || ne.EndsWith("-wingdk-shipping")) return true;
+                  lock (gcs) { if (gcs.Contains(ne)) return true; }
+                  string lp = path.ToLowerInvariant().Replace('/', '\\');
+                  foreach (string m in GPATHS) if (lp.IndexOf(m, StringComparison.Ordinal) >= 0) return true;
+                  return false;
+              }
+
               [DllImport("dwmapi.dll")] static extern int DwmGetCompositionTimingInfo(IntPtr hwnd, IntPtr info);
 
               static ulong ReadFrame(IntPtr buf, ref int good)
@@ -1626,14 +1718,16 @@ jobs:
               public static void Game()
               {
                   IntPtr buf = Marshal.AllocHGlobal(512);
-                  int good = 0;
+                  int good = 0, loop = 0;
                   bool full = false;
-                  string exe = "";
+                  string exe = "", curLast = "";
                   ulong lastF = 0;
                   DateTime lastT = DateTime.UtcNow;
+                  LoadGcs();
                   while (true)
                   {
-                      Thread.Sleep(1000);
+                      Thread.Sleep(700);
+                      if (++loop % 90 == 0) LoadGcs();
                       bool nf = false;
                       string ne = "";
                       try
@@ -1641,17 +1735,17 @@ jobs:
                           IntPtr fg = Wnd.GetForegroundWindow();
                           if (fg != IntPtr.Zero && Wnd.IsWindowVisible(fg) && !Wnd.IsIconic(fg))
                           {
-                              string cls = Wnd.Cls(fg);
-                              ne = Wnd.ExeName(Wnd.PidOf(fg));
-                              bool shell = cls == "Progman" || cls == "WorkerW" || cls == "Shell_TrayWnd" || ne == "explorer" || ne == "searchhost" || ne == "startmenuexperiencehost" || ne == "shellexperiencehost";
-                              nf = !shell && Wnd.CoversMonitor(fg);
+                              uint pid = Wnd.PidOf(fg);
+                              ne = Wnd.ExeName(pid);
+                              nf = IsGame(ne, FullPath(pid));
                           }
                       }
                       catch (Exception) { }
-                      if (nf != full || (nf && ne != exe))
+                      string ge = nf ? ne : "";
+                      if (nf != full || ge != exe || ne != curLast)
                       {
-                          full = nf; exe = nf ? ne : "";
-                          Program.Emit("{\"t\":\"fg\",\"full\":" + (full ? 1 : 0) + ",\"exe\":" + Program.J(exe) + "}");
+                          full = nf; exe = ge; curLast = ne;
+                          Program.Emit("{\"t\":\"fg\",\"full\":" + (full ? 1 : 0) + ",\"exe\":" + Program.J(exe) + ",\"cur\":" + Program.J(ne) + "}");
                           lastF = 0;
                       }
                       if (full)
@@ -1864,7 +1958,8 @@ jobs:
             fmode: 0, fapps: [], snd: false, dur: 4500, tapopen: true, suri: "", svol: 100, seen: {},
             edge: "top", bat: true, clip: false, glow: true, dnd: false, qon: false, qfrom: "22:00", qto: "07:00", hot: true, mon: "primary", hist: true,
             appnotif: true, live: true, media: true, devs: true, net: true, rmon: 1, prog: true, hub: true, game: true,
-            curs: false, cstyle: "ring", ccolor: "#ffffff", csize: 36
+            curs: false, cstyle: "ring", ccolor: "#ffffff", csize: 36,
+            auto: true, fpsreal: true, gamelist: [], nogame: [], xh: false, xhgame: false, xhstyle: "cross", xhcolor: "#00ff66", xhsize: 14, xhthick: 2, xhgap: 4, xhop: 90, cal: true, city: ""
           };
 
           let ctx = null, S = Object.assign({}, DEF), started = false, quitting = false;
@@ -2308,10 +2403,14 @@ jobs:
           function startKeys() {
             stopKeys();
             if (!S.enabled || !S.hot) return;
+            try { globalShortcut.register("CommandOrControl+Alt+X", () => { if (S.xh) xhToggle(); }); } catch (_) {}
+            try { globalShortcut.register("CommandOrControl+Alt+C", () => openCal()); } catch (_) {}
+            try { globalShortcut.register("CommandOrControl+Alt+G", () => markGame()); } catch (_) {}
             try { globalShortcut.register("CommandOrControl+Alt+N", () => toggleDnd()); } catch (_) {}
             try { globalShortcut.register("CommandOrControl+Alt+I", () => { if (isl && !isl.isDestroyed() && islReady) isl.webContents.send("fx:stop", 1); }); } catch (_) {}
           }
           function stopKeys() {
+            try { globalShortcut.unregister("CommandOrControl+Alt+X"); globalShortcut.unregister("CommandOrControl+Alt+C"); globalShortcut.unregister("CommandOrControl+Alt+G"); } catch (_) {}
             try { globalShortcut.unregister("CommandOrControl+Alt+N"); globalShortcut.unregister("CommandOrControl+Alt+I"); } catch (_) {}
           }
 
@@ -2326,7 +2425,8 @@ jobs:
           let devPrev = { mic: [], cam: [], rec: [] };
           let mediaState = { play: false, app: "", title: "", artist: "" }, mediaWas = false, mediaToastAt = 0, mediaToastKey = "", mediaGone = null;
           let progState = { pct: -1, app: "", what: "", max: 0 };
-          let gameState = { full: false, exe: "", fps: -1, ping: -1, jit: -1 };
+          let gameHidden = "";
+          let gameState = { full: false, exe: "", cur: "", fps: -1, low: -1, real: false, ping: -1, jit: -1 };
           const pingHist = [];
           let hubItems = [], hubSeq = 1, hubArmed = false, hubDropPanel = false, hubDropAt = 0, dragTimer = null, pressInZone = false;
 
@@ -2358,7 +2458,7 @@ jobs:
             const p = procs.sys; procs.sys = null;
             if (p) { try { p.stdin.write("cursor off\n"); } catch (_) {} killHelper(p); }
             sysState = { ok: false, err: "" };
-            stopDragWatch(); disarmHub(false); clearSysLive();
+            pmStop(); stopDragWatch(); disarmHub(false); clearSysLive();
           }
           function clearSysLive() {
             Object.keys(L).forEach(k => { if (k !== "hub") delete L[k]; });
@@ -2378,6 +2478,8 @@ jobs:
             if (!procs.sys) return;
             sysCmd("btn " + (S.hub && S.live && S.edge === "top" ? 1 : 0));
             sysCmd("top " + ((S.rmon > 0 && S.live && lag) ? 1 : 0));
+            const gl = a => (Array.isArray(a) ? a : []).filter(x => /^[\w.() -]{1,60}$/.test(String(x))).join(",");
+            sysCmd("games " + gl(S.gamelist)); sysCmd("nogames " + gl(S.nogame));
             sysCmd("ping " + ((gameState.full && S.game && S.live) ? 1 : 0));
           }
           function applyCursor() {
@@ -2385,16 +2487,24 @@ jobs:
             if (S.curs) sysCmd("cursor " + S.cstyle + " " + String(S.ccolor).replace("#", "") + " " + (S.csize | 0));
             else sysCmd("cursor off");
           }
-          const BOOLOPT = ["appnotif", "live", "media", "devs", "net", "prog", "hub", "game", "curs"];
+          const BOOLOPT = ["auto", "fpsreal", "appnotif", "live", "media", "devs", "net", "prog", "hub", "game", "curs", "xh", "xhgame", "cal"];
           function setOpt(key, val) {
             if (BOOLOPT.indexOf(key) >= 0) S[key] = !!val;
             else if (key === "rmon") S.rmon = Math.round(clamp(val, 0, 2));
             else if (key === "cstyle") S.cstyle = ["arrow", "ring", "dot", "cross"].indexOf(val) >= 0 ? val : "ring";
             else if (key === "ccolor") { if (/^#[0-9a-f]{6}$/i.test(String(val))) S.ccolor = String(val); }
             else if (key === "csize") S.csize = Math.round(clamp(val, 20, 64));
+            else if (key === "xhstyle") S.xhstyle = ["cross", "dot", "circle", "plus"].indexOf(val) >= 0 ? val : "cross";
+            else if (key === "xhcolor") { if (/^#[0-9a-f]{6}$/i.test(String(val))) S.xhcolor = String(val); }
+            else if (key === "xhsize") S.xhsize = Math.round(clamp(val, 4, 56));
+            else if (key === "xhthick") S.xhthick = Math.round(clamp(val, 1, 8));
+            else if (key === "xhgap") S.xhgap = Math.round(clamp(val, 0, 30));
+            else if (key === "xhop") S.xhop = Math.round(clamp(val, 20, 100));
+            else if (key === "city") { S.city = String(val || "").replace(/[^\p{L}\p{N} ,.'-]/gu, "").slice(0, 60); wxCache = null; wxGeo = null; }
             else return;
             save();
             if (key === "appnotif") applyAnim();
+            if (key === "auto") applyAuto();
             if (!S.live) Object.keys(L).forEach(k => delete L[k]);
             else {
               if (!S.media) delete L.media;
@@ -2405,7 +2515,7 @@ jobs:
               if (!S.rmon && !lag) delete L.mon;
             }
             refreshHub();
-            syncSysFlags(); applyCursor(); pushLive();
+            syncSysFlags(); applyCursor(); pushLive(); xhUpdate(); pmSync();
           }
 
           /* ----- pesan dari fxsys.exe ----- */
@@ -2422,7 +2532,7 @@ jobs:
               case "lvl": if (L.media && mediaState.play) toIsl("lvl", m.p | 0); break;
               case "prog": onProg(m); break;
               case "fg": onFg(m); break;
-              case "fps": gameState.fps = m.v | 0; refreshGame(); break;
+              case "fps": if (!pm.p || !pm.got) { gameState.fps = m.v | 0; gameState.real = false; refreshGame(); } break;
               case "ping": onPing(m); break;
               case "btn": onBtn(m); break;
               case "clip": clipChanged(true); break;
@@ -2526,24 +2636,115 @@ jobs:
 
           /* ----- mode game: FPS & ping ----- */
           function refreshGame() {
+            if (gameState.exe && gameHidden === gameState.exe) { if (L.game) setLive("game", null); return; }
             if (!gameState.full || !S.game || !S.live) { if (L.game) setLive("game", null); return; }
             const g = gameState;
             setLive("game", {
-              id: "game", p: 70, glyph: "🎮", val: (g.fps >= 0 ? g.fps + " FPS" : "-") + " \u00B7 " + (g.ping >= 0 ? g.ping + "ms" : "-"),
+              id: "game", p: 70, glyph: "🎮", val: (g.fps >= 0 ? (g.real ? "" : "~") + g.fps + " FPS" : "-") + " \u00B7 " + (g.ping >= 0 ? g.ping + "ms" : "-"),
               vc: g.ping > 100 ? "#ff453a" : (g.ping > 60 ? "#ff9f0a" : "#30d158"),
-              panel: { id: "game", type: "game", fps: g.fps, ping: g.ping, jit: g.jit, exe: niceName(g.exe) }
+              panel: { id: "game", type: "game", fps: g.fps, real: g.real, low: g.low, ping: g.ping, cpu: lastRes.cpu, ram: lastRes.ram, gpu: lastRes.gpu, h: (pm.frames || []).slice(-60), xh: !!(S.xh && xhOn),  jit: g.jit, exe: niceName(g.exe) }
             });
           }
           function onFg(m) {
-            gameState.full = !!m.full; gameState.exe = String(m.exe || "");
-            gameState.fps = -1; gameState.ping = -1; gameState.jit = -1; pingHist.length = 0;
-            syncSysFlags(); refreshGame();
+            gameState.full = !!m.full; gameState.exe = String(m.exe || ""); gameState.cur = String(m.cur || "");
+            if (gameHidden && gameHidden !== gameState.exe) gameHidden = "";
+            gameState.fps = -1; gameState.low = -1; gameState.real = false; gameState.ping = -1; gameState.jit = -1; pingHist.length = 0;
+            pmStop(); syncSysFlags(); refreshGame(); xhUpdate(); pmSync();
           }
           function onPing(m) {
             if (m.ms >= 0) { pingHist.push(m.ms); if (pingHist.length > 10) pingHist.shift(); gameState.ping = m.ms | 0; }
             else gameState.ping = -1;
             if (pingHist.length > 1) { let s = 0; for (let i = 1; i < pingHist.length; i++) s += Math.abs(pingHist[i] - pingHist[i - 1]); gameState.jit = Math.round(s / (pingHist.length - 1)); }
             refreshGame();
+          }
+
+          /* ---------- FPS akurat lewat PresentMon (Intel, MIT): membaca event Present asli dari Windows (ETW) ---------- */
+          const pmExe = () => app.isPackaged ? path.join(process.resourcesPath, "PresentMon.exe") : path.join(__dirname, "bin", "PresentMon.exe");
+          function pmExists() { try { return fs.statSync(pmExe()).size > 100000; } catch (_) { return false; } }
+          const pm = { p: null, exe: "", ok: false, err: "", got: 0, hdr: null, buf: "", frames: [], tries: 0, triedFor: "", warned: false, timer: null, last: 0 };
+          function pmWanted() { return !!(S.enabled && S.live && S.game && S.fpsreal && gameState.full && gameState.exe); }
+          function pmStop() {
+            if (pm.timer) { clearInterval(pm.timer); pm.timer = null; }
+            const p = pm.p; pm.p = null; pm.ok = false; pm.got = 0; pm.hdr = null; pm.buf = ""; pm.frames = []; pm.exe = "";
+            if (p) { try { p.kill(); } catch (_) {} }
+            if (gameState.real) { gameState.real = false; gameState.fps = -1; gameState.low = -1; refreshGame(); }
+          }
+          function pmSync() {
+            if (!pmWanted()) { if (pm.p || pm.timer) pmStop(); return; }
+            const name = gameState.exe + ".exe";
+            if (pm.p && pm.exe === name) return;
+            pmStop();
+            if (!pmExists()) { pm.err = "PresentMon tidak ada"; return; }
+            if (!/^[\w .()-]{1,60}$/.test(name)) return;
+            if (pm.triedFor !== name) { pm.triedFor = name; pm.tries = 0; }
+            if (pm.tries >= 3) return;
+            let p = null;
+            try {
+              p = spawn(pmExe(), ["-process_name", name, "-output_stdout", "-stop_existing_session", "-dont_restart_as_admin", "-no_top", "-terminate_on_proc_exit"], { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+            } catch (e) { pm.err = String((e && e.message) || e); return; }
+            pm.p = p; pm.exe = name; pm.err = ""; pm.got = 0; pm.hdr = null; pm.buf = ""; pm.frames = [];
+            p.stdout.on("data", d => pmData(String(d)));
+            p.stderr.on("data", d => { pm.err = (pm.err + String(d)).slice(-300); });
+            p.on("error", e => { if (pm.p === p) pm.err = String((e && e.message) || e); });
+            p.on("exit", () => {
+              if (pm.p !== p) return;
+              const denied = !pm.got && /access|administrator|privilege|Performance Log|elevat|denied/i.test(pm.err);
+              pm.p = null; pm.ok = false;
+              if (pm.timer) { clearInterval(pm.timer); pm.timer = null; }
+              if (gameState.real) { gameState.real = false; gameState.fps = -1; gameState.low = -1; refreshGame(); }
+              if (!pm.got) {
+                pm.tries++;
+                if (denied && !pm.warned && S.enabled && !quiet()) {
+                  pm.warned = true;
+                  showIsland({ title: "FPS akurat butuh izin", text: "Buka pengaturan lalu tekan \"Beri izin FPS\" (sekali saja)", app: "FPS", icon: svgIcon("#ff9f0a", "\u26A0"), appId: "", quiet: true });
+                }
+                if (!denied) setTimeout(pmSync, 4000);
+              } else setTimeout(pmSync, 2000);
+            });
+            pm.timer = setInterval(pmTick, 500);
+          }
+          function pmData(chunk) {
+            pm.buf += chunk;
+            if (pm.buf.length > 200000) pm.buf = pm.buf.slice(-20000);
+            let i;
+            while ((i = pm.buf.indexOf("\n")) >= 0) {
+              const line = pm.buf.slice(0, i).replace(/\r$/, ""); pm.buf = pm.buf.slice(i + 1);
+              if (!line) continue;
+              const c = line.split(",");
+              if (!pm.hdr) {
+                if (/Application/i.test(line) && /msBetweenPresents|FrameTime/i.test(line)) {
+                  let ft = c.indexOf("msBetweenPresents"); if (ft < 0) ft = c.indexOf("FrameTime");
+                  pm.hdr = { ft: ft };
+                }
+                continue;
+              }
+              const ms = parseFloat(c[pm.hdr.ft]);
+              if (isFinite(ms) && ms > 0 && ms < 5000) { pm.frames.push(ms); pm.got++; pm.last = Date.now(); if (pm.frames.length > 900) pm.frames.splice(0, pm.frames.length - 900); }
+            }
+          }
+          function pmTick() {
+            if (!pm.p) return;
+            const f = pm.frames;
+            if (!f.length) return;
+            if (Date.now() - pm.last > 2500) { gameState.fps = 0; gameState.low = 0; gameState.real = true; refreshGame(); return; }
+            let acc = 0, n = 0;
+            for (let k = f.length - 1; k >= 0 && acc < 1000; k--) { acc += f[k]; n++; }
+            const fps = acc > 0 ? Math.round(n * 1000 / acc) : -1;
+            const w = f.slice(-300).sort((a, b) => b - a), cnt = Math.max(3, Math.ceil(w.length * 0.01));
+            let sum = 0; for (let k = 0; k < cnt && k < w.length; k++) sum += w[k];
+            const low = sum > 0 ? Math.round(1000 / (sum / Math.min(cnt, w.length))) : -1;
+            pm.ok = true; gameState.fps = fps; gameState.low = low; gameState.real = true;
+            refreshGame();
+          }
+          // sekali saja: masukkan akun ini ke grup "Performance Log Users" supaya PresentMon boleh membaca event tanpa admin
+          function grantFps() {
+            let u = "";
+            try { u = require("os").userInfo().username; } catch (_) {}
+            if (!/^[\w .-]{1,40}$/.test(u)) return;
+            const cmd = "Start-Process cmd -Verb RunAs -WindowStyle Hidden -ArgumentList '/c net localgroup \"Performance Log Users\" \"" + u + "\" /add'";
+            try { execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", cmd], { windowsHide: true }, () => {}); } catch (_) {}
+            pm.tries = 0; pm.warned = false;
+            showIsland({ title: "Izin diminta", text: "Setujui jendela admin, lalu keluar-masuk (sign out) Windows sekali.", app: "FPS", icon: svgIcon("#0a84ff", "\u2713"), appId: "", quiet: true });
           }
 
           /* ----- hub seret & lepas ----- */
@@ -2656,6 +2857,24 @@ jobs:
             }
           }
 
+          /* ----- tandai / batalkan game secara manual (Ctrl+Alt+G) ----- */
+          function markGame() {
+            const n = String(gameState.cur || gameState.exe || "");
+            if (!n || !/^[\w.() -]{1,60}$/.test(n)) return;
+            let add;
+            if (gameState.full && gameState.exe === n) {
+              S.gamelist = (S.gamelist || []).filter(x => x !== n);
+              if ((S.nogame || []).indexOf(n) < 0) S.nogame = (S.nogame || []).concat(n).slice(-60);
+              add = false;
+            } else {
+              S.nogame = (S.nogame || []).filter(x => x !== n);
+              if ((S.gamelist || []).indexOf(n) < 0) S.gamelist = (S.gamelist || []).concat(n).slice(-60);
+              add = true;
+            }
+            save(); syncSysFlags();
+            showIsland({ title: add ? "Ditandai sebagai game" : "Bukan game", text: niceName(n), app: "Game", icon: svgIcon(add ? "#30d158" : "#8e8e93", "🎮"), appId: "", quiet: true });
+          }
+
           /* ----- tombol di island ----- */
           function onAct(a, arg) {
             if (a === "media") {
@@ -2667,6 +2886,15 @@ jobs:
                 lastTop = lastTop.filter(x => x.pid !== pid);
                 if (L.mon) setLive("mon", monActivity());
               });
+            } else if (a === "xhtoggle") {
+              setOpt("xh", !S.xh); xhOn = true; refreshGame();
+            } else if (a === "gamehide") {
+              gameHidden = gameState.exe; refreshGame();
+            } else if (a === "notgame") {
+              const n = gameState.exe; if (!n) return;
+              S.gamelist = (S.gamelist || []).filter(x => x !== n);
+              if ((S.nogame || []).indexOf(n) < 0) S.nogame = (S.nogame || []).concat(n).slice(-60);
+              save(); syncSysFlags(); gameHidden = n; refreshGame();
             } else if (a === "hubdel") {
               hubItems = hubItems.filter(x => x.id !== String(arg));
               refreshHub();
@@ -2675,13 +2903,117 @@ jobs:
             }
           }
 
+          /* ---------- crosshair, kalender & cuaca ---------- */
+          let xhWin = null, xhOn = true;   // xhOn = saklar cepat (Ctrl+Alt+X)
+          const XH_HTML = "<!doctype html><meta charset=utf-8><style>html,body{margin:0;height:100%;overflow:hidden;background:transparent}canvas{display:block}</style><canvas id=c width=128 height=128></canvas><script>" +
+            "function draw(o){var c=document.getElementById('c'),x=c.getContext('2d');x.clearRect(0,0,128,128);x.globalAlpha=o.op;var m=64,s=o.size,t=o.thick,g=o.gap;x.fillStyle=o.color;x.strokeStyle=o.color;x.lineWidth=t;x.lineCap='butt';" +
+            "function ol(f){x.save();x.strokeStyle='rgba(0,0,0,.85)';x.fillStyle='rgba(0,0,0,.85)';x.lineWidth=t+2;f(true);x.restore();}" +
+            "function cross(ob){var a=ob?1:0;x.beginPath();x.moveTo(m-s,m);x.lineTo(m-g,m);x.moveTo(m+g,m);x.lineTo(m+s,m);x.moveTo(m,m-s);x.lineTo(m,m-g);x.moveTo(m,m+g);x.lineTo(m,m+s);x.stroke();}" +
+            "function dot(ob){x.beginPath();x.arc(m,m,Math.max(1.5,t)+(ob?1:0),0,6.2832);x.fill();}" +
+            "function circ(ob){x.beginPath();x.arc(m,m,s/2,0,6.2832);x.stroke();}" +
+            "if(o.style==='dot'){ol(dot);dot(0);}else if(o.style==='circle'){ol(circ);circ(0);ol(dot);dot(0);}else if(o.style==='plus'){ol(cross);cross(0);ol(dot);dot(0);}else{ol(cross);cross(0);}}" +
+            "<\/script>";
+          function xhWanted() { return S.enabled && S.xh && xhOn && (!S.xhgame || gameState.full); }
+          function xhDraw() {
+            if (!xhWin || xhWin.isDestroyed()) return;
+            const cfg = { style: ["cross", "dot", "circle", "plus"].indexOf(S.xhstyle) >= 0 ? S.xhstyle : "cross", color: /^#[0-9a-f]{6}$/i.test(S.xhcolor) ? S.xhcolor : "#00ff66",
+              size: clamp(S.xhsize, 4, 56), thick: clamp(S.xhthick, 1, 8), gap: clamp(S.xhgap, 0, 30), op: clamp(S.xhop, 20, 100) / 100 };
+            try { xhWin.webContents.executeJavaScript("draw(" + JSON.stringify(cfg) + ")").catch(() => {}); } catch (_) {}
+          }
+          function xhUpdate() {
+            if (!xhWanted()) { if (xhWin && !xhWin.isDestroyed()) { try { xhWin.hide(); } catch (_) {} } return; }
+            const d = screen.getPrimaryDisplay(), b = d.bounds;
+            const r = { x: Math.round(b.x + b.width / 2 - 64), y: Math.round(b.y + b.height / 2 - 64), width: 128, height: 128 };
+            if (!xhWin || xhWin.isDestroyed()) {
+              xhWin = new BrowserWindow(Object.assign(overlayOpts(r), { webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } }));
+              xhWin.setAlwaysOnTop(true, "screen-saver");
+              xhWin.setIgnoreMouseEvents(true);
+              xhWin.on("closed", () => { xhWin = null; });
+              xhWin.webContents.once("did-finish-load", () => { xhDraw(); try { xhWin.showInactive(); } catch (_) {} });
+              xhWin.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(XH_HTML));
+              return;
+            }
+            try { xhWin.setBounds(r); xhWin.setAlwaysOnTop(true, "screen-saver"); xhDraw(); xhWin.showInactive(); } catch (_) {}
+          }
+          function xhToggle() { xhOn = !xhOn; xhUpdate(); }
+          function xhStop() { if (xhWin && !xhWin.isDestroyed()) { try { xhWin.destroy(); } catch (_) {} } xhWin = null; }
+
+          // cuaca dari Open-Meteo (data model cuaca, tanpa kunci API). Lokasi: kota yang diisi, atau perkiraan dari IP.
+          const WX = { 0: ["Cerah", "☀️"], 1: ["Cerah berawan", "🌤"], 2: ["Berawan sebagian", "⛅"], 3: ["Mendung", "☁️"], 45: ["Berkabut", "🌫"], 48: ["Kabut beku", "🌫"],
+            51: ["Gerimis ringan", "🌦"], 53: ["Gerimis", "🌦"], 55: ["Gerimis lebat", "🌧"], 56: ["Gerimis beku", "🌧"], 57: ["Gerimis beku", "🌧"],
+            61: ["Hujan ringan", "🌧"], 63: ["Hujan", "🌧"], 65: ["Hujan lebat", "🌧"], 66: ["Hujan beku", "🌧"], 67: ["Hujan beku", "🌧"],
+            71: ["Salju ringan", "🌨"], 73: ["Salju", "🌨"], 75: ["Salju lebat", "❄️"], 77: ["Butiran salju", "🌨"],
+            80: ["Hujan sebentar", "🌦"], 81: ["Hujan sebentar", "🌧"], 82: ["Hujan deras", "⛈"], 85: ["Salju sebentar", "🌨"], 86: ["Salju lebat", "❄️"],
+            95: ["Badai petir", "⛈"], 96: ["Badai petir + es", "⛈"], 99: ["Badai petir + es", "⛈"] };
+          const wxInfo = c => WX[c] || ["-", "🌡"];
+          let wxCache = null, wxAt = 0, wxKey = "", wxGeo = null;
+          async function jget(url) {
+            const r = await fetch(url, { signal: AbortSignal.timeout(8000), headers: { Accept: "application/json" } });
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+          }
+          async function wxLocate() {
+            const city = String(S.city || "").trim();
+            if (city) {
+              if (wxGeo && wxGeo.key === city) return wxGeo;
+              const j = await jget("https://geocoding-api.open-meteo.com/v1/search?count=1&language=id&format=json&name=" + encodeURIComponent(city));
+              const g = j && j.results && j.results[0];
+              if (!g) throw new Error("Kota tidak ditemukan");
+              wxGeo = { key: city, lat: g.latitude, lon: g.longitude, name: [g.name, g.admin1].filter(Boolean).join(", ") };
+              return wxGeo;
+            }
+            if (wxGeo && wxGeo.key === "") return wxGeo;
+            const j = await jget("https://ipwho.is/");
+            if (!j || j.success === false) throw new Error("Lokasi tidak terdeteksi");
+            wxGeo = { key: "", lat: j.latitude, lon: j.longitude, name: [j.city, j.region].filter(Boolean).join(", ") };
+            return wxGeo;
+          }
+          async function getWeather(force) {
+            const key = String(S.city || "");
+            if (!force && wxCache && wxKey === key && Date.now() - wxAt < 10 * 60 * 1000) return wxCache;
+            const g = await wxLocate();
+            const j = await jget("https://api.open-meteo.com/v1/forecast?latitude=" + g.lat + "&longitude=" + g.lon +
+              "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation,is_day" +
+              "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=4");
+            const c = j.current || {}, d = j.daily || {}, inf = wxInfo(c.weather_code);
+            const days = [];
+            for (let i = 1; i < (d.time || []).length && i < 4; i++) {
+              const di = wxInfo(d.weather_code[i]);
+              days.push({ d: d.time[i], g: di[1], hi: Math.round(d.temperature_2m_max[i]), lo: Math.round(d.temperature_2m_min[i]), rain: d.precipitation_probability_max ? d.precipitation_probability_max[i] : -1 });
+            }
+            wxCache = {
+              place: g.name, t: Math.round(c.temperature_2m), feels: Math.round(c.apparent_temperature), hum: Math.round(c.relative_humidity_2m),
+              wind: Math.round(c.wind_speed_10m), text: inf[0], g: (c.is_day === 0 && (c.weather_code | 0) <= 1) ? "🌙" : inf[1],
+              hi: Math.round(d.temperature_2m_max[0]), lo: Math.round(d.temperature_2m_min[0]), rain: d.precipitation_probability_max ? d.precipitation_probability_max[0] : -1,
+              upd: (c.time || "").slice(11, 16), days: days
+            };
+            wxAt = Date.now(); wxKey = key;
+            return wxCache;
+          }
+          let calBusy = false;
+          async function openCal() {
+            if (!S.enabled || !S.cal || calBusy) return;
+            calBusy = true;
+            let w = null, err = "";
+            try { w = await Promise.race([getWeather(false), wait(6000, null)]); if (!w) err = "Cuaca belum bisa dimuat"; }
+            catch (e) { err = String((e && e.message) || "Cuaca tidak tersedia"); if (wxCache) w = wxCache; }
+            calBusy = false;
+            if (!isl || isl.isDestroyed()) return;
+            toIsl("panel", { spec: { id: "cal", type: "cal", w: w, err: w ? "" : err }, sticky: true });
+          }
+
           /* ---------- penerapan pengaturan ---------- */
           function applyEnabled() {
             if (S.enabled) {
-              ensureIsland(); startNotif(); startClip(); startKeys(); keepTop(); startSys();
+              ensureIsland(); startNotif(); startClip(); startKeys(); keepTop(); startSys(); xhUpdate();
             } else {
-              stopNotif(); stopSys(); destroyIsland(); stopClip(); stopKeys(); stopTop();
+              stopNotif(); stopSys(); xhStop(); destroyIsland(); stopClip(); stopKeys(); stopTop();
             }
+          }
+          // Jalan otomatis saat Windows menyala (diam-diam, tanpa membuka jendela utama). Island ikut muncul lagi karena status "aktif" tersimpan.
+          function applyAuto() {
+            if (!app.isPackaged) return;
+            try { app.setLoginItemSettings({ openAtLogin: !!S.auto, args: ["--hidden"] }); } catch (_) {}
           }
           function applyAnim() { if (S.anim || S.appnotif) startWin(); else { stopWin(); } }
 
@@ -2700,7 +3032,8 @@ jobs:
               dur: S.dur, tapopen: !!S.tapopen, suri: su, svol: S.svol, sname: sname,
               edge: S.edge, bat: !!S.bat, clip: !!S.clip, glow: !!S.glow, dnd: !!S.dnd, qon: !!S.qon, qfrom: S.qfrom, qto: S.qto, hot: !!S.hot, mon: S.mon, hist: !!S.hist,
                 appnotif: !!S.appnotif, live: !!S.live, media: !!S.media, devs: !!S.devs, net: !!S.net, rmon: S.rmon | 0, prog: !!S.prog, hub: !!S.hub, game: !!S.game,
-                curs: !!S.curs, cstyle: S.cstyle, ccolor: S.ccolor, csize: S.csize
+                curs: !!S.curs, cstyle: S.cstyle, ccolor: S.ccolor, csize: S.csize,
+                auto: !!S.auto, fpsreal: !!S.fpsreal, xh: !!S.xh, xhgame: !!S.xhgame, xhstyle: S.xhstyle, xhcolor: S.xhcolor, xhsize: S.xhsize, xhthick: S.xhthick, xhgap: S.xhgap, xhop: S.xhop, cal: !!S.cal, city: S.city || ""
             });
           }
 
@@ -2708,7 +3041,7 @@ jobs:
             getState: () => JSON.stringify({ overlay: true, listener: !!notifState.ok, running: !!S.enabled && !!isl, supported: true, cam: true, a11y: true }),
             getInfo: () => JSON.stringify({
               platform: "windows", version: (ctx && ctx.cfg && ctx.cfg.version) || "", helper: fs.existsSync(helperExe()),
-              notif: notifState, enabled: !!S.enabled, anim: !!procs.win, sys: { ok: !!sysState.ok, err: sysState.err || "", exists: sysExists() }, appsReady: appsReady, nApps: startApps.length
+              notif: notifState, enabled: !!S.enabled, anim: !!procs.win, pm: { ok: !!pm.ok, exists: pmExists(), err: pm.err || "" }, sys: { ok: !!sysState.ok, err: sysState.err || "", exists: sysExists() }, appsReady: appsReady, nApps: startApps.length
             }),
             getApps: () => appsJson(),
             getIcon: id => iconCache.get(String(id || "") + "|64") || "",
@@ -2755,6 +3088,8 @@ jobs:
             setHistOn(on) { S.hist = !!on; save(); },
             clearHistory() { hist = []; saveHist(); },
             setOpt(key, val) { setOpt(key, val); },
+            openCal() { openCal(); },
+            grantFps() { grantFps(); },
             reshow(i) { const h = hist[Number(i)]; if (h) showIsland({ title: h.title, text: h.text, app: h.app, appId: h.appId, time: "tadi" }); }
           };
 
@@ -2789,6 +3124,7 @@ jobs:
               if (kind === "clip") { pasteClip(); return; }
               if (S.tapopen && id) openApp(id);
             });
+            ipcMain.on("fx:pill", e => { if (fromIsl(e)) openCal(); });
             ipcMain.on("fx:act", (e, p) => { if (fromIsl(e) && p) onAct(String(p.a || ""), p.arg); });
             ipcMain.on("fx:dragout", (e, id) => { if (fromIsl(e)) hubDragOut(String(id || "")); });
             ipcMain.on("fx:hubenter", e => { if (fromIsl(e)) hubEnter(); });
@@ -2804,7 +3140,7 @@ jobs:
 
           function stop() {
             quitting = true;
-            stopNotif(); stopWin(); stopSys(); destroyIsland(); stopClip(); stopKeys(); stopTop();
+            stopNotif(); stopWin(); stopSys(); xhStop(); destroyIsland(); stopClip(); stopKeys(); stopTop();
             anims.forEach(o => { try { if (!o.win.isDestroyed()) o.win.destroy(); } catch (_) {} });
             anims.clear();
           }
@@ -2828,6 +3164,7 @@ jobs:
             refreshApps();
             applyEnabled();
             applyAnim();
+            applyAuto();
           }
 
           function trayItems() {
@@ -2838,7 +3175,7 @@ jobs:
             ];
           }
 
-          module.exports = { start, stop, trayItems };
+          module.exports = { start, stop, trayItems, setAuto: on => { S.auto = !!on; save(); applyAuto(); }, autoOn: () => !!S.auto };
           FX_EOS
           cat > fx/preload.js <<'FX_EOS'
           "use strict";
@@ -2850,7 +3187,7 @@ jobs:
             const CAST = ["openOverlay", "openListener", "requestNotif", "start", "stop", "test", "setStyle", "reload", "setFilter",
               "setTapOpen", "setAnim", "setAnimMin", "setPillAlways", "openAccessibility", "setHideNotif", "setDuration", "setSound",
               "previewSound", "setSoundUri", "setSoundVol", "demoAnim", "openWinSettings",
-              "setEdge", "setBat", "setGlow", "setClip", "setDnd", "setQuiet", "setHotkeys", "setMonitor", "setHistOn", "clearHistory", "reshow", "setOpt"];
+              "setEdge", "setBat", "setGlow", "setClip", "setDnd", "setQuiet", "setHotkeys", "setMonitor", "setHistOn", "clearHistory", "reshow", "setOpt", "openCal", "grantFps"];
             const api = {};
             SYNC.forEach(n => { api[n] = function () { return ipcRenderer.sendSync("fx:call", n, Array.prototype.slice.call(arguments)); }; });
             CAST.forEach(n => { api[n] = function () { ipcRenderer.send("fx:cast", n, Array.prototype.slice.call(arguments)); }; });
@@ -2864,7 +3201,7 @@ jobs:
           "use strict";
           const { contextBridge, ipcRenderer, webUtils } = require("electron");
           const OK_IN = ["cfg", "show", "play", "sound", "stop", "live", "lvl", "panel", "dz"];
-          const OK_OUT = ["mouse", "tap", "idle", "ready", "local", "act", "dragout"];
+          const OK_OUT = ["mouse", "tap", "idle", "ready", "local", "act", "dragout", "pill"];
           contextBridge.exposeInMainWorld("fxo", {
             on: (ch, cb) => { if (OK_IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("fx:" + ch, (_e, d) => cb(d)); },
             send: (ch, d) => { if (OK_OUT.indexOf(ch) >= 0) ipcRenderer.send("fx:" + ch, d); }
@@ -2949,6 +3286,7 @@ jobs:
             .fxb.big:hover{background:#e8e8ed}
             .fxb.sm{width:auto;height:26px;border-radius:13px;padding:0 11px;font-size:12px;font-weight:600;background:#ff453a;color:#fff}
             .fxb.sm:hover{background:#ff6259}
+            .fxb.sm.nt{background:rgba(255,255,255,.16);color:inherit}.fxb.sm.nt:hover{background:rgba(255,255,255,.26)}
             .bar{height:7px;border-radius:4px;background:rgba(255,255,255,.16);overflow:hidden}
             .bar>i{display:block;height:100%;border-radius:4px;transition:width .4s ease}
             .mt{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:13px}
@@ -2970,6 +3308,15 @@ jobs:
             .hit span{display:block;font-size:11px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
             .hit .x{position:absolute;right:2px;top:-4px;width:18px;height:18px;border-radius:50%;background:#636366;color:#fff;font-size:11px;line-height:18px;text-align:center;cursor:pointer;display:none}
             .hit:hover .x{display:block}
+            .clk{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}.clk b{font-size:32px;font-weight:700;letter-spacing:-1px;font-variant-numeric:tabular-nums}.clk span{font-size:12px;text-align:right}
+            .cal{display:flex;gap:16px}.cal .cg{flex:1;min-width:0}.cal .wx{width:118px;flex:none;border-left:1px solid rgba(255,255,255,.12);padding-left:14px}
+            .ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:14px;font-weight:600}
+            .ch button{width:24px;height:24px;border:0;border-radius:12px;background:rgba(255,255,255,.14);color:inherit;cursor:pointer;font-size:13px;padding:0}
+            .gd{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font-size:12px}
+            .gd i{font-style:normal;height:24px;line-height:24px;border-radius:12px;font-variant-numeric:tabular-nums}.gd .h{font-size:10px;opacity:.55;height:18px;line-height:18px}
+            .gd .t{background:#ff3b30;color:#fff;font-weight:700}
+            .wx .tm{font-size:30px;font-weight:700;letter-spacing:-1px}.wx small{display:block;font-size:11px;line-height:1.35}
+            .fc{display:flex;justify-content:space-between;font-size:11px;margin-top:6px;gap:6px}
             .empty{font-size:13px;text-align:center;padding:14px 0}
             `;
 
@@ -3010,6 +3357,7 @@ jobs:
               var entries = [], open = false, openingFx = false, hover = false, timer = null, leaveT = null, hoverT = null;
               var mode = 'rows', curPanel = null, sticky = false, lives = [], lvl = 0, lastPanelJson = '';
               var S = { w: 0, h: 0, vw: 0, vh: 0, tw: 0, th: 0, run: false, last: 0, kw: 420, dw: 29, kh: 420, dh: 29 };
+              var calOff = 0;
               var tc = '#fff', sc = '#b0b0b8', dc = '#8e8e93', ring = '#000';
               var downY = 0, glowRgb = null, waves = [], waveT = null;
 
@@ -3159,6 +3507,18 @@ jobs:
               }
               function lvColor(p) { return p >= 90 ? '#ff453a' : (p >= 70 ? '#ff9f0a' : '#30d158'); }
 
+              var clockEls = [], clockT = null;
+              function clockStr() { return new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/\./g, ':'); }
+              function dateStr() { return new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
+              function startClock() {
+                if (clockT) return;
+                clockT = setInterval(function () {
+                  clockEls = clockEls.filter(function (e) { return e.isConnected; });
+                  if (!clockEls.length) { clearInterval(clockT); clockT = null; return; }
+                  var t = clockStr();
+                  clockEls.forEach(function (e) { e.textContent = t; });
+                }, 1000);
+              }
               function buildPanel(p) {
                 var w = el('div', 'fxp');
                 var t = p.type;
@@ -3222,11 +3582,56 @@ jobs:
                   var bb = bar(p.pct, '#0a84ff'); bb.style.marginTop = '10px'; w.appendChild(bb);
                 } else if (t === 'game') {
                   var g2 = el('div', 'two');
-                  [['FPS', p.fps >= 0 ? p.fps : '-', '#30d158'], ['PING', p.ping >= 0 ? p.ping + ' ms' : '-', p.ping > 100 ? '#ff453a' : (p.ping > 60 ? '#ff9f0a' : '#0a84ff')], ['JITTER', p.jit >= 0 ? p.jit + ' ms' : '-', '#bf5af2']].forEach(function (x) {
+                  [[p.real ? 'FPS' : '~FPS', p.fps >= 0 ? p.fps : '-', '#30d158']].concat(p.real ? [['1% LOW', p.low >= 0 ? p.low : '-', '#ffd60a']] : [], [['PING', p.ping >= 0 ? p.ping + ' ms' : '-', p.ping > 100 ? '#ff453a' : (p.ping > 60 ? '#ff9f0a' : '#0a84ff')], ['JITTER', p.jit >= 0 ? p.jit + ' ms' : '-', '#bf5af2']]).forEach(function (x) {
                     var c = el('div'); var lb = el('div', '', x[0]); lb.style.cssText = 'font-size:11px;color:' + sc; var vv = el('div', 'big2', String(x[1])); vv.style.color = x[2]; c.appendChild(lb); c.appendChild(vv); g2.appendChild(c);
                   });
                   w.appendChild(g2);
+                  if (p.h && p.h.length > 3) {
+                    var sp2 = el('div', 'spk'), mx2 = 1; p.h.forEach(function (v) { mx2 = Math.max(mx2, v); });
+                    p.h.forEach(function (v) { var i2 = document.createElement('i'); i2.style.height = Math.max(2, Math.round(30 * v / mx2)) + 'px'; sp2.appendChild(i2); });
+                    sp2.style.color = '#30d158'; w.appendChild(sp2);
+                    var fl = el('div', '', 'Waktu antar frame'); fl.style.cssText = 'font-size:10px;margin-top:2px;color:' + dc; w.appendChild(fl);
+                  }
+                  var mw = el('div'); mw.style.marginTop = '8px';
+                  mw.appendChild(meter('CPU', p.cpu, lvColor(p.cpu))); mw.appendChild(meter('RAM', p.ram, lvColor(p.ram)));
+                  if (p.gpu >= 0) mw.appendChild(meter('GPU', p.gpu, lvColor(p.gpu)));
+                  w.appendChild(mw);
+                  var gr2 = el('div', 'ctl'); gr2.style.gap = '8px';
+                  [['Crosshair: ' + (p.xh ? 'nyala' : 'mati'), 'xhtoggle'], ['Sembunyikan', 'gamehide'], ['Bukan game', 'notgame']].forEach(function (x) {
+                    var b2 = el('button', 'fxb sm nt', x[0]); b2.dataset.act = x[1]; gr2.appendChild(b2);
+                  });
+                  w.appendChild(gr2);
                   if (p.exe) { var ex = el('div', '', p.exe); ex.style.cssText = 'font-size:11px;margin-top:6px;color:' + dc; w.appendChild(ex); }
+                } else if (t === 'cal') {
+                  var now = new Date(), vm = new Date(now.getFullYear(), now.getMonth() + calOff, 1);
+                  var clk = el('div', 'clk'), tb = el('b', '', clockStr()), ds = el('span', '', dateStr());
+                  tb.style.color = tc; ds.style.color = sc; tb.dataset.clk = '1';
+                  clk.appendChild(tb); clk.appendChild(ds); w.appendChild(clk); clockEls.push(tb); startClock();
+                  var cal = el('div', 'cal'), cg = el('div', 'cg'), ch = el('div', 'ch');
+                  var pb = el('button', '', '\u2039'); pb.dataset.act = 'calnav'; pb.dataset.arg = '-1';
+                  var nb = el('button', '', '\u203A'); nb.dataset.act = 'calnav'; nb.dataset.arg = '1';
+                  var MN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+                  var ttl = el('span', '', MN[vm.getMonth()] + ' ' + vm.getFullYear()); ttl.style.color = tc;
+                  ch.appendChild(pb); ch.appendChild(ttl); ch.appendChild(nb); cg.appendChild(ch);
+                  var gd = el('div', 'gd'); gd.style.color = tc;
+                  ['Sen','Sel','Rab','Kam','Jum','Sab','Min'].forEach(function (n) { gd.appendChild(el('i', 'h', n)); });
+                  var lead = (vm.getDay() + 6) % 7, dim = new Date(vm.getFullYear(), vm.getMonth() + 1, 0).getDate();
+                  for (var q = 0; q < lead; q++) gd.appendChild(el('i', ''));
+                  for (var dd = 1; dd <= dim; dd++) {
+                    var isT = calOff === 0 && dd === now.getDate();
+                    gd.appendChild(el('i', isT ? 't' : '', String(dd)));
+                  }
+                  cg.appendChild(gd); cal.appendChild(cg);
+                  var wx = el('div', 'wx'), W = p.w;
+                  if (W) {
+                    var lc = el('small', '', W.place); lc.style.color = sc; wx.appendChild(lc);
+                    var tm = el('div', 'tm', W.g + ' ' + W.t + '\u00B0'); tm.style.color = tc; wx.appendChild(tm);
+                    [W.text, 'Terasa ' + W.feels + '\u00B0 \u00B7 Lembap ' + W.hum + '%', 'Angin ' + W.wind + ' km/j' + (W.rain >= 0 ? ' \u00B7 Hujan ' + W.rain + '%' : ''), 'T ' + W.hi + '\u00B0 / R ' + W.lo + '\u00B0'].forEach(function (x) { var sm = el('small', '', x); sm.style.color = sc; wx.appendChild(sm); });
+                    var fc = el('div', 'fc'); fc.style.color = tc;
+                    (W.days || []).forEach(function (x) { var dv = el('div'); dv.style.textAlign = 'center'; dv.textContent = x.g + ' ' + x.hi + '\u00B0'; fc.appendChild(dv); });
+                    wx.appendChild(fc);
+                  } else { var er = el('small', '', p.err || 'Cuaca tidak tersedia'); er.style.color = sc; wx.appendChild(er); }
+                  cal.appendChild(wx); w.appendChild(cal);
                 } else if (t === 'hub') {
                   var ht = el('div', '', p.drop ? 'Lepaskan di sini' : 'Kantong sementara'); ht.style.cssText = 'font-size:13px;font-weight:600;color:' + tc; w.appendChild(ht);
                   var items = p.items || [];
@@ -3342,7 +3747,7 @@ jobs:
               function collapse() {
                 clearTimeout(timer); clearTimeout(leaveT); clearTimeout(hoverT);
                 if (!open) return;
-                open = false; openingFx = false; glowRgb = null; sticky = false; mode = 'rows'; curPanel = null; lastPanelJson = '';
+                open = false; openingFx = false; calOff = 0; glowRgb = null; sticky = false; mode = 'rows'; curPanel = null; lastPanelJson = '';
                 style();
                 ct.style.transition = 'opacity .14s ease,filter .14s ease';
                 ct.style.opacity = 0; ct.style.filter = 'blur(7px)';
@@ -3444,6 +3849,7 @@ jobs:
                 release();
                 var tg = ev.target;
                 var ab = tg.closest ? tg.closest('[data-act]') : null;
+                if (ab && ab.dataset.act === 'calnav') { calOff += +ab.dataset.arg; rebuild(); springTo(eW(), contentH(), true); return; }
                 if (ab) {
                   if (o.onAct) o.onAct(ab.dataset.act, ab.dataset.arg);
                   return;
@@ -3504,6 +3910,7 @@ jobs:
                 level: function (p) { lvl = clamp((+p || 0) / 1000, 0, 1); },
                 isOpen: function () { return open; },
                 isLive: function () { return lives.length > 0; },
+                isShown: function () { return isl.classList.contains('on'); },
                 mode: function () { return mode; },
                 rect: function () { return isl.classList.contains('on') ? isl.getBoundingClientRect() : null; },
                 el: isl
@@ -3528,9 +3935,10 @@ jobs:
               onTap: function (e) { fxo.send('tap', { id: (e && e.appId) || '', kind: (e && e.kind) || '' }); },
               onAct: function (a, arg) { fxo.send('act', { a: a, arg: arg }); },
               onDrag: function (id) { fxo.send('dragout', String(id)); },
+              onPill: function () { fxo.send('pill', 1); },
               onIdle: function () { inside = false; fxo.send('idle'); }
             });
-            function interactive() { return core.isOpen() || core.isLive(); }
+            function interactive() { return core.isOpen() || core.isLive() || core.isShown(); }
             document.addEventListener('mousemove', function (ev) {
               var r = core.rect();
               var i = interactive() && !!r && ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
@@ -3701,6 +4109,13 @@ jobs:
             echo "::warning::fxsys.cs gagal dikompilasi - fitur tambahan dinonaktifkan"
             head -c 4096 /dev/zero > fx/bin/fxsys.exe
           fi
+          # PresentMon (Intel, lisensi MIT) untuk FPS akurat. Opsional: kalau gagal diunduh, FPS kembali ke perkiraan DWM.
+          if curl -fsSL --retry 3 -o fx/bin/PresentMon.exe "https://github.com/GameTechDev/PresentMon/releases/download/v1.10.0/PresentMon-1.10.0-x64.exe" && [ "$(wc -c < fx/bin/PresentMon.exe)" -gt 100000 ]; then
+            echo "PresentMon OK"
+          else
+            echo "::warning::PresentMon gagal diunduh - FPS memakai perkiraan DWM"
+            head -c 4096 /dev/zero > fx/bin/PresentMon.exe
+          fi
           test -f fx/bin/fxhelper.exe || { echo "::error::fxhelper.exe gagal dibuat"; exit 1; }
           echo "Uji ikon pembantu (tidak wajib berhasil):"
           fx/bin/fxhelper.exe icon "C:\\Windows\\System32\\notepad.exe" 64 | head -c 24 || true
@@ -3786,7 +4201,7 @@ jobs:
               appId: "com.apkmaker.app", productName: name,
               directories: { output: "dist", buildResources: "build" },
               files: ["main.js", "app-config.json", "icon.png", "www/**/*"].concat(e.FX === "true" ? ["fx/**/*", "!fx/bin", "!fx/**/*.cs"] : []),
-              extraResources: e.FX === "true" ? [{ from: "fx/bin/fxhelper.exe", to: "fxhelper.exe" }, { from: "fx/bin/fxsys.exe", to: "fxsys.exe" }] : undefined,
+              extraResources: e.FX === "true" ? [{ from: "fx/bin/fxhelper.exe", to: "fxhelper.exe" }, { from: "fx/bin/fxsys.exe", to: "fxsys.exe" }, { from: "fx/bin/PresentMon.exe", to: "PresentMon.exe" }] : undefined,
               win: { target: "nsis", icon: "build/icon.png" },
               nsis: { oneClick: false, perMachine: false, allowToChangeInstallationDirectory: true, runAfterFinish: true, createDesktopShortcut: true, createStartMenuShortcut: true },
               artifactName: "app.${ext}"
@@ -3802,6 +4217,7 @@ jobs:
           const safe = u => /^https?:/i.test(u);
           const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
           let win = null, blocked = false, forced = "", tray = null, quitting = false;
+          const hidden = process.argv.indexOf("--hidden") >= 0;   // dijalankan otomatis oleh Windows: jangan buka jendela utama
           const flagFile = () => path.join(app.getPath("userData"), "blocked.flag");
           // Tanya Worker apakah aplikasi ini diblokir. Offline = pakai status terakhir yang diketahui.
           async function checkBlocked(o) {
@@ -3845,7 +4261,7 @@ jobs:
           }
           async function create() {
             Menu.setApplicationMenu(null);
-            win = new BrowserWindow({ width: 1100, height: 760, title: cfg.name, autoHideMenuBar: true,
+            win = new BrowserWindow({ width: 1100, height: 760, title: cfg.name, autoHideMenuBar: true, show: !hidden,
               webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: (fx && !cfg.url) ? path.join(__dirname, "fx", "preload.js") : undefined } });
             // F11 / Alt+Enter = layar penuh, Esc = keluar dari layar penuh (menu dimatikan, jadi harus ditangani manual)
             win.webContents.on("before-input-event", (ev, input) => {
@@ -3867,7 +4283,7 @@ jobs:
                 tray.setToolTip(cfg.name);
                 tray.setContextMenu(Menu.buildFromTemplate([
                   { label: "Buka " + cfg.name, click: () => { win.show(); win.focus(); } },
-                  { label: "Jalan otomatis saat Windows menyala", type: "checkbox", checked: app.getLoginItemSettings().openAtLogin, click: it => app.setLoginItemSettings({ openAtLogin: it.checked }) },
+                  { label: "Jalan otomatis saat Windows menyala", type: "checkbox", checked: fx ? fx.autoOn() : app.getLoginItemSettings({ args: ["--hidden"] }).openAtLogin, click: it => { if (fx) fx.setAuto(it.checked); else app.setLoginItemSettings({ openAtLogin: it.checked, args: ["--hidden"] }); } },
                   ...(fx ? fx.trayItems() : []),
                   { type: "separator" },
                   { label: "Keluar", click: () => { quitting = true; app.quit(); } }
