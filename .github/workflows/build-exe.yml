@@ -517,6 +517,8 @@ jobs:
                   public bool Zoomed;
                   public bool Min;
                   public int Stable;
+                  public string Name = "";
+                  public int Hk;
                   public bool Announced;
                   public bool Away;
               }
@@ -524,6 +526,8 @@ jobs:
               static readonly Dictionary<IntPtr, Info> known = new Dictionary<IntPtr, Info>();
               static readonly Dictionary<uint, string[]> procCache = new Dictionary<uint, string[]>();
               static readonly Dictionary<string, string> iconCache = new Dictionary<string, string>();
+              static readonly HashSet<string> iconBusy = new HashSet<string>();
+              static readonly Dictionary<string, string> nameCache = new Dictionary<string, string>();
               static readonly HashSet<string> skipClass = new HashSet<string>(new string[] {
                   "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "NotifyIconOverflowWindow",
                   "TopLevelWindowForOverflowXamlIsland", "XamlExplorerHostIslandWindow", "Windows.UI.Core.CoreWindow",
@@ -648,7 +652,59 @@ jobs:
               static string Ev(string t, Info i)
               {
                   return "{\"t\":\"" + t + "\",\"x\":" + i.R.L + ",\"y\":" + i.R.T + ",\"w\":" + (i.R.R - i.R.L) + ",\"h\":" + (i.R.B - i.R.T)
-                      + ",\"max\":" + (i.Zoomed ? 1 : 0) + ",\"exe\":" + Program.J(i.Exe) + ",\"icon\":" + Program.J(i.Icon) + "}";
+                      + ",\"max\":" + (i.Zoomed ? 1 : 0) + ",\"exe\":" + Program.J(i.Exe) + ",\"icon\":" + Program.J(i.Icon) + ",\"name\":" + Program.J(i.Name) + "}";
+              }
+
+              // ikon: pakai cache; kalau belum ada, dibuat di thread latar (animasi tidak menunggu)
+              static string IconQuick(string id)
+              {
+                  if (string.IsNullOrEmpty(id)) return "";
+                  string v;
+                  lock (iconCache)
+                  {
+                      if (iconCache.TryGetValue(id, out v)) return v;
+                      if (iconBusy.Contains(id)) return "";
+                      iconBusy.Add(id);
+                  }
+                  string key = id;
+                  Thread t = new Thread(delegate ()
+                  {
+                      string r = "";
+                      try
+                      {
+                          byte[] png = IconUtil.Png(key, 96);
+                          if (png != null) r = Convert.ToBase64String(png);
+                      }
+                      catch (Exception) { }
+                      lock (iconCache)
+                      {
+                          if (iconCache.Count > 150) iconCache.Clear();
+                          if (r.Length > 0) iconCache[key] = r;
+                          iconBusy.Remove(key);
+                      }
+                  });
+                  t.IsBackground = true;
+                  t.SetApartmentState(ApartmentState.STA);
+                  t.Start();
+                  return "";
+              }
+
+              static string NameOf(string exe)
+              {
+                  if (string.IsNullOrEmpty(exe)) return "";
+                  string v;
+                  if (nameCache.TryGetValue(exe, out v)) return v;
+                  v = "";
+                  try
+                  {
+                      FileVersionInfo vi = FileVersionInfo.GetVersionInfo(exe);
+                      if (!string.IsNullOrEmpty(vi.FileDescription)) v = vi.FileDescription.Trim();
+                      if (v.Length == 0 && !string.IsNullOrEmpty(vi.ProductName)) v = vi.ProductName.Trim();
+                  }
+                  catch (Exception) { }
+                  if (nameCache.Count > 300) nameCache.Clear();
+                  nameCache[exe] = v;
+                  return v;
               }
 
               static void Fill(Info i)
@@ -657,7 +713,8 @@ jobs:
                   string[] pi = ProcInfo(rp);
                   i.Exe = pi[0];
                   i.IconId = pi[1].Length > 0 ? pi[1] : pi[0];
-                  i.Icon = IconFor(i.IconId);
+                  i.Icon = IconQuick(i.IconId);
+                  i.Name = NameOf(pi[0]);
               }
 
               static void Poll(uint own, bool armed, bool first)
@@ -684,20 +741,22 @@ jobs:
                               if (known.TryGetValue(kv.Key, out k))
                               {
                                   k.Away = false;
-                                  bool wasMin = k.Min;
+          bool wasMin = k.Min;
+                                  bool recent = unchecked(Environment.TickCount - k.Hk) < 500;
                                   k.Zoomed = c.Zoomed;
                                   k.Min = c.Min;
                                   if (!c.Min) { k.Prev = k.R; k.R = c.R; }
                                   if (k.Announced)
                                   {
-                                      if (!wasMin && c.Min) events.Add(Ev("minimize", k));
+          if (recent) { }
+                                      else if (!wasMin && c.Min) events.Add(Ev("minimize", k));
                                       else if (wasMin && !c.Min) events.Add(Ev("restore", k));
                                   }
                                   else if (!c.Min)
                                   {
                                       bool same = k.Prev.L == k.R.L && k.Prev.T == k.R.T && k.Prev.R == k.R.R && k.Prev.B == k.R.B;
                                       k.Stable = same ? k.Stable + 1 : 0;
-                                      if (k.Stable >= 2)
+          if (k.Stable >= 1)
                                       {
                                           k.Announced = true;
                                           if (armed) { Fill(k); events.Add(Ev("open", k)); }
@@ -748,11 +807,15 @@ jobs:
               static HookProc hookProc;
               static readonly List<IntPtr> pendShow = new List<IntPtr>();
               static readonly List<IntPtr> pendHide = new List<IntPtr>();
+              static readonly List<IntPtr> pendMin = new List<IntPtr>();
+              static readonly List<IntPtr> pendRes = new List<IntPtr>();
 
               static void OnHook(IntPtr hook, uint ev, IntPtr hwnd, int idObj, int idChild, uint thr, uint time)
               {
                   if (idObj != 0 || idChild != 0 || hwnd == IntPtr.Zero) return;
-                  if (ev == 0x8002) pendShow.Add(hwnd);
+          if (ev == 0x16) pendMin.Add(hwnd);
+                  else if (ev == 0x17) pendRes.Add(hwnd);
+                  else if (ev == 0x8002) pendShow.Add(hwnd);
                   else if (ev == 0x8003) pendHide.Add(hwnd);
               }
 
@@ -769,6 +832,30 @@ jobs:
                   Fill(c);
                   known[h] = c;
                   if (armed) Program.Emit(Ev("open", c));
+              }
+
+              // jalur cepat minimize / pulihkan: langsung dari sistem, tanpa menunggu polling
+              static void OnMin(IntPtr h, bool armed)
+              {
+                  Info k;
+                  if (!known.TryGetValue(h, out k)) return;
+                  if (!k.Announced || k.Min) return;
+                  k.Min = true;
+                  k.Hk = Environment.TickCount;
+                  if (armed) Program.Emit(Ev("minimize", k));
+              }
+
+              static void OnRes(IntPtr h, uint own, bool armed)
+              {
+                  Info k;
+                  if (!known.TryGetValue(h, out k)) return;
+                  if (!k.Announced || !k.Min) return;
+                  Info c;
+                  int hid;
+                  if (Candidate(h, own, out c, out hid) && !c.Min) { k.R = c.R; k.Zoomed = c.Zoomed; }
+                  k.Min = false;
+                  k.Hk = Environment.TickCount;
+                  if (armed) Program.Emit(Ev("restore", k));
               }
 
               static void OnHide(IntPtr h, bool armed)
@@ -789,6 +876,8 @@ jobs:
                   hookProc = new HookProc(OnHook);
                   IntPtr hk = IntPtr.Zero;
                   try { hk = SetWinEventHook(0x8002, 0x8003, IntPtr.Zero, hookProc, 0, 0, 2); } catch (Exception) { }
+                  IntPtr hk2 = IntPtr.Zero;
+                  try { hk2 = SetWinEventHook(0x0016, 0x0017, IntPtr.Zero, hookProc, 0, 0, 2); } catch (Exception) { }
                   while (true)
                   {
                       MSG m;
@@ -797,6 +886,10 @@ jobs:
                       try
                       {
                           if (pendShow.Count > 6 || pendHide.Count > 6) { pendShow.Clear(); pendHide.Clear(); }
+                          List<IntPtr> mn = new List<IntPtr>(pendMin); pendMin.Clear();
+                          List<IntPtr> rs = new List<IntPtr>(pendRes); pendRes.Clear();
+                          foreach (IntPtr h in mn) OnMin(h, armed);
+                          foreach (IntPtr h in rs) OnRes(h, own, armed);
                           List<IntPtr> sh = new List<IntPtr>(pendShow); pendShow.Clear();
                           List<IntPtr> hi = new List<IntPtr>(pendHide); pendHide.Clear();
                           foreach (IntPtr h in hi) OnHide(h, armed);
@@ -815,6 +908,946 @@ jobs:
               }
           }
           FX_EOS
+          cat > fx/fxsys.cs <<'FX_EOS'
+          // fxsys.exe - pembantu tambahan untuk Dynamic Island Windows (dikompilasi dengan csc.exe bawaan Windows, C# 5).
+          // Berjalan terus, satu JSON per baris di stdout. Perintah masuk lewat stdin, satu per baris:
+          //   paste | media playpause|next|prev | top 1|0 | ping 1|0 | btn 1|0 | cursor <gaya> <hex> <ukuran> | cursor off
+          using System;
+          using System.Collections.Generic;
+          using System.Diagnostics;
+          using System.Drawing;
+          using System.Drawing.Drawing2D;
+          using System.Globalization;
+          using System.Net.NetworkInformation;
+          using System.Runtime.InteropServices;
+          using System.Text;
+          using System.Text.RegularExpressions;
+          using System.Threading;
+          using Microsoft.Win32;
+
+          static class Program
+          {
+              static readonly object O = new object();
+              public static volatile bool TopOn = false;
+              public static volatile bool PingOn = false;
+              public static volatile bool BtnOn = false;
+
+              public static void Emit(string json)
+              {
+                  lock (O)
+                  {
+                      Console.Out.WriteLine(json);
+                      Console.Out.Flush();
+                  }
+              }
+
+              public static string J(string s)
+              {
+                  if (s == null) return "\"\"";
+                  StringBuilder sb = new StringBuilder();
+                  sb.Append('"');
+                  foreach (char c in s)
+                  {
+                      if (c == '"') sb.Append("\\\"");
+                      else if (c == '\\') sb.Append("\\\\");
+                      else if (c == '\n') sb.Append("\\n");
+                      else if (c == '\r') sb.Append("\\r");
+                      else if (c == '\t') sb.Append("\\t");
+                      else if (c < 32 || c > 126) sb.Append("\\u").Append(((int)c).ToString("x4"));
+                      else sb.Append(c);
+                  }
+                  sb.Append('"');
+                  return sb.ToString();
+              }
+
+              static void Spawn(ThreadStart f)
+              {
+                  Thread t = new Thread(f);
+                  t.IsBackground = true;
+                  t.Start();
+              }
+
+              static int Main(string[] a)
+              {
+                  try
+                  {
+                      Spawn(delegate () { Guard(Sys.NetRes); });
+                      Spawn(delegate () { Guard(Sys.Gpu); });
+                      Spawn(delegate () { Guard(Sys.Top); });
+                      Spawn(delegate () { Guard(Sys.Devices); });
+                      Spawn(delegate () { Guard(Sys.Audio); });
+                      Spawn(delegate () { Guard(Sys.Progress); });
+                      Spawn(delegate () { Guard(Sys.Game); });
+                      Spawn(delegate () { Guard(Sys.PingLoop); });
+                      Spawn(delegate () { Guard(Sys.Mouse); });
+                      Spawn(delegate () { Guard(Sys.Clip); });
+                      Emit("{\"t\":\"ready\"}");
+                      string line;
+                      while ((line = Console.In.ReadLine()) != null)
+                      {
+                          try { Command(line.Trim()); } catch (Exception) { }
+                      }
+                  }
+                  catch (Exception e)
+                  {
+                      Emit("{\"t\":\"err\",\"m\":" + J(e.GetType().Name + ": " + e.Message) + "}");
+                  }
+                  try { CursorFx.Restore(); } catch (Exception) { }
+                  Environment.Exit(0);
+                  return 0;
+              }
+
+              static void Guard(ThreadStart f)
+              {
+                  try { f(); }
+                  catch (Exception e) { Emit("{\"t\":\"err\",\"m\":" + J(f.Method.Name + ": " + e.Message) + "}"); }
+              }
+
+              static void Command(string l)
+              {
+                  if (l.Length == 0) return;
+                  string[] p = l.Split(' ');
+                  string c = p[0];
+                  if (c == "paste") Keys.Paste();
+                  else if (c == "media" && p.Length > 1) Keys.Media(p[1]);
+                  else if (c == "top") TopOn = p.Length > 1 && p[1] == "1";
+                  else if (c == "ping") PingOn = p.Length > 1 && p[1] == "1";
+                  else if (c == "btn") BtnOn = p.Length > 1 && p[1] == "1";
+                  else if (c == "cursor")
+                  {
+                      if (p.Length > 1 && p[1] == "off") { CursorFx.Restore(); return; }
+                      int sz = 32;
+                      if (p.Length > 3) int.TryParse(p[3], out sz);
+                      CursorFx.Apply(p.Length > 1 ? p[1] : "arrow", p.Length > 2 ? p[2] : "ffffff", sz);
+                  }
+              }
+          }
+
+          // ---------------------------------------------------------------- tombol & media
+
+          static class Keys
+          {
+              [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+
+              const uint UP = 2, EXT = 1;
+
+              public static void Paste()
+              {
+                  keybd_event(0x11, 0, 0, UIntPtr.Zero);
+                  keybd_event(0x56, 0, 0, UIntPtr.Zero);
+                  keybd_event(0x56, 0, UP, UIntPtr.Zero);
+                  keybd_event(0x11, 0, UP, UIntPtr.Zero);
+              }
+
+              public static void Media(string what)
+              {
+                  byte vk = 0;
+                  if (what == "playpause") vk = 0xB3;
+                  else if (what == "next") vk = 0xB0;
+                  else if (what == "prev") vk = 0xB1;
+                  if (vk == 0) return;
+                  keybd_event(vk, 0, EXT, UIntPtr.Zero);
+                  keybd_event(vk, 0, EXT | UP, UIntPtr.Zero);
+              }
+          }
+
+          // ---------------------------------------------------------------- jendela
+
+          static class Wnd
+          {
+              public delegate bool EnumProc(IntPtr h, IntPtr l);
+              [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc p, IntPtr l);
+              [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+              [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+              [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder sb, int n);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowTextLength(IntPtr h);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder sb, int n);
+              [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+              [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+              [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr h, uint flags);
+              [DllImport("user32.dll")] static extern bool GetMonitorInfo(IntPtr mon, ref MONITORINFO mi);
+
+              [StructLayout(LayoutKind.Sequential)]
+              public struct RECT { public int L; public int T; public int R; public int B; }
+
+              [StructLayout(LayoutKind.Sequential)]
+              struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public uint dwFlags; }
+
+              public class Item
+              {
+                  public IntPtr H;
+                  public uint Pid;
+                  public string Title = "";
+                  public string Cls = "";
+                  public string Exe = "";
+              }
+
+              static readonly Dictionary<uint, string> names = new Dictionary<uint, string>();
+
+              public static string ExeName(uint pid)
+              {
+                  string v;
+                  lock (names)
+                  {
+                      if (names.TryGetValue(pid, out v)) return v;
+                  }
+                  v = "";
+                  try { v = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant(); } catch (Exception) { }
+                  lock (names)
+                  {
+                      if (names.Count > 600) names.Clear();
+                      names[pid] = v;
+                  }
+                  return v;
+              }
+
+              public static string Title(IntPtr h)
+              {
+                  int n = GetWindowTextLength(h);
+                  if (n <= 0) return "";
+                  StringBuilder sb = new StringBuilder(n + 2);
+                  GetWindowText(h, sb, sb.Capacity);
+                  return sb.ToString();
+              }
+
+              public static string Cls(IntPtr h)
+              {
+                  StringBuilder sb = new StringBuilder(128);
+                  GetClassName(h, sb, 128);
+                  return sb.ToString();
+              }
+
+              public static List<Item> Visible()
+              {
+                  List<Item> list = new List<Item>();
+                  EnumWindows(delegate (IntPtr h, IntPtr l)
+                  {
+                      try
+                      {
+                          if (!IsWindowVisible(h)) return true;
+                          string t = Title(h);
+                          if (t.Length == 0) return true;
+                          Item it = new Item();
+                          it.H = h;
+                          it.Title = t;
+                          GetWindowThreadProcessId(h, out it.Pid);
+                          it.Exe = ExeName(it.Pid);
+                          list.Add(it);
+                      }
+                      catch (Exception) { }
+                      return true;
+                  }, IntPtr.Zero);
+                  return list;
+              }
+
+              public static uint PidOf(IntPtr h)
+              {
+                  uint p;
+                  GetWindowThreadProcessId(h, out p);
+                  return p;
+              }
+
+              // true kalau jendela menutupi seluruh monitornya (layar penuh atau tanpa bingkai)
+              public static bool CoversMonitor(IntPtr h)
+              {
+                  RECT r;
+                  if (!GetWindowRect(h, out r)) return false;
+                  IntPtr mon = MonitorFromWindow(h, 2);
+                  if (mon == IntPtr.Zero) return false;
+                  MONITORINFO mi = new MONITORINFO();
+                  mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+                  if (!GetMonitorInfo(mon, ref mi)) return false;
+                  return r.L <= mi.rcMonitor.L + 1 && r.T <= mi.rcMonitor.T + 1 && r.R >= mi.rcMonitor.R - 1 && r.B >= mi.rcMonitor.B - 1;
+              }
+          }
+
+          // ---------------------------------------------------------------- pemantau sistem
+
+          static class Sys
+          {
+              [StructLayout(LayoutKind.Sequential)]
+              struct FILETIME { public uint Lo; public uint Hi; }
+              [DllImport("kernel32.dll")] static extern bool GetSystemTimes(out FILETIME idle, out FILETIME kernel, out FILETIME user);
+
+              [StructLayout(LayoutKind.Sequential)]
+              class MEMSTAT
+              {
+                  public uint dwLength = (uint)Marshal.SizeOf(typeof(MEMSTAT));
+                  public uint dwMemoryLoad;
+                  public ulong ullTotalPhys;
+                  public ulong ullAvailPhys;
+                  public ulong ullTotalPageFile;
+                  public ulong ullAvailPageFile;
+                  public ulong ullTotalVirtual;
+                  public ulong ullAvailVirtual;
+                  public ulong ullAvailExtendedVirtual;
+              }
+              [DllImport("kernel32.dll")] static extern bool GlobalMemoryStatusEx([In, Out] MEMSTAT m);
+
+              static ulong Ft(FILETIME f) { return ((ulong)f.Hi << 32) | f.Lo; }
+
+              public static volatile int GpuNow = -1;
+
+              // ----- jaringan, CPU, RAM (tiap 1 detik)
+              public static void NetRes()
+              {
+                  long lastRx = -1, lastTx = -1;
+                  ulong pi = 0, pk = 0, pu = 0;
+                  DateTime lastT = DateTime.UtcNow;
+                  while (true)
+                  {
+                      Thread.Sleep(1000);
+                      DateTime now = DateTime.UtcNow;
+                      double dt = Math.Max(0.2, (now - lastT).TotalSeconds);
+                      lastT = now;
+                      long rx = 0, tx = 0;
+                      try
+                      {
+                          foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
+                          {
+                              if (ni.OperationalStatus != OperationalStatus.Up) continue;
+                              if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback || ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel) continue;
+                              IPv4InterfaceStatistics st = ni.GetIPv4Statistics();
+                              rx += st.BytesReceived;
+                              tx += st.BytesSent;
+                          }
+                      }
+                      catch (Exception) { }
+                      long d = 0, u = 0;
+                      if (lastRx >= 0 && rx >= lastRx && tx >= lastTx)
+                      {
+                          d = (long)((rx - lastRx) / dt);
+                          u = (long)((tx - lastTx) / dt);
+                      }
+                      lastRx = rx;
+                      lastTx = tx;
+                      Program.Emit("{\"t\":\"net\",\"d\":" + d + ",\"u\":" + u + "}");
+
+                      int cpu = 0;
+                      try
+                      {
+                          FILETIME fi, fk, fu;
+                          if (GetSystemTimes(out fi, out fk, out fu))
+                          {
+                              ulong i = Ft(fi), k = Ft(fk), us = Ft(fu);
+                              if (pk != 0)
+                              {
+                                  ulong dI = i - pi, dK = k - pk, dU = us - pu;
+                                  ulong tot = dK + dU;
+                                  if (tot > 0) cpu = (int)Math.Max(0, Math.Min(100, 100.0 * (tot - dI) / tot));
+                              }
+                              pi = i; pk = k; pu = us;
+                          }
+                      }
+                      catch (Exception) { }
+                      int ram = 0;
+                      try
+                      {
+                          MEMSTAT m = new MEMSTAT();
+                          if (GlobalMemoryStatusEx(m)) ram = (int)m.dwMemoryLoad;
+                      }
+                      catch (Exception) { }
+                      Program.Emit("{\"t\":\"res\",\"cpu\":" + cpu + ",\"ram\":" + ram + ",\"gpu\":" + GpuNow + "}");
+                  }
+              }
+
+              // ----- GPU lewat penghitung kinerja Windows (tidak semua PC punya)
+              public static void Gpu()
+              {
+                  List<PerformanceCounter> cs = new List<PerformanceCounter>();
+                  DateTime built = DateTime.MinValue;
+                  bool failed = false;
+                  while (true)
+                  {
+                      Thread.Sleep(2000);
+                      if (failed) { Thread.Sleep(30000); failed = false; }
+                      try
+                      {
+                          if ((DateTime.UtcNow - built).TotalSeconds > 20)
+                          {
+                              foreach (PerformanceCounter pc in cs) { try { pc.Dispose(); } catch (Exception) { } }
+                              cs.Clear();
+                              PerformanceCounterCategory cat = new PerformanceCounterCategory("GPU Engine");
+                              foreach (string inst in cat.GetInstanceNames())
+                              {
+                                  if (inst.IndexOf("engtype_3D", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                                  PerformanceCounter pc2 = new PerformanceCounter("GPU Engine", "Utilization Percentage", inst, true);
+                                  try { pc2.NextValue(); cs.Add(pc2); } catch (Exception) { pc2.Dispose(); }
+                                  if (cs.Count > 120) break;
+                              }
+                              built = DateTime.UtcNow;
+                              Thread.Sleep(600);
+                          }
+                          double sum = 0;
+                          for (int i = 0; i < cs.Count; i++)
+                          {
+                              try { sum += cs[i].NextValue(); } catch (Exception) { }
+                          }
+                          GpuNow = cs.Count == 0 ? -1 : (int)Math.Max(0, Math.Min(100, sum));
+                      }
+                      catch (Exception) { GpuNow = -1; failed = true; }
+                  }
+              }
+
+              // ----- proses paling berat memori (hanya saat diminta)
+              public static void Top()
+              {
+                  while (true)
+                  {
+                      Thread.Sleep(2000);
+                      if (!Program.TopOn) continue;
+                      try
+                      {
+                          List<KeyValuePair<long, string>> l = new List<KeyValuePair<long, string>>();
+                          int me = Process.GetCurrentProcess().Id;
+                          foreach (Process p in Process.GetProcesses())
+                          {
+                              try
+                              {
+                                  if (p.Id <= 4 || p.Id == me) continue;
+                                  long ws = p.WorkingSet64;
+                                  string n = p.ProcessName;
+                                  l.Add(new KeyValuePair<long, string>(ws, p.Id + "|" + n));
+                              }
+                              catch (Exception) { }
+                              finally { p.Dispose(); }
+                          }
+                          l.Sort(delegate (KeyValuePair<long, string> x, KeyValuePair<long, string> y) { return y.Key.CompareTo(x.Key); });
+                          StringBuilder sb = new StringBuilder();
+                          sb.Append("{\"t\":\"top\",\"l\":[");
+                          int c = 0;
+                          foreach (KeyValuePair<long, string> kv in l)
+                          {
+                              if (c >= 4) break;
+                              string[] pr = kv.Value.Split('|');
+                              if (c > 0) sb.Append(',');
+                              sb.Append("{\"pid\":").Append(pr[0]).Append(",\"n\":").Append(Program.J(pr[1])).Append(",\"mb\":").Append(kv.Key / (1024 * 1024)).Append('}');
+                              c++;
+                          }
+                          sb.Append("]}");
+                          Program.Emit(sb.ToString());
+                      }
+                      catch (Exception) { }
+                  }
+              }
+
+              // ----- mikrofon, kamera, perekam layar (daftar "terakhir dipakai" milik Windows)
+              static List<string> InUse(string cap)
+              {
+                  List<string> res = new List<string>();
+                  string b = "Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\" + cap;
+                  string[] roots = new string[] { b, b + "\\NonPackaged" };
+                  foreach (string root in roots)
+                  {
+                      try
+                      {
+                          using (RegistryKey rk = Registry.CurrentUser.OpenSubKey(root))
+                          {
+                              if (rk == null) continue;
+                              foreach (string sn in rk.GetSubKeyNames())
+                              {
+                                  if (sn == "NonPackaged") continue;
+                                  try
+                                  {
+                                      using (RegistryKey k = rk.OpenSubKey(sn))
+                                      {
+                                          if (k == null) continue;
+                                          object s = k.GetValue("LastUsedTimeStart");
+                                          object e = k.GetValue("LastUsedTimeStop");
+                                          if (s == null || e == null) continue;
+                                          long ls = Convert.ToInt64(s), le = Convert.ToInt64(e);
+                                          if (ls > 0 && le == 0) res.Add(Nice(sn));
+                                      }
+                                  }
+                                  catch (Exception) { }
+                              }
+                          }
+                      }
+                      catch (Exception) { }
+                  }
+                  return res;
+              }
+
+              static string Nice(string sn)
+              {
+                  string n = sn;
+                  int i = n.LastIndexOf('#');
+                  if (i >= 0) n = n.Substring(i + 1);
+                  else
+                  {
+                      int u = n.IndexOf('_');
+                      if (u > 0) n = n.Substring(0, u);
+                      int d = n.LastIndexOf('.');
+                      if (d >= 0 && d < n.Length - 1) n = n.Substring(d + 1);
+                  }
+                  if (n.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) n = n.Substring(0, n.Length - 4);
+                  return n;
+              }
+
+              static readonly string[] RECORDERS = new string[] { "obs", "bandicam", "camtasia", "xsplit", "streamlabs", "screenrecorder", "action", "apowerrec", "icecream", "sharex", "loom", "flashback", "gamebar", "xbox" };
+
+              static bool IsRecorder(string n)
+              {
+                  string l = n.ToLowerInvariant();
+                  foreach (string r in RECORDERS) if (l.IndexOf(r, StringComparison.Ordinal) >= 0) return true;
+                  return false;
+              }
+
+              static string JoinJ(List<string> l)
+              {
+                  StringBuilder sb = new StringBuilder("[");
+                  for (int i = 0; i < l.Count && i < 6; i++)
+                  {
+                      if (i > 0) sb.Append(',');
+                      sb.Append(Program.J(l[i]));
+                  }
+                  return sb.Append(']').ToString();
+              }
+
+              public static void Devices()
+              {
+                  string last = "";
+                  while (true)
+                  {
+                      try
+                      {
+                          List<string> mic = InUse("microphone");
+                          List<string> cam = InUse("webcam");
+                          List<string> rec = InUse("graphicsCaptureProgrammatic");
+                          rec.AddRange(InUse("graphicsCaptureWithoutBorder"));
+                          foreach (string m in mic) if (IsRecorder(m) && !rec.Contains(m)) rec.Add(m);
+                          string js = "{\"t\":\"dev\",\"mic\":" + JoinJ(mic) + ",\"cam\":" + JoinJ(cam) + ",\"rec\":" + JoinJ(rec) + "}";
+                          if (js != last) { last = js; Program.Emit(js); }
+                      }
+                      catch (Exception) { }
+                      Thread.Sleep(800);
+                  }
+              }
+
+              // ----- audio yang sedang diputar + judul lagu
+              [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorCom { }
+
+              [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+              interface IMMDeviceEnumerator
+              {
+                  [PreserveSig] int EnumAudioEndpoints(int dataFlow, int stateMask, out IntPtr devices);
+                  [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint);
+              }
+
+              [ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+              interface IMMDevice
+              {
+                  [PreserveSig] int Activate(ref Guid iid, int clsCtx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object iface);
+              }
+
+              [ComImport, Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+              interface IAudioMeterInformation
+              {
+                  [PreserveSig] int GetPeakValue(out float peak);
+              }
+
+              static IAudioMeterInformation OpenMeter()
+              {
+                  IMMDeviceEnumerator en = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
+                  IMMDevice dev;
+                  if (en.GetDefaultAudioEndpoint(0, 1, out dev) != 0 || dev == null) return null;
+                  Guid iid = new Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064");
+                  object o;
+                  if (dev.Activate(ref iid, 23, IntPtr.Zero, out o) != 0) return null;
+                  return o as IAudioMeterInformation;
+              }
+
+              static readonly string[] BROWSERS = new string[] { "chrome", "msedge", "firefox", "brave", "opera", "vivaldi" };
+              static readonly string[] BSUF = new string[] { " - Google Chrome", " - Microsoft\u200B Edge", " - Microsoft Edge", " \u2014 Mozilla Firefox", " - Mozilla Firefox", " - Brave", " - Opera", " - Vivaldi" };
+              static readonly string[] SITES = new string[] { " - YouTube Music", " - YouTube", " | SoundCloud", " - SoundCloud", " \u2022 Spotify", " | Spotify" };
+
+              static string Trim(string t, string[] sufs)
+              {
+                  foreach (string s in sufs)
+                  {
+                      if (t.EndsWith(s, StringComparison.OrdinalIgnoreCase)) return t.Substring(0, t.Length - s.Length);
+                  }
+                  return null;
+              }
+
+              // hasil: { app, judul, artis } atau null
+              static string[] FindMedia()
+              {
+                  List<Wnd.Item> ws = Wnd.Visible();
+                  string[] spot = null, web = null, vlc = null;
+                  foreach (Wnd.Item w in ws)
+                  {
+                      string t = w.Title;
+                      if (w.Exe == "spotify")
+                      {
+                          if (t == "Spotify" || t.StartsWith("Spotify Free") || t.StartsWith("Spotify Premium") || t.Length == 0) { if (spot == null) spot = new string[] { "Spotify", "", "" }; continue; }
+                          int i = t.IndexOf(" - ", StringComparison.Ordinal);
+                          spot = i > 0 ? new string[] { "Spotify", t.Substring(i + 3), t.Substring(0, i) } : new string[] { "Spotify", t, "" };
+                      }
+                      else if (Array.IndexOf(BROWSERS, w.Exe) >= 0 && web == null)
+                      {
+                          string core = Trim(t, BSUF);
+                          if (core == null) continue;
+                          string site = Trim(core, SITES);
+                          if (site == null) continue;
+                          string app = core.EndsWith("YouTube Music") ? "YouTube Music" : (core.EndsWith("SoundCloud") ? "SoundCloud" : (core.EndsWith("Spotify") ? "Spotify" : "YouTube"));
+                          web = new string[] { app, site, "" };
+                      }
+                      else if (w.Exe == "vlc" && vlc == null)
+                      {
+                          string core = Trim(t, new string[] { " - VLC media player" });
+                          if (core != null) vlc = new string[] { "VLC", core, "" };
+                      }
+                  }
+                  if (spot != null && spot[1].Length > 0) return spot;
+                  if (web != null) return web;
+                  if (vlc != null) return vlc;
+                  return spot;
+              }
+
+              public static void Audio()
+              {
+                  IAudioMeterInformation meter = null;
+                  DateTime meterAt = DateTime.MinValue;
+                  DateTime loudSince = DateTime.MinValue, lastLoud = DateTime.MinValue;
+                  bool play = false;
+                  string lastMedia = "";
+                  int tick = 0;
+                  while (true)
+                  {
+                      Thread.Sleep(120);
+                      tick++;
+                      float peak = 0;
+                      try
+                      {
+                          if (meter == null && (DateTime.UtcNow - meterAt).TotalSeconds > 3) { meterAt = DateTime.UtcNow; meter = OpenMeter(); }
+                          if (meter != null)
+                          {
+                              if (meter.GetPeakValue(out peak) != 0) { meter = null; peak = 0; }
+                          }
+                      }
+                      catch (Exception) { meter = null; peak = 0; }
+                      DateTime now = DateTime.UtcNow;
+                      if (peak > 0.004f)
+                      {
+                          lastLoud = now;
+                          if (loudSince == DateTime.MinValue) loudSince = now;
+                      }
+                      else if ((now - lastLoud).TotalMilliseconds > 1500) loudSince = DateTime.MinValue;
+                      bool p = loudSince != DateTime.MinValue && (now - loudSince).TotalMilliseconds >= 900 && (now - lastLoud).TotalMilliseconds < 1500;
+                      if (p) Program.Emit("{\"t\":\"lvl\",\"p\":" + (int)(Math.Min(1f, peak) * 1000) + "}");
+                      if (tick % 8 == 0 || p != play)
+                      {
+                          string[] md = null;
+                          try { md = FindMedia(); } catch (Exception) { }
+                          string js = "{\"t\":\"media\",\"play\":" + (p ? 1 : 0)
+                              + ",\"app\":" + Program.J(md == null ? "" : md[0])
+                              + ",\"title\":" + Program.J(md == null ? "" : md[1])
+                              + ",\"artist\":" + Program.J(md == null ? "" : md[2]) + "}";
+                          if (js != lastMedia) { lastMedia = js; Program.Emit(js); }
+                      }
+                      play = p;
+                  }
+              }
+
+              // ----- progres render / ekstrak / salin yang tampil di judul jendela
+              static readonly Regex PCT = new Regex("(?<![\\d.])(\\d{1,3})\\s?%", RegexOptions.Compiled);
+              static readonly string[] KEYW = new string[] { "complete", "selesai", "rendering", "render", "encoding", "extracting", "exporting", "export", "copying", "moving", "compress", "convert", "mengekstrak", "menyalin", "memindahkan", "ekspor", "queue", "winrar", "7-zip", "bandizip", "peazip", "encoder" };
+              static readonly string[] SKIPEXE = new string[] { "chrome", "msedge", "firefox", "brave", "opera", "vivaldi", "spotify", "discord", "code", "devenv" };
+
+              public static void Progress()
+              {
+                  int miss = 0, lastPct = -2;
+                  string lastApp = "";
+                  while (true)
+                  {
+                      Thread.Sleep(1000);
+                      try
+                      {
+                          string app = "", what = "";
+                          int pct = -1;
+                          foreach (Wnd.Item w in Wnd.Visible())
+                          {
+                              if (Array.IndexOf(SKIPEXE, w.Exe) >= 0) continue;
+                              Match m = PCT.Match(w.Title);
+                              if (!m.Success) continue;
+                              int v = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+                              if (v > 100) continue;
+                              string tl = w.Title.ToLowerInvariant();
+                              bool ok = m.Index == 0 || w.Cls == "OperationStatusWindow";
+                              if (!ok) foreach (string k in KEYW) if (tl.IndexOf(k, StringComparison.Ordinal) >= 0) { ok = true; break; }
+                              if (!ok) continue;
+                              pct = v;
+                              app = w.Exe;
+                              what = w.Title.Length > 60 ? w.Title.Substring(0, 60) : w.Title;
+                              break;
+                          }
+                          if (pct >= 0)
+                          {
+                              miss = 0;
+                              if (pct != lastPct || app != lastApp)
+                              {
+                                  lastPct = pct; lastApp = app;
+                                  Program.Emit("{\"t\":\"prog\",\"pct\":" + pct + ",\"app\":" + Program.J(app) + ",\"what\":" + Program.J(what) + "}");
+                              }
+                          }
+                          else if (lastPct >= 0)
+                          {
+                              miss++;
+                              if (miss >= 3) { lastPct = -1; lastApp = ""; Program.Emit("{\"t\":\"prog\",\"pct\":-1}"); }
+                          }
+                      }
+                      catch (Exception) { }
+                  }
+              }
+
+              // ----- mode game: layar penuh / tanpa bingkai + perkiraan FPS dari penyusun jendela (DWM)
+              [DllImport("dwmapi.dll")] static extern int DwmGetCompositionTimingInfo(IntPtr hwnd, IntPtr info);
+
+              static ulong ReadFrame(IntPtr buf, ref int good)
+              {
+                  // cbSize berbeda antar versi Windows: coba beberapa ukuran sampai sistem menerimanya
+                  int[] sizes = good > 0 ? new int[] { good } : new int[] { 200, 232, 256, 264, 272, 280, 288, 296, 304, 312, 320, 168, 176, 184, 192, 208, 216, 224, 240, 248 };
+                  foreach (int sz in sizes)
+                  {
+                      Marshal.WriteInt32(buf, 0, sz);
+                      for (int i = 4; i < sz; i += 4) Marshal.WriteInt32(buf, i, 0);
+                      Marshal.WriteInt32(buf, 0, sz);
+                      if (DwmGetCompositionTimingInfo(IntPtr.Zero, buf) == 0)
+                      {
+                          good = sz;
+                          return (ulong)Marshal.ReadInt64(buf, 64);
+                      }
+                  }
+                  return 0;
+              }
+
+              public static void Game()
+              {
+                  IntPtr buf = Marshal.AllocHGlobal(512);
+                  int good = 0;
+                  bool full = false;
+                  string exe = "";
+                  ulong lastF = 0;
+                  DateTime lastT = DateTime.UtcNow;
+                  while (true)
+                  {
+                      Thread.Sleep(1000);
+                      bool nf = false;
+                      string ne = "";
+                      try
+                      {
+                          IntPtr fg = Wnd.GetForegroundWindow();
+                          if (fg != IntPtr.Zero && Wnd.IsWindowVisible(fg) && !Wnd.IsIconic(fg))
+                          {
+                              string cls = Wnd.Cls(fg);
+                              ne = Wnd.ExeName(Wnd.PidOf(fg));
+                              bool shell = cls == "Progman" || cls == "WorkerW" || cls == "Shell_TrayWnd" || ne == "explorer" || ne == "searchhost" || ne == "startmenuexperiencehost" || ne == "shellexperiencehost";
+                              nf = !shell && Wnd.CoversMonitor(fg);
+                          }
+                      }
+                      catch (Exception) { }
+                      if (nf != full || (nf && ne != exe))
+                      {
+                          full = nf; exe = nf ? ne : "";
+                          Program.Emit("{\"t\":\"fg\",\"full\":" + (full ? 1 : 0) + ",\"exe\":" + Program.J(exe) + "}");
+                          lastF = 0;
+                      }
+                      if (full)
+                      {
+                          try
+                          {
+                              ulong f = ReadFrame(buf, ref good);
+                              DateTime now = DateTime.UtcNow;
+                              double dt = (now - lastT).TotalSeconds;
+                              lastT = now;
+                              int fps = -1;
+                              if (f != 0 && lastF != 0 && f >= lastF && dt > 0.2) fps = (int)Math.Round((f - lastF) / dt);
+                              if (f != 0) lastF = f;
+                              if (fps >= 0 && fps < 1000) Program.Emit("{\"t\":\"fps\",\"v\":" + fps + "}");
+                          }
+                          catch (Exception) { }
+                      }
+                  }
+              }
+
+              // ----- ping
+              public static void PingLoop()
+              {
+                  System.Net.NetworkInformation.Ping p = new System.Net.NetworkInformation.Ping();
+                  string[] hosts = new string[] { "1.1.1.1", "8.8.8.8" };
+                  int hi = 0;
+                  while (true)
+                  {
+                      Thread.Sleep(1500);
+                      if (!Program.PingOn) continue;
+                      try
+                      {
+                          PingReply r = p.Send(hosts[hi], 1200);
+                          if (r != null && r.Status == IPStatus.Success) Program.Emit("{\"t\":\"ping\",\"ms\":" + r.RoundtripTime + ",\"loss\":0}");
+                          else { Program.Emit("{\"t\":\"ping\",\"ms\":-1,\"loss\":1}"); hi = (hi + 1) % hosts.Length; }
+                      }
+                      catch (Exception) { hi = (hi + 1) % hosts.Length; }
+                  }
+              }
+
+              // ----- papan klip: beri tahu setiap kali isinya berubah (nomor urut dari Windows, murah)
+              [DllImport("user32.dll")] static extern uint GetClipboardSequenceNumber();
+
+              public static void Clip()
+              {
+                  uint last = GetClipboardSequenceNumber();
+                  while (true)
+                  {
+                      Thread.Sleep(250);
+                      uint n = GetClipboardSequenceNumber();
+                      if (n != last)
+                      {
+                          last = n;
+                          Program.Emit("{\"t\":\"clip\",\"n\":" + n + "}");
+                      }
+                  }
+              }
+
+              // ----- tombol kiri mouse (untuk mendeteksi seret-dan-lepas)
+              [DllImport("user32.dll")] static extern short GetAsyncKeyState(int vk);
+
+              public static void Mouse()
+              {
+                  bool last = false;
+                  while (true)
+                  {
+                      Thread.Sleep(20);
+                      if (!Program.BtnOn) { if (last) { last = false; Program.Emit("{\"t\":\"btn\",\"l\":0}"); } Thread.Sleep(150); continue; }
+                      bool d = (GetAsyncKeyState(0x01) & 0x8000) != 0;
+                      if (d != last)
+                      {
+                          last = d;
+                          Program.Emit("{\"t\":\"btn\",\"l\":" + (d ? 1 : 0) + "}");
+                      }
+                  }
+              }
+          }
+
+          // ---------------------------------------------------------------- kursor kustom
+
+          static class CursorFx
+          {
+              [StructLayout(LayoutKind.Sequential)]
+              struct ICONINFO { public bool fIcon; public int xHotspot; public int yHotspot; public IntPtr hbmMask; public IntPtr hbmColor; }
+              [DllImport("user32.dll")] static extern bool SetSystemCursor(IntPtr hcur, uint id);
+              [DllImport("user32.dll")] static extern bool SystemParametersInfo(uint a, uint b, IntPtr c, uint d);
+              [DllImport("user32.dll")] static extern IntPtr CreateIconIndirect(ref ICONINFO ii);
+              [DllImport("user32.dll")] static extern bool GetIconInfo(IntPtr h, out ICONINFO ii);
+              [DllImport("user32.dll")] static extern bool DestroyIcon(IntPtr h);
+              [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr h);
+
+              static bool changed = false;
+
+              static Color Parse(string hex)
+              {
+                  try
+                  {
+                      hex = hex.TrimStart('#');
+                      if (hex.Length == 6) return Color.FromArgb(Convert.ToInt32(hex.Substring(0, 2), 16), Convert.ToInt32(hex.Substring(2, 2), 16), Convert.ToInt32(hex.Substring(4, 2), 16));
+                  }
+                  catch (Exception) { }
+                  return Color.White;
+              }
+
+              static Bitmap Draw(string style, Color c, int s, out int hx, out int hy)
+              {
+                  Bitmap bmp = new Bitmap(s, s, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                  using (Graphics g = Graphics.FromImage(bmp))
+                  {
+                      g.SmoothingMode = SmoothingMode.AntiAlias;
+                      g.Clear(Color.Transparent);
+                      hx = 2; hy = 2;
+                      float m = 2f, u = s - 5f;
+                      using (Pen edge = new Pen(Color.FromArgb(230, 20, 20, 24), 2.2f))
+                      using (Brush fill = new SolidBrush(c))
+                      using (Pen line = new Pen(c, 2.6f))
+                      {
+                          edge.LineJoin = LineJoin.Round;
+                          if (style == "ring")
+                          {
+                              hx = s / 2; hy = s / 2;
+                              float d = s * 0.62f, o = (s - d) / 2f;
+                              g.DrawEllipse(edge, o - 1f, o - 1f, d + 2f, d + 2f);
+                              g.DrawEllipse(line, o, o, d, d);
+                              g.FillEllipse(fill, s / 2f - 2f, s / 2f - 2f, 4f, 4f);
+                          }
+                          else if (style == "dot")
+                          {
+                              hx = s / 2; hy = s / 2;
+                              float d = s * 0.34f, o = (s - d) / 2f;
+                              g.FillEllipse(new SolidBrush(Color.FromArgb(235, 20, 20, 24)), o - 1.5f, o - 1.5f, d + 3f, d + 3f);
+                              g.FillEllipse(fill, o, o, d, d);
+                          }
+                          else if (style == "cross")
+                          {
+                              hx = s / 2; hy = s / 2;
+                              float h = s / 2f, gap = s * 0.12f, e = s * 0.42f;
+                              g.DrawLine(edge, h - e, h, h - gap, h); g.DrawLine(edge, h + gap, h, h + e, h);
+                              g.DrawLine(edge, h, h - e, h, h - gap); g.DrawLine(edge, h, h + gap, h, h + e);
+                              g.DrawLine(line, h - e, h, h - gap, h); g.DrawLine(line, h + gap, h, h + e, h);
+                              g.DrawLine(line, h, h - e, h, h - gap); g.DrawLine(line, h, h + gap, h, h + e);
+                          }
+                          else
+                          {
+                              PointF[] pts = new PointF[] {
+                                  new PointF(m, m), new PointF(m, m + u * 0.86f), new PointF(m + u * 0.22f, m + u * 0.68f),
+                                  new PointF(m + u * 0.36f, m + u), new PointF(m + u * 0.5f, m + u * 0.93f), new PointF(m + u * 0.36f, m + u * 0.63f),
+                                  new PointF(m + u * 0.64f, m + u * 0.63f) };
+                              g.DrawPolygon(edge, pts);
+                              g.FillPolygon(fill, pts);
+                          }
+                      }
+                  }
+                  return bmp;
+              }
+
+              static IntPtr MakeCursor(Bitmap bmp, int hx, int hy)
+              {
+                  IntPtr hi = bmp.GetHicon();
+                  ICONINFO ii;
+                  if (!GetIconInfo(hi, out ii)) { DestroyIcon(hi); return IntPtr.Zero; }
+                  ii.fIcon = false;
+                  ii.xHotspot = hx;
+                  ii.yHotspot = hy;
+                  IntPtr cur = CreateIconIndirect(ref ii);
+                  if (ii.hbmMask != IntPtr.Zero) DeleteObject(ii.hbmMask);
+                  if (ii.hbmColor != IntPtr.Zero) DeleteObject(ii.hbmColor);
+                  DestroyIcon(hi);
+                  return cur;
+              }
+
+              public static void Apply(string style, string hex, int size)
+              {
+                  if (size < 20) size = 20;
+                  if (size > 64) size = 64;
+                  Color c = Parse(hex);
+                  uint[] ids = new uint[] { 32512, 32649 };  // panah, tangan
+                  foreach (uint id in ids)
+                  {
+                      int hx, hy;
+                      using (Bitmap bmp = Draw(style, c, size, out hx, out hy))
+                      {
+                          IntPtr cur = MakeCursor(bmp, hx, hy);
+                          if (cur != IntPtr.Zero && SetSystemCursor(cur, id)) changed = true;
+                      }
+                  }
+              }
+
+              public static void Restore()
+              {
+                  if (!changed) return;
+                  changed = false;
+                  SystemParametersInfo(0x0057, 0, IntPtr.Zero, 0);
+              }
+          }
+          FX_EOS
           cat > fx/fx.js <<'FX_EOS'
           "use strict";
           // Modul efek Windows: Dynamic Island (membaca notifikasi Windows) + animasi buka/tutup jendela ala iOS.
@@ -826,16 +1859,18 @@ jobs:
           const { fileURLToPath, pathToFileURL } = require("url");
 
           const DEF = {
-            enabled: false, anim: false, animmin: false, pill: true,
+            enabled: false, anim: false, animmin: true, pill: true,
             bg: "#000000", op: 100, dy: 0, cw: 110, ew: 340, cx: 0, dh: 0,
             fmode: 0, fapps: [], snd: false, dur: 4500, tapopen: true, suri: "", svol: 100, seen: {},
-            edge: "top", bat: true, clip: false, glow: true, dnd: false, qon: false, qfrom: "22:00", qto: "07:00", hot: true, mon: "primary", hist: true
+            edge: "top", bat: true, clip: false, glow: true, dnd: false, qon: false, qfrom: "22:00", qto: "07:00", hot: true, mon: "primary", hist: true,
+            appnotif: true, live: true, media: true, devs: true, net: true, rmon: 1, prog: true, hub: true, game: true,
+            curs: false, cstyle: "ring", ccolor: "#ffffff", csize: 36
           };
 
           let ctx = null, S = Object.assign({}, DEF), started = false, quitting = false;
           let isl = null, islReady = false, islPend = [];
           const anims = new Map();            // id layar -> { win, ready, pend }
-          const procs = { notif: null, win: null };
+          const procs = { notif: null, win: null, sys: null };
           let notifState = { ok: false, err: "" }, notifTries = 0;
           const appNames = new Map(), iconCache = new Map(), iconBusy = new Map();
           let startApps = [], appsReady = false, saveT = null, ownIcon = "";
@@ -861,8 +1896,8 @@ jobs:
           function helperExe() {
             return app.isPackaged ? path.join(process.resourcesPath, "fxhelper.exe") : path.join(__dirname, "bin", "fxhelper.exe");
           }
-          function runHelper(args, onLine, onExit) {
-            const p = spawn(helperExe(), args, { windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
+          function runHelper(args, onLine, onExit, exe) {
+            const p = spawn(exe || helperExe(), args, { windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
             let buf = "";
             p.stdout.setEncoding("utf8");
             p.stdout.on("data", d => {
@@ -1089,14 +2124,22 @@ jobs:
           }
 
           /* ---------- animasi buka/tutup jendela ---------- */
+          // Jendela overlay dibuat di depan lalu "diparkir" di luar layar (bukan disembunyikan), supaya tidak ada jeda
+          // menampilkan/menggambar ulang saat animasi dimulai. Itu sumber utama delay sebelumnya.
+          const PARK = -32000;
+          function park(o) { try { if (!o.win.isDestroyed()) o.win.setPosition(PARK, PARK, false); } catch (_) {} }
           function animFor(d) {
             let o = anims.get(d.id);
             if (o && !o.win.isDestroyed()) return o;
-            const win = new BrowserWindow(overlayOpts(d.bounds));
-            o = { win: win, ready: false, pend: [] };
+            const win = new BrowserWindow(overlayOpts({ x: PARK, y: PARK, width: d.bounds.width, height: d.bounds.height }));
+            o = { win: win, ready: false, pend: [], shown: false };
             win.setAlwaysOnTop(true, "screen-saver");
             win.setIgnoreMouseEvents(true);
-            win.webContents.once("did-finish-load", () => { o.ready = true; o.pend.forEach(x => win.webContents.send("fx:play", x)); o.pend = []; });
+            win.webContents.once("did-finish-load", () => {
+              o.ready = true;
+              try { win.setPosition(PARK, PARK, false); win.showInactive(); o.shown = true; } catch (_) {}
+              o.pend.forEach(x => animPlace(o, x.d, x.m)); o.pend = [];
+            });
             win.on("closed", () => { if (anims.get(d.id) === o) anims.delete(d.id); });
             win.loadFile(path.join(__dirname, "anim.html"));
             anims.set(d.id, o);
@@ -1114,6 +2157,15 @@ jobs:
             if (m === gl) return { x: b.x + gl / 2, y: r.y + r.height / 2 };
             return { x: b.x + b.width - gr / 2, y: r.y + r.height / 2 };
           }
+          function animPlace(o, d, msg) {
+            try {
+              const b = o.win.getBounds();
+              if (b.width !== d.bounds.width || b.height !== d.bounds.height) o.win.setBounds(d.bounds);
+              else if (b.x !== d.bounds.x || b.y !== d.bounds.y) o.win.setPosition(d.bounds.x, d.bounds.y, false);
+              if (!o.shown) { o.win.setAlwaysOnTop(true, "screen-saver"); o.win.showInactive(); o.shown = true; }
+              o.win.webContents.send("fx:play", msg);
+            } catch (_) {}
+          }
           function playAnim(opening, r, icon, max) {
             const d = screen.getDisplayMatching(r);
             const o = animFor(d);
@@ -1123,30 +2175,49 @@ jobs:
               rect: { x: r.x - d.bounds.x, y: r.y - d.bounds.y, w: r.width, h: r.height },
               origin: { x: org.x - d.bounds.x, y: org.y - d.bounds.y }
             };
-            try {
-              const b = o.win.getBounds();
-              if (b.x !== d.bounds.x || b.y !== d.bounds.y || b.width !== d.bounds.width || b.height !== d.bounds.height) o.win.setBounds(d.bounds);
-              if (o.ready) o.win.webContents.send("fx:play", msg);
-              if (!o.win.isVisible()) { o.win.setAlwaysOnTop(true, "screen-saver"); o.win.showInactive(); }
-            } catch (_) {}
-            if (!o.ready) o.pend.push(msg);
+            if (o.ready) animPlace(o, d, msg); else o.pend.push({ d: d, m: msg });
+          }
+          const winIcons = new Map(), appOpenAt = new Map();
+          function exeIcon(exe) {
+            if (!exe) return Promise.resolve("");
+            if (winIcons.has(exe)) return Promise.resolve(winIcons.get(exe));
+            return app.getFileIcon(exe, { size: "large" }).then(i => {
+              const v = i.isEmpty() ? "" : i.toDataURL();
+              if (winIcons.size > 120) winIcons.clear();
+              if (v) winIcons.set(exe, v);
+              return v;
+            }).catch(() => "");
+          }
+          function appOpenToast(m) {
+            if (!S.appnotif || !S.enabled || quiet()) return;
+            const key = String(m.exe || m.name || "");
+            const now = Date.now();
+            if (now - (appOpenAt.get(key) || 0) < 5000) return;
+            appOpenAt.set(key, now);
+            if (appOpenAt.size > 200) appOpenAt.clear();
+            const label = String(m.name || "").trim() || prettyApp(m.exe);
+            const ico = m.icon ? "data:image/png;base64," + m.icon : (winIcons.get(m.exe) || "");
+            showIsland({ title: label, text: "Aplikasi dibuka", app: label, appId: "", icon: ico, kind: "app", quiet: true, time: "baru saja" });
+            if (!ico && m.exe) exeIcon(m.exe);
           }
           function onWin(m) {
+            if (m.t === "open") appOpenToast(m);
             if (!S.anim) return;
             if ((m.t === "minimize" || m.t === "restore") && !S.animmin) return;
             const opening = m.t === "open" || m.t === "restore";
             const r = screen.screenToDipRect(null, { x: m.x, y: m.y, width: m.w, height: m.h });
             if (m.icon) { playAnim(opening, r, "data:image/png;base64," + m.icon, m.max); return; }
-            const fin = d => playAnim(opening, r, d, m.max);
-            if (m.exe) app.getFileIcon(m.exe, { size: "large" }).then(i => fin(i.toDataURL())).catch(() => fin(""));
-            else fin("");
+            if (!m.exe) { playAnim(opening, r, "", m.max); return; }
+            if (winIcons.has(m.exe)) { playAnim(opening, r, winIcons.get(m.exe), m.max); return; }
+            // ikon belum ada: tunggu paling lama 60 md, jangan menahan animasi
+            Promise.race([exeIcon(m.exe), wait(60, "")]).then(d => playAnim(opening, r, d, m.max));
           }
           function startWin() {
-            if (procs.win || !S.anim) return;
+            if (procs.win || !(S.anim || S.appnotif)) return;
             if (!fs.existsSync(helperExe())) return;
             procs.win = runHelper(["win", String(process.pid)], onWin, () => { procs.win = null; });
             // siapkan jendela overlay lebih awal supaya animasi pertama tidak tersendat
-            try { animFor(screen.getPrimaryDisplay()); } catch (_) {}
+            if (S.anim) { try { screen.getAllDisplays().forEach(animFor); } catch (_) {} }
           }
           function stopWin() { const p = procs.win; procs.win = null; killHelper(p); }
           function demo() {
@@ -1181,17 +2252,50 @@ jobs:
             if (hist.length > 40) hist.length = 40;
             saveHist();
           }
+          let clipSnap = null, clipSelf = 0;
+          function clipChanged(fromSeq) {
+            if (!S.enabled || !S.clip || Date.now() < clipSelf) return;
+            let t = "";
+            try { t = clipboard.readText(); } catch (_) {}
+            if (t && t.trim()) {
+              if (!fromSeq && t === clipLast) return;
+              clipLast = t; clipSnap = { text: t };
+              if (quiet()) return;
+              showIsland({ title: "Disalin", text: t.replace(/\s+/g, " ").trim().slice(0, 90), app: "Papan klip", icon: svgIcon("#0a84ff", "📋"), appId: "", kind: "clip", time: "Ketuk: tempel", quiet: true });
+              return;
+            }
+            let img = null;
+            try { img = clipboard.readImage(); } catch (_) {}
+            if (img && !img.isEmpty()) {
+              const sz = img.getSize(), k = 112 / Math.max(sz.width, sz.height);
+              const th = k < 1 ? img.resize({ width: Math.max(1, Math.round(sz.width * k)), height: Math.max(1, Math.round(sz.height * k)) }) : img;
+              clipSnap = { image: img }; clipLast = "";
+              if (quiet()) return;
+              showIsland({ title: "Gambar disalin", text: sz.width + " \u00D7 " + sz.height + " px", img: th.toDataURL(), imgsq: true, app: "Papan klip", icon: svgIcon("#0a84ff", "🖼"), appId: "", kind: "clip", time: "Ketuk: tempel", quiet: true });
+            }
+          }
+          // ketuk island = tempel isi papan klip ke aplikasi yang sedang aktif (island tidak mengambil fokus)
+          function pasteClip() {
+            if (!clipSnap) return;
+            try {
+              clipSelf = Date.now() + 900;
+              if (clipSnap.text != null) { if (clipboard.readText() !== clipSnap.text) clipboard.writeText(clipSnap.text); }
+              else if (clipSnap.image) clipboard.writeImage(clipSnap.image);
+            } catch (_) {}
+            setTimeout(() => {
+              if (procs.sys && sysState.ok) sysCmd("paste");
+              else { try { execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')"], { windowsHide: true }, () => {}); } catch (_) {} }
+            }, 90);
+          }
           function startClip() {
             if (clipT || !S.enabled || !S.clip) return;
             try { clipLast = clipboard.readText(); } catch (_) { clipLast = ""; }
+            // cadangan kalau fxsys.exe tidak ada: cek teks tiap 700 md
             clipT = setInterval(() => {
+              if (sysState.ok) return;
               let t = "";
               try { t = clipboard.readText(); } catch (_) { return; }
-              if (!t) { clipLast = t; return; }
-              if (t === clipLast) return;
-              clipLast = t;
-              if (quiet()) return;
-              showIsland({ title: "Disalin", text: t.replace(/\s+/g, " ").trim().slice(0, 90), app: "Papan klip", icon: svgIcon("#0a84ff", "📋"), appId: "" });
+              if (t && t !== clipLast) clipChanged(false);
             }, 700);
           }
           function stopClip() { if (clipT) { clearInterval(clipT); clipT = null; } }
@@ -1211,15 +2315,375 @@ jobs:
             try { globalShortcut.unregister("CommandOrControl+Alt+N"); globalShortcut.unregister("CommandOrControl+Alt+I"); } catch (_) {}
           }
 
+          /* ---------- pembantu tambahan (fxsys.exe): live activity, media, jaringan, monitor, progres, game, hub, kursor ---------- */
+          const sysExe = () => app.isPackaged ? path.join(process.resourcesPath, "fxsys.exe") : path.join(__dirname, "bin", "fxsys.exe");
+          function sysExists() { try { return fs.statSync(sysExe()).size > 2000; } catch (_) { return false; } }
+          let sysState = { ok: false, err: "" }, sysTries = 0;
+          const L = {};                      // aktivitas live yang sedang aktif (id -> data untuk island)
+          let liveT = null;
+          const netHist = [];
+          let netHi = 0, netLo = 0, resHi = 0, resLo = 0, lag = false, lagAt = 0, lastTop = [], lastRes = { cpu: 0, ram: 0, gpu: -1 };
+          let devPrev = { mic: [], cam: [], rec: [] };
+          let mediaState = { play: false, app: "", title: "", artist: "" }, mediaWas = false, mediaToastAt = 0, mediaToastKey = "", mediaGone = null;
+          let progState = { pct: -1, app: "", what: "", max: 0 };
+          let gameState = { full: false, exe: "", fps: -1, ping: -1, jit: -1 };
+          const pingHist = [];
+          let hubItems = [], hubSeq = 1, hubArmed = false, hubDropPanel = false, hubDropAt = 0, dragTimer = null, pressInZone = false;
+
+          const fromIsl = e => !!(isl && !isl.isDestroyed() && e.sender === isl.webContents);
+          function sysCmd(l) { const p = procs.sys; if (!p) return; try { p.stdin.write(l + "\n"); } catch (_) {} }
+          function rate(b) {
+            b = Number(b) || 0;
+            if (b >= 1048576) return (b / 1048576).toFixed(b >= 10485760 ? 0 : 1) + " MB/s";
+            if (b >= 1024) return Math.round(b / 1024) + " KB/s";
+            return Math.round(b) + " B/s";
+          }
+          const NICE = { obs64: "OBS Studio", obs32: "OBS Studio", chrome: "Chrome", msedge: "Edge", firefox: "Firefox", discord: "Discord", teams: "Teams", ms: "Teams", zoom: "Zoom", spotify: "Spotify", vlc: "VLC", winrar: "WinRAR", "7zg": "7-Zip", "7zfm": "7-Zip", explorer: "Penjelajah File", bandicam: "Bandicam", whatsapp: "WhatsApp", telegram: "Telegram", slack: "Slack" };
+          function niceName(n) {
+            const k = String(n || "").toLowerCase().replace(/\.exe$/, "");
+            return NICE[k] || prettyApp(n);
+          }
+
+          /* ----- pengelolaan proses ----- */
+          function startSys() {
+            if (procs.sys || !S.enabled || quitting) return;
+            if (!sysExists()) { sysState = { ok: false, err: "fxsys.exe tidak ditemukan" }; return; }
+            procs.sys = runHelper([], onSys, () => {
+              procs.sys = null; sysState = { ok: false, err: sysState.err || "pembantu berhenti" };
+              clearSysLive();
+              if (S.enabled && !quitting && sysTries++ < 5) setTimeout(startSys, 3000);
+            }, sysExe());
+          }
+          function stopSys() {
+            const p = procs.sys; procs.sys = null;
+            if (p) { try { p.stdin.write("cursor off\n"); } catch (_) {} killHelper(p); }
+            sysState = { ok: false, err: "" };
+            stopDragWatch(); disarmHub(false); clearSysLive();
+          }
+          function clearSysLive() {
+            Object.keys(L).forEach(k => { if (k !== "hub") delete L[k]; });
+            netHi = netLo = resHi = resLo = 0; lag = false; mediaWas = false;
+            pushLive();
+          }
+          function pushLive() {
+            if (liveT) return;
+            liveT = setTimeout(() => {
+              liveT = null;
+              if (!S.enabled || !isl || isl.isDestroyed()) return;
+              toIsl("live", S.live ? Object.keys(L).map(k => L[k]) : []);
+            }, 120);
+          }
+          function setLive(id, a) { if (a) L[id] = a; else if (L[id]) delete L[id]; pushLive(); }
+          function syncSysFlags() {
+            if (!procs.sys) return;
+            sysCmd("btn " + (S.hub && S.live && S.edge === "top" ? 1 : 0));
+            sysCmd("top " + ((S.rmon > 0 && S.live && lag) ? 1 : 0));
+            sysCmd("ping " + ((gameState.full && S.game && S.live) ? 1 : 0));
+          }
+          function applyCursor() {
+            if (!procs.sys || !sysState.ok) return;
+            if (S.curs) sysCmd("cursor " + S.cstyle + " " + String(S.ccolor).replace("#", "") + " " + (S.csize | 0));
+            else sysCmd("cursor off");
+          }
+          const BOOLOPT = ["appnotif", "live", "media", "devs", "net", "prog", "hub", "game", "curs"];
+          function setOpt(key, val) {
+            if (BOOLOPT.indexOf(key) >= 0) S[key] = !!val;
+            else if (key === "rmon") S.rmon = Math.round(clamp(val, 0, 2));
+            else if (key === "cstyle") S.cstyle = ["arrow", "ring", "dot", "cross"].indexOf(val) >= 0 ? val : "ring";
+            else if (key === "ccolor") { if (/^#[0-9a-f]{6}$/i.test(String(val))) S.ccolor = String(val); }
+            else if (key === "csize") S.csize = Math.round(clamp(val, 20, 64));
+            else return;
+            save();
+            if (key === "appnotif") applyAnim();
+            if (!S.live) Object.keys(L).forEach(k => delete L[k]);
+            else {
+              if (!S.media) delete L.media;
+              if (!S.devs) { delete L.rec; delete L.mic; delete L.cam; }
+              if (!S.net) delete L.net;
+              if (!S.prog) delete L.prog;
+              if (!S.game) delete L.game;
+              if (!S.rmon && !lag) delete L.mon;
+            }
+            refreshHub();
+            syncSysFlags(); applyCursor(); pushLive();
+          }
+
+          /* ----- pesan dari fxsys.exe ----- */
+          function onSys(m) {
+            if (!S.enabled) return;
+            switch (m.t) {
+              case "ready": sysState = { ok: true, err: "" }; sysTries = 0; syncSysFlags(); applyCursor(); break;
+              case "err": sysState.err = String(m.m || ""); break;
+              case "net": onNet(m); break;
+              case "res": onRes(m); break;
+              case "top": lastTop = (Array.isArray(m.l) ? m.l : []).filter(x => x && Number.isInteger(x.pid)).slice(0, 4); if (lag && L.mon) setLive("mon", monActivity()); break;
+              case "dev": onDev(m); break;
+              case "media": onMedia(m); break;
+              case "lvl": if (L.media && mediaState.play) toIsl("lvl", m.p | 0); break;
+              case "prog": onProg(m); break;
+              case "fg": onFg(m); break;
+              case "fps": gameState.fps = m.v | 0; refreshGame(); break;
+              case "ping": onPing(m); break;
+              case "btn": onBtn(m); break;
+              case "clip": clipChanged(true); break;
+            }
+          }
+
+          /* ----- kecepatan internet ----- */
+          function onNet(m) {
+            const d = m.d | 0, u = m.u | 0;
+            netHist.push(d); if (netHist.length > 30) netHist.shift();
+            if (!S.live || !S.net) { if (L.net) setLive("net", null); return; }
+            if (d >= 1.5 * 1048576) { netHi++; netLo = 0; } else if (d < 0.4 * 1048576) { netLo++; netHi = 0; } else netLo = 0;
+            if (!L.net && netHi >= 3) {
+              // mulai mengunduh besar: tampilkan sebagai live activity
+            }
+            if ((L.net && netLo < 6) || (!L.net && netHi >= 3)) {
+              setLive("net", { id: "net", p: 30, glyph: "\u2193", color: "#30d158", val: rate(d), vc: "#30d158", panel: { id: "net", type: "net", d: d, u: u, h: netHist.slice() } });
+            } else if (L.net && netLo >= 6) setLive("net", null);
+          }
+
+          /* ----- CPU / RAM / GPU ----- */
+          function monPanel() { return { id: "mon", type: "mon", cpu: lastRes.cpu, ram: lastRes.ram, gpu: lastRes.gpu, lag: lag, top: lastTop }; }
+          function monActivity() {
+            return { id: "mon", p: lag ? 90 : 10, glyph: lag ? "\u26A0" : "\u25A6", color: lag ? "#ff9f0a" : "#8e8e93", val: lastRes.cpu + "% \u00B7 " + lastRes.ram + "%", vc: lag ? "#ff9f0a" : "", panel: monPanel() };
+          }
+          function onRes(m) {
+            lastRes = { cpu: m.cpu | 0, ram: m.ram | 0, gpu: m.gpu == null ? -1 : (m.gpu | 0) };
+            if (!S.live || !S.rmon) { if (L.mon) setLive("mon", null); lag = false; return; }
+            if (m.cpu >= 90 || m.ram >= 90) { resHi++; resLo = 0; } else if (m.cpu < 80 && m.ram < 85) { resLo++; resHi = 0; }
+            if (!lag && resHi >= 4 && Date.now() - lagAt > 90000) {
+              lag = true; lagAt = Date.now(); syncSysFlags();
+              setLive("mon", monActivity());
+              toIsl("panel", { spec: monPanel(), sticky: true });
+              setTimeout(() => { if (lag && isl && !isl.isDestroyed()) toIsl("stop", 1); }, 20000);
+            } else if (lag && resLo >= 6) { lag = false; lastTop = []; syncSysFlags(); }
+            if (S.rmon === 2 || lag) setLive("mon", monActivity()); else if (L.mon) setLive("mon", null);
+          }
+
+          /* ----- mikrofon / kamera / perekaman ----- */
+          const DEVDEF = [["rec", "#ff3b30", "Merekam layar / audio", "\u23FA"], ["mic", "#ff9f0a", "Mikrofon dipakai", "🎙"], ["cam", "#30d158", "Kamera dipakai", "📷"]];
+          function onDev(m) {
+            const prev = devPrev;
+            const cur = { rec: (m.rec || []).slice(), mic: (m.mic || []).filter(x => (m.rec || []).indexOf(x) < 0), cam: (m.cam || []).slice() };
+            devPrev = cur;
+            if (!S.live || !S.devs) { ["rec", "mic", "cam"].forEach(k => setLive(k, null)); return; }
+            const rows = [];
+            DEVDEF.forEach(d => cur[d[0]].forEach(n => rows.push({ c: d[1], t: d[2], s: niceName(n) })));
+            const panel = { id: "dev", type: "rows", title: "Sedang aktif", rows: rows };
+            DEVDEF.forEach((d, i) => {
+              const k = d[0], list = cur[k];
+              if (!list.length) { setLive(k, null); return; }
+              setLive(k, { id: k, p: 100 - i, dot: d[1], dotOnly: true, panel: panel });
+              const fresh = list.filter(n => prev[k].indexOf(n) < 0);
+              if (fresh.length) showIsland({ title: d[2], text: fresh.map(niceName).join(", "), app: "Privasi", icon: svgIcon(d[1], d[3]), appId: "", kind: "dev", quiet: true });
+            });
+          }
+
+          /* ----- media / audio ----- */
+          function mediaActivity() {
+            return { id: "media", p: 50, glyph: "\u266A", color: "#ff375f", wave: true, on: mediaState.play, val: "", panel: { id: "media", type: "media", app: mediaState.app, title: mediaState.title, artist: mediaState.artist, play: mediaState.play } };
+          }
+          function onMedia(m) {
+            const play = !!m.play;
+            mediaState = { play: play, app: String(m.app || ""), title: String(m.title || ""), artist: String(m.artist || "") };
+            if (!S.live || !S.media) { setLive("media", null); mediaWas = play; return; }
+            if (play) {
+              clearTimeout(mediaGone); mediaGone = null;
+              setLive("media", mediaActivity());
+              const key = mediaState.app + "|" + mediaState.title;
+              if ((!mediaWas || key !== mediaToastKey) && Date.now() - mediaToastAt > 8000 && !quiet()) {
+                mediaToastAt = Date.now(); mediaToastKey = key;
+                showIsland({
+                  title: mediaState.title || "Audio sedang diputar",
+                  text: [mediaState.artist, mediaState.app].filter(Boolean).join(" \u00B7 ") || "Suara dari PC",
+                  app: mediaState.app || "Audio", icon: svgIcon("#ff375f", "\u266A"), appId: "", kind: "media", quiet: true
+                });
+              }
+            } else if (L.media) {
+              setLive("media", mediaActivity());
+              if (!mediaGone) mediaGone = setTimeout(() => { mediaGone = null; if (!mediaState.play) setLive("media", null); }, 10000);
+            }
+            mediaWas = play;
+          }
+
+          /* ----- progres render / ekstrak ----- */
+          function onProg(m) {
+            const pct = m.pct | 0;
+            if (m.pct < 0) {
+              if (progState.pct >= 0 && progState.max >= 70 && S.prog && S.live && !quiet()) {
+                showIsland({ title: "Selesai", text: niceName(progState.app) + " \u00B7 proses rampung", app: "Progres", icon: svgIcon("#30d158", "\u2713"), appId: "", kind: "prog", quiet: true });
+              }
+              progState = { pct: -1, app: "", what: "", max: 0 };
+              setLive("prog", null);
+              return;
+            }
+            const app0 = String(m.app || "");
+            progState = { pct: pct, app: app0, what: String(m.what || ""), max: app0 === progState.app ? Math.max(progState.max, pct) : pct };
+            if (!S.live || !S.prog) return;
+            setLive("prog", { id: "prog", p: 60, glyph: "", color: "#0a84ff", ring: pct, val: pct + "%", vc: "#0a84ff", panel: { id: "prog", type: "prog", title: niceName(app0), sub: progState.what, pct: pct } });
+          }
+
+          /* ----- mode game: FPS & ping ----- */
+          function refreshGame() {
+            if (!gameState.full || !S.game || !S.live) { if (L.game) setLive("game", null); return; }
+            const g = gameState;
+            setLive("game", {
+              id: "game", p: 70, glyph: "🎮", val: (g.fps >= 0 ? g.fps + " FPS" : "-") + " \u00B7 " + (g.ping >= 0 ? g.ping + "ms" : "-"),
+              vc: g.ping > 100 ? "#ff453a" : (g.ping > 60 ? "#ff9f0a" : "#30d158"),
+              panel: { id: "game", type: "game", fps: g.fps, ping: g.ping, jit: g.jit, exe: niceName(g.exe) }
+            });
+          }
+          function onFg(m) {
+            gameState.full = !!m.full; gameState.exe = String(m.exe || "");
+            gameState.fps = -1; gameState.ping = -1; gameState.jit = -1; pingHist.length = 0;
+            syncSysFlags(); refreshGame();
+          }
+          function onPing(m) {
+            if (m.ms >= 0) { pingHist.push(m.ms); if (pingHist.length > 10) pingHist.shift(); gameState.ping = m.ms | 0; }
+            else gameState.ping = -1;
+            if (pingHist.length > 1) { let s = 0; for (let i = 1; i < pingHist.length; i++) s += Math.abs(pingHist[i] - pingHist[i - 1]); gameState.jit = Math.round(s / (pingHist.length - 1)); }
+            refreshGame();
+          }
+
+          /* ----- hub seret & lepas ----- */
+          const hubDir = () => { const d = path.join(app.getPath("temp"), "island-hub"); try { fs.mkdirSync(d, { recursive: true }); } catch (_) {} return d; };
+          const safeName = n => String(n || "berkas").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").slice(0, 80) || "berkas";
+          function hubSpec(drop) { return { id: "hub", type: "hub", drop: !!drop, items: hubItems.map(i => ({ id: i.id, name: i.name, glyph: i.glyph, thumb: i.thumb || "" })) }; }
+          function refreshHub() {
+            if (!S.live || !S.hub || !hubItems.length) { if (L.hub) setLive("hub", null); return; }
+            setLive("hub", { id: "hub", p: 20, glyph: "📥", color: "#0a84ff", val: String(hubItems.length), panel: hubSpec(false) });
+          }
+          function addHubItem(it) {
+            it.id = "h" + (hubSeq++);
+            hubItems.unshift(it);
+            if (hubItems.length > 12) hubItems.length = 12;
+            if (!it.ic && it.path) app.getFileIcon(it.path, { size: "normal" }).then(i => { it.ic = i; }).catch(() => {});
+          }
+          const IMG_EXT = /\.(png|jpe?g|gif|webp|bmp)$/i;
+          function fileItem(p, nameHint) {
+            let st = null;
+            try { st = fs.statSync(p); } catch (_) { return null; }
+            const it = { kind: "file", path: p, name: nameHint || path.basename(p), glyph: st.isDirectory() ? "📁" : "📄", thumb: "", ic: null };
+            if (!st.isDirectory() && IMG_EXT.test(p) && st.size < 20 * 1024 * 1024) {
+              try {
+                const ni = nativeImage.createFromPath(p);
+                if (!ni.isEmpty()) { const s = ni.getSize(), k = 96 / Math.max(s.width, s.height); const t = k < 1 ? ni.resize({ width: Math.max(1, Math.round(s.width * k)), height: Math.max(1, Math.round(s.height * k)) }) : ni; it.thumb = t.toDataURL(); it.ic = t.resize({ width: 48 }); }
+              } catch (_) {}
+            }
+            return it;
+          }
+          function hubDrop(d) {
+            let added = 0;
+            (Array.isArray(d.files) ? d.files : []).slice(0, 8).forEach(f => {
+              const p = String((f && f.path) || "");
+              if (!p || !path.isAbsolute(p)) return;
+              const it = fileItem(p, String(f.name || ""));
+              if (it) { addHubItem(it); added++; }
+            });
+            (Array.isArray(d.blobs) ? d.blobs : []).slice(0, 4).forEach(b => {
+              try {
+                const buf = Buffer.from(b.data);
+                if (!buf.length || buf.length > 25 * 1024 * 1024) return;
+                const p = path.join(hubDir(), Date.now() + "-" + safeName(b.name));
+                fs.writeFileSync(p, buf);
+                const it = fileItem(p, safeName(b.name));
+                if (it) { addHubItem(it); added++; }
+              } catch (_) {}
+            });
+            if (!added) {
+              const url = String(d.url || "").split(/\r?\n/)[0].trim(), text = String(d.text || "");
+              const body = /^https?:\/\//i.test(url) ? url : text;
+              if (body) {
+                try {
+                  const p = path.join(hubDir(), (/^https?:/i.test(body) ? "tautan-" : "teks-") + Date.now() + (/^https?:/i.test(body) ? ".url" : ".txt"));
+                  fs.writeFileSync(p, /^https?:/i.test(body) ? "[InternetShortcut]\r\nURL=" + body + "\r\n" : body, "utf8");
+                  addHubItem({ kind: "text", path: p, name: body.replace(/\s+/g, " ").slice(0, 24), glyph: /^https?:/i.test(body) ? "🔗" : "📝", thumb: "", ic: null });
+                  added++;
+                } catch (_) {}
+              }
+            }
+            hubDropPanel = false; hubDropAt = Date.now();
+            disarmHub(false);
+            refreshHub();
+            if (added) toIsl("panel", { spec: hubSpec(false), sticky: false });
+          }
+          function hubDragOut(id) {
+            const it = hubItems.find(x => x.id === id);
+            if (!it || !it.path || !fs.existsSync(it.path)) return;
+            let icon = it.ic;
+            if ((!icon || icon.isEmpty()) && ownIcon) { try { icon = nativeImage.createFromDataURL(ownIcon).resize({ width: 32 }); } catch (_) {} }
+            if (!icon || icon.isEmpty()) return;
+            try { isl.webContents.startDrag({ file: it.path, icon: icon }); } catch (_) {}
+          }
+          function hubEnter() {
+            if (!S.hub || !S.live || !hubArmed) return;
+            hubDropPanel = true;
+            toIsl("panel", { spec: hubSpec(true), sticky: true });
+          }
+          function inHubZone(c, pad) {
+            if (!isl || isl.isDestroyed() || S.edge !== "top") return false;
+            const b = isl.getBounds(), cx = b.x + b.width / 2;
+            return Math.abs(c.x - cx) < 190 + pad && c.y >= b.y - 4 && c.y < b.y + 140 + pad;
+          }
+          function armHub() {
+            if (hubArmed || !isl || isl.isDestroyed()) return;
+            hubArmed = true;
+            try { isl.setIgnoreMouseEvents(false); } catch (_) {}
+            toIsl("dz", 1);
+          }
+          function disarmHub(collapse) {
+            if (!hubArmed) return;
+            hubArmed = false;
+            if (isl && !isl.isDestroyed()) { try { isl.setIgnoreMouseEvents(true, { forward: true }); } catch (_) {} toIsl("dz", 0); }
+            if (collapse && hubDropPanel) { hubDropPanel = false; toIsl("stop", 1); }
+          }
+          function stopDragWatch() { if (dragTimer) { clearInterval(dragTimer); dragTimer = null; } }
+          // Hanya tangan yang menarik (tombol kiri ditahan) dari LUAR zona yang dianggap seret-lepas; klik biasa di zona tidak terganggu.
+          function onBtn(m) {
+            if (!S.hub || !S.live || !isl || isl.isDestroyed() || S.edge !== "top") return;
+            if (m.l) {
+              pressInZone = inHubZone(screen.getCursorScreenPoint(), 40);
+              if (pressInZone) return;
+              stopDragWatch();
+              dragTimer = setInterval(() => {
+                const c = screen.getCursorScreenPoint();
+                if (inHubZone(c, 0)) armHub(); else if (hubArmed && !inHubZone(c, 70)) disarmHub(true);
+              }, 50);
+            } else {
+              stopDragWatch();
+              setTimeout(() => { if (Date.now() - hubDropAt > 800) disarmHub(true); }, 350);
+            }
+          }
+
+          /* ----- tombol di island ----- */
+          function onAct(a, arg) {
+            if (a === "media") {
+              if (["prev", "playpause", "next"].indexOf(arg) >= 0) sysCmd("media " + arg);
+            } else if (a === "kill") {
+              const pid = Number(arg);
+              if (!Number.isInteger(pid) || !lastTop.some(x => x.pid === pid)) return;   // hanya proses yang sedang ditampilkan
+              execFile("taskkill", ["/PID", String(pid), "/F"], { windowsHide: true }, () => {
+                lastTop = lastTop.filter(x => x.pid !== pid);
+                if (L.mon) setLive("mon", monActivity());
+              });
+            } else if (a === "hubdel") {
+              hubItems = hubItems.filter(x => x.id !== String(arg));
+              refreshHub();
+              if (L.hub) toIsl("panel", { spec: hubSpec(false), sticky: false });
+              else toIsl("stop", 1);
+            }
+          }
+
           /* ---------- penerapan pengaturan ---------- */
           function applyEnabled() {
             if (S.enabled) {
-              ensureIsland(); startNotif(); startClip(); startKeys(); keepTop();
+              ensureIsland(); startNotif(); startClip(); startKeys(); keepTop(); startSys();
             } else {
-              stopNotif(); destroyIsland(); stopClip(); stopKeys(); stopTop();
+              stopNotif(); stopSys(); destroyIsland(); stopClip(); stopKeys(); stopTop();
             }
           }
-          function applyAnim() { if (S.anim) startWin(); else { stopWin(); } }
+          function applyAnim() { if (S.anim || S.appnotif) startWin(); else { stopWin(); } }
 
           function appsJson() {
             const m = new Map();
@@ -1234,7 +2698,9 @@ jobs:
             return JSON.stringify({
               mode: S.fmode, apps: S.fapps, snd: !!S.snd, anim: !!S.anim, animmin: !!S.animmin, pill: !!S.pill, hide: false,
               dur: S.dur, tapopen: !!S.tapopen, suri: su, svol: S.svol, sname: sname,
-              edge: S.edge, bat: !!S.bat, clip: !!S.clip, glow: !!S.glow, dnd: !!S.dnd, qon: !!S.qon, qfrom: S.qfrom, qto: S.qto, hot: !!S.hot, mon: S.mon, hist: !!S.hist
+              edge: S.edge, bat: !!S.bat, clip: !!S.clip, glow: !!S.glow, dnd: !!S.dnd, qon: !!S.qon, qfrom: S.qfrom, qto: S.qto, hot: !!S.hot, mon: S.mon, hist: !!S.hist,
+                appnotif: !!S.appnotif, live: !!S.live, media: !!S.media, devs: !!S.devs, net: !!S.net, rmon: S.rmon | 0, prog: !!S.prog, hub: !!S.hub, game: !!S.game,
+                curs: !!S.curs, cstyle: S.cstyle, ccolor: S.ccolor, csize: S.csize
             });
           }
 
@@ -1242,7 +2708,7 @@ jobs:
             getState: () => JSON.stringify({ overlay: true, listener: !!notifState.ok, running: !!S.enabled && !!isl, supported: true, cam: true, a11y: true }),
             getInfo: () => JSON.stringify({
               platform: "windows", version: (ctx && ctx.cfg && ctx.cfg.version) || "", helper: fs.existsSync(helperExe()),
-              notif: notifState, enabled: !!S.enabled, anim: !!procs.win, appsReady: appsReady, nApps: startApps.length
+              notif: notifState, enabled: !!S.enabled, anim: !!procs.win, sys: { ok: !!sysState.ok, err: sysState.err || "", exists: sysExists() }, appsReady: appsReady, nApps: startApps.length
             }),
             getApps: () => appsJson(),
             getIcon: id => iconCache.get(String(id || "") + "|64") || "",
@@ -1288,6 +2754,7 @@ jobs:
             setMonitor(m) { S.mon = m === "cursor" ? "cursor" : "primary"; save(); placeIsland(); },
             setHistOn(on) { S.hist = !!on; save(); },
             clearHistory() { hist = []; saveHist(); },
+            setOpt(key, val) { setOpt(key, val); },
             reshow(i) { const h = hist[Number(i)]; if (h) showIsland({ title: h.title, text: h.text, app: h.app, appId: h.appId, time: "tadi" }); }
           };
 
@@ -1306,6 +2773,7 @@ jobs:
             ipcMain.handle("fx:icon", (e, id) => (trusted(e) ? appIcon(String(id || "").slice(0, 400), 64) : ""));
             // dari jendela overlay
             ipcMain.on("fx:mouse", (e, inside) => {
+              if (hubArmed) return;
               if (isl && !isl.isDestroyed() && e.sender === isl.webContents) { try { isl.setIgnoreMouseEvents(!inside, { forward: true }); } catch (_) {} }
             });
             ipcMain.on("fx:local", (e, p) => {
@@ -1314,21 +2782,29 @@ jobs:
               showIsland({ title: String(p.title || "").slice(0, 80), text: String(p.text || "").slice(0, 200), app: String(p.app || "").slice(0, 40),
                 icon: /^data:image\/svg\+xml/.test(ic) && ic.length < 4000 ? ic : "", appId: "" });
             });
-            ipcMain.on("fx:tap", (e, id) => {
-              if (isl && !isl.isDestroyed() && e.sender === isl.webContents && S.tapopen) openApp(String(id || ""));
+            ipcMain.on("fx:tap", (e, p) => {
+              if (!fromIsl(e)) return;
+              const id = typeof p === "string" ? p : String((p && p.id) || "");
+              const kind = (p && typeof p === "object") ? String(p.kind || "") : "";
+              if (kind === "clip") { pasteClip(); return; }
+              if (S.tapopen && id) openApp(id);
             });
+            ipcMain.on("fx:act", (e, p) => { if (fromIsl(e) && p) onAct(String(p.a || ""), p.arg); });
+            ipcMain.on("fx:dragout", (e, id) => { if (fromIsl(e)) hubDragOut(String(id || "")); });
+            ipcMain.on("fx:hubenter", e => { if (fromIsl(e)) hubEnter(); });
+            ipcMain.on("fx:drop", (e, d) => { if (fromIsl(e) && d) hubDrop(d); });
             ipcMain.on("fx:idle", e => {
               if (isl && !isl.isDestroyed() && e.sender === isl.webContents) {
                 if (!S.pill) { try { isl.setIgnoreMouseEvents(true, { forward: true }); isl.hide(); } catch (_) {} }
                 return;
               }
-              anims.forEach(o => { if (!o.win.isDestroyed() && e.sender === o.win.webContents) { try { o.win.hide(); } catch (_) {} } });
+              anims.forEach(o => { if (!o.win.isDestroyed() && e.sender === o.win.webContents) park(o); });
             });
           }
 
           function stop() {
             quitting = true;
-            stopNotif(); stopWin(); destroyIsland(); stopClip(); stopKeys(); stopTop();
+            stopNotif(); stopWin(); stopSys(); destroyIsland(); stopClip(); stopKeys(); stopTop();
             anims.forEach(o => { try { if (!o.win.isDestroyed()) o.win.destroy(); } catch (_) {} });
             anims.clear();
           }
@@ -1374,7 +2850,7 @@ jobs:
             const CAST = ["openOverlay", "openListener", "requestNotif", "start", "stop", "test", "setStyle", "reload", "setFilter",
               "setTapOpen", "setAnim", "setAnimMin", "setPillAlways", "openAccessibility", "setHideNotif", "setDuration", "setSound",
               "previewSound", "setSoundUri", "setSoundVol", "demoAnim", "openWinSettings",
-              "setEdge", "setBat", "setGlow", "setClip", "setDnd", "setQuiet", "setHotkeys", "setMonitor", "setHistOn", "clearHistory", "reshow"];
+              "setEdge", "setBat", "setGlow", "setClip", "setDnd", "setQuiet", "setHotkeys", "setMonitor", "setHistOn", "clearHistory", "reshow", "setOpt"];
             const api = {};
             SYNC.forEach(n => { api[n] = function () { return ipcRenderer.sendSync("fx:call", n, Array.prototype.slice.call(arguments)); }; });
             CAST.forEach(n => { api[n] = function () { ipcRenderer.send("fx:cast", n, Array.prototype.slice.call(arguments)); }; });
@@ -1386,13 +2862,38 @@ jobs:
           FX_EOS
           cat > fx/overlay-preload.js <<'FX_EOS'
           "use strict";
-          const { contextBridge, ipcRenderer } = require("electron");
-          const OK_IN = ["cfg", "show", "play", "sound", "stop"];
-          const OK_OUT = ["mouse", "tap", "idle", "ready", "local"];
+          const { contextBridge, ipcRenderer, webUtils } = require("electron");
+          const OK_IN = ["cfg", "show", "play", "sound", "stop", "live", "lvl", "panel", "dz"];
+          const OK_OUT = ["mouse", "tap", "idle", "ready", "local", "act", "dragout"];
           contextBridge.exposeInMainWorld("fxo", {
             on: (ch, cb) => { if (OK_IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("fx:" + ch, (_e, d) => cb(d)); },
             send: (ch, d) => { if (OK_OUT.indexOf(ch) >= 0) ipcRenderer.send("fx:" + ch, d); }
           });
+
+          // Seret & lepas (hub): ditangani di preload karena path file asli hanya bisa dibaca lewat webUtils.
+          let lastEnter = 0;
+          window.addEventListener("dragenter", e => {
+            e.preventDefault();
+            const n = Date.now();
+            if (n - lastEnter > 500) { lastEnter = n; ipcRenderer.send("fx:hubenter"); }
+          }, true);
+          window.addEventListener("dragover", e => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "copy"; }, true);
+          window.addEventListener("drop", e => {
+            e.preventDefault();
+            const dt = e.dataTransfer;
+            if (!dt) return;
+            // baca semuanya SEKARANG (data transfer hanya valid selama event)
+            const text = String(dt.getData("text/plain") || "").slice(0, 20000);
+            const url = String(dt.getData("text/uri-list") || "").slice(0, 2000);
+            const files = [], pend = [];
+            Array.prototype.forEach.call(dt.files || [], f => {
+              let p = "";
+              try { p = webUtils.getPathForFile(f); } catch (_) {}
+              if (p) files.push({ path: p, name: f.name });
+              else if (f.size > 0 && f.size < 25 * 1024 * 1024) pend.push(f.arrayBuffer().then(b => ({ name: f.name || "gambar.png", data: new Uint8Array(b) })).catch(() => null));
+            });
+            Promise.all(pend).then(b => ipcRenderer.send("fx:drop", { files: files, blobs: b.filter(Boolean), text: text, url: url }));
+          }, true);
           FX_EOS
           cat > fx/island.html <<'FX_EOS'
           <!doctype html>
@@ -1401,28 +2902,76 @@ jobs:
           <title>Island</title>
           <style>html,body{margin:0;height:100%;overflow:hidden;background:transparent}body{position:relative}</style>
           </head><body>
+          <div id="dz" style="position:fixed;left:0;top:0;right:0;bottom:0;display:none;background:rgba(0,0,0,.004)"></div>
           <script>
-          /* ===== inti Dynamic Island (dipakai island.html dan pratinjau di halaman pengaturan) ===== */
+          /* ===== inti Dynamic Island: pill, notifikasi, live activity, panel (media, jaringan, monitor, hub, dll) ===== */
           (function (g) {
-            var CSS = [
-              '.fxi{position:absolute;left:50%;transform:translate3d(-50%,0,0);will-change:width,height,opacity,scale;contain:layout style;backface-visibility:hidden;overflow:hidden;box-sizing:border-box;opacity:0;pointer-events:none;scale:1;transform-origin:50% 0;transition:opacity .16s ease,scale .12s ease-out;user-select:none;-webkit-user-select:none;cursor:default;font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif}',
-              '.fxi.on{opacity:1;pointer-events:auto}',
-              '.fxi.rel{transition:opacity .16s ease,scale .3s cubic-bezier(.3,1.9,.5,1)}',
-              '.fxi-ct{position:absolute;top:0;left:50%;transform:translate3d(-50%,0,0);will-change:opacity,scale;box-sizing:border-box;padding:10px 18px;opacity:0;transform-origin:50% 0}',
-              '.fxr{display:flex;align-items:center;padding:8px 0}',
-              '.fxa{position:relative;width:48px;height:48px;flex:none}',
-              '.fxa .pic{position:absolute;left:0;top:0;width:44px;height:44px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:#fff}',
-              '.fxa .pic img{width:100%;height:100%;object-fit:cover;display:block}',
-              '.fxa .bd{position:absolute;right:0;bottom:0;width:22px;height:22px}',
-              '.fxa .bd>div{position:absolute;left:2px;top:2px;right:2px;bottom:2px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;overflow:hidden}',
-              '.fxa .bd img{width:100%;height:100%;object-fit:cover;display:block}',
-              '.fxt{flex:1;min-width:0;margin-left:12px}',
-              '.fxl{display:flex;align-items:center}',
-              '.fxl b{flex:1;min-width:0;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-              '.fxl i{font-style:normal;font-size:12px;margin-left:8px;flex:none}',
-              '.fxx{font-size:14px;line-height:1.28;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-word}',
-              '.fxx.one{-webkit-line-clamp:1}'
-            ].join('');
+            var CSS = `
+            .fxi{position:absolute;left:50%;transform:translate3d(-50%,0,0);will-change:width,height,opacity,scale;contain:layout style;backface-visibility:hidden;overflow:hidden;box-sizing:border-box;opacity:0;pointer-events:none;scale:1;transform-origin:50% 0;transition:opacity .16s ease,scale .12s ease-out;user-select:none;-webkit-user-select:none;cursor:default;font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+            .fxi.on{opacity:1;pointer-events:auto}
+            .fxi.rel{transition:opacity .16s ease,scale .3s cubic-bezier(.3,1.9,.5,1)}
+            .fxi.drop{outline:2px dashed rgba(10,132,255,.9);outline-offset:-4px}
+            .fxi-ct{position:absolute;top:0;left:50%;transform:translate3d(-50%,0,0);will-change:opacity,scale,filter;box-sizing:border-box;padding:10px 18px;opacity:0;transform-origin:50% 0}
+            .fxi-lv{position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;padding:0 11px;box-sizing:border-box;opacity:1;will-change:opacity,filter}
+            .fxr{display:flex;align-items:center;padding:8px 0}
+            .fxa{position:relative;width:48px;height:48px;flex:none}
+            .fxa .pic{position:absolute;left:0;top:0;width:44px;height:44px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:#fff}
+            .fxa .pic img{width:100%;height:100%;object-fit:cover;display:block}
+            .fxa .bd{position:absolute;right:0;bottom:0;width:22px;height:22px}
+            .fxa .bd>div{position:absolute;left:2px;top:2px;right:2px;bottom:2px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;overflow:hidden}
+            .fxa .bd img{width:100%;height:100%;object-fit:cover;display:block}
+            .fxt{flex:1;min-width:0;margin-left:12px}
+            .fxl{display:flex;align-items:center}
+            .fxl b{flex:1;min-width:0;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+            .fxl i{font-style:normal;font-size:12px;margin-left:8px;flex:none}
+            .fxx{font-size:14px;line-height:1.28;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-word}
+            .fxx.one{-webkit-line-clamp:1}
+            .ls,.rs{display:flex;align-items:center;gap:6px;min-width:26px;height:26px}
+            .rs{justify-content:flex-end;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+            .ls .ico{width:24px;height:24px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+            .ls .ico img{width:100%;height:100%;object-fit:cover;display:block}
+            .dt{width:9px;height:9px;border-radius:50%;flex:none;animation:fxp 1.6s ease-in-out infinite}
+            @keyframes fxp{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.55;transform:scale(.82)}}
+            .wv{display:flex;align-items:center;gap:2px;height:20px}
+            .wv span{width:3px;height:4px;border-radius:2px;background:currentColor;transition:height .08s linear}
+            .fxp{width:100%}
+            .fxp .hd{display:flex;align-items:center;gap:12px}
+            .fxp .art{width:46px;height:46px;flex:none;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:22px;background:#2c2c2e;color:#fff}
+            .fxp .art img{width:100%;height:100%;object-fit:cover;display:block}
+            .fxp .tx{flex:1;min-width:0}
+            .fxp .tx b{display:block;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+            .fxp .tx span{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+            .fxp .ctl{display:flex;justify-content:center;align-items:center;gap:22px;margin-top:10px}
+            .fxb{width:40px;height:40px;border-radius:50%;border:0;padding:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.14);color:inherit;cursor:pointer;transition:transform .12s,background .12s}
+            .fxb:hover{background:rgba(255,255,255,.24)} .fxb:active{transform:scale(.88)}
+            .fxb svg{width:20px;height:20px;fill:currentColor}
+            .fxb.big{width:46px;height:46px;background:#fff;color:#000}
+            .fxb.big:hover{background:#e8e8ed}
+            .fxb.sm{width:auto;height:26px;border-radius:13px;padding:0 11px;font-size:12px;font-weight:600;background:#ff453a;color:#fff}
+            .fxb.sm:hover{background:#ff6259}
+            .bar{height:7px;border-radius:4px;background:rgba(255,255,255,.16);overflow:hidden}
+            .bar>i{display:block;height:100%;border-radius:4px;transition:width .4s ease}
+            .mt{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:13px}
+            .mt em{font-style:normal;width:38px;flex:none;font-weight:600}
+            .mt .bar{flex:1}
+            .mt u{text-decoration:none;width:38px;text-align:right;font-variant-numeric:tabular-nums;flex:none}
+            .pr{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px}
+            .pr .dt{animation:none}
+            .pr .tt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+            .pr small{font-size:12px}
+            .big2{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+            .two{display:flex;gap:22px;align-items:flex-end}
+            .spk{display:flex;align-items:flex-end;gap:2px;height:30px;margin-top:8px}
+            .spk i{flex:1;border-radius:1px;background:currentColor;opacity:.55;min-height:2px}
+            .hubg{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+            .hit{position:relative;width:68px;text-align:center;cursor:grab}
+            .hit .hi{width:52px;height:52px;margin:0 auto;border-radius:12px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:24px;overflow:hidden}
+            .hit .hi img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+            .hit span{display:block;font-size:11px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+            .hit .x{position:absolute;right:2px;top:-4px;width:18px;height:18px;border-radius:50%;background:#636366;color:#fff;font-size:11px;line-height:18px;text-align:center;cursor:pointer;display:none}
+            .hit:hover .x{display:block}
+            .empty{font-size:13px;text-align:center;padding:14px 0}
+            `;
 
             var SQ = (function () {
               var p = [], n = 5, N = 72;
@@ -1440,27 +2989,46 @@ jobs:
             function grad(h) { return 'linear-gradient(135deg,hsl(' + h + ',72%,64%),hsl(' + ((h + 28) % 360) + ',62%,44%))'; }
             function hexRgb(hex) { hex = String(hex || '#000000').replace('#', ''); if (hex.length === 3) hex = hex.replace(/(.)/g, '$1$1'); return [parseInt(hex.substr(0, 2), 16) || 0, parseInt(hex.substr(2, 2), 16) || 0, parseInt(hex.substr(4, 2), 16) || 0]; }
             function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+            function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+            function fmtRate(b) {
+              b = +b || 0;
+              if (b >= 1048576) return (b / 1048576).toFixed(b >= 10485760 ? 0 : 1) + ' MB/s';
+              if (b >= 1024) return Math.round(b / 1024) + ' KB/s';
+              return Math.round(b) + ' B/s';
+            }
+            var ICONS = {
+              prev: '<svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM20 6v12L9.5 12z"/></svg>',
+              next: '<svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM4 6l10.5 6L4 18z"/></svg>',
+              play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+              pause: '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>'
+            };
 
             g.makeIsland = function (host, o) {
               o = o || {};
               var C = { bg: '#000000', op: 100, cw: 110, ew: 340, dh: 0, top: 8, always: false, dur: 4500, edge: 'top' };
-              var entries = [], open = false, openingFx = false, hover = false, timer = null;
+              var LS = 44;
+              var entries = [], open = false, openingFx = false, hover = false, timer = null, leaveT = null, hoverT = null;
+              var mode = 'rows', curPanel = null, sticky = false, lives = [], lvl = 0, lastPanelJson = '';
               var S = { w: 0, h: 0, vw: 0, vh: 0, tw: 0, th: 0, run: false, last: 0, kw: 420, dw: 29, kh: 420, dh: 29 };
               var tc = '#fff', sc = '#b0b0b8', dc = '#8e8e93', ring = '#000';
-              var downY = 0, glowRgb = null;
+              var downY = 0, glowRgb = null, waves = [], waveT = null;
 
               var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
-              var isl = document.createElement('div'); isl.className = 'fxi';
-              var ct = document.createElement('div'); ct.className = 'fxi-ct';
-              isl.appendChild(ct); host.appendChild(isl);
+              var isl = el('div', 'fxi');
+              var ct = el('div', 'fxi-ct');
+              var lv = el('div', 'fxi-lv');
+              isl.appendChild(lv); isl.appendChild(ct); host.appendChild(isl);
 
               function cH() { return Math.max(20, 32 + (+C.dh || 0)); }
               function cW() { return Math.max(40, +C.cw || 110); }
               function eW() { return Math.max(160, Math.min(+C.ew || 340, (host.clientWidth || 400) - 24)); }
               function side() { return C.edge === 'left' || C.edge === 'right'; }
-              function pw() { return side() ? cH() : cW(); }   // lebar pill kecil (di tepi kiri/kanan pill berdiri tegak)
+              function pw() { return side() ? cH() : cW(); }
               function ph() { return side() ? cW() : cH(); }
+              function liveOn() { return lives.length > 0 && !side(); }
+              function idleW() { return liveOn() ? pw() + 2 * LS : pw(); }
               function rad(h, w) { return Math.min(h / 2, (w || 9999) / 2, 42); }
+              function keepVisible() { return !!C.always || lives.length > 0; }
 
               function style() {
                 var rgb = hexRgb(C.bg), a = clamp(+C.op || 100, 40, 100) / 100;
@@ -1469,16 +3037,17 @@ jobs:
                 isl.style.background = 'rgba(' + rgb.join(',') + ',' + a + ')';
                 var gl = (C.glow && glowRgb && open) ? '0 0 26px 2px rgba(' + glowRgb.join(',') + ',.55),' : '';
                 isl.style.boxShadow = (lum > 0.12 ? 'inset 0 0 0 1px rgba(255,255,255,.3),' : '') + gl + '0 10px 24px rgba(0,0,0,.34),0 2px 6px rgba(0,0,0,.22)';
-                var m = Math.max(0, +C.top || 0) + 'px', e = C.edge || 'top', st = isl.style;
-                st.top = st.bottom = st.left = st.right = 'auto';
-                if (e === 'bottom') { st.bottom = m; st.left = '50%'; st.transform = 'translate3d(-50%,0,0)'; st.transformOrigin = '50% 100%'; }
-                else if (e === 'left') { st.left = m; st.top = '50%'; st.transform = 'translate3d(0,-50%,0)'; st.transformOrigin = '0 50%'; }
-                else if (e === 'right') { st.right = m; st.top = '50%'; st.transform = 'translate3d(0,-50%,0)'; st.transformOrigin = '100% 50%'; }
-                else { st.top = m; st.left = '50%'; st.transform = 'translate3d(-50%,0,0)'; st.transformOrigin = '50% 0'; }
+                var m = Math.max(0, +C.top || 0) + 'px', e = C.edge || 'top', s = isl.style;
+                s.top = s.bottom = s.left = s.right = 'auto';
+                if (e === 'bottom') { s.bottom = m; s.left = '50%'; s.transform = 'translate3d(-50%,0,0)'; s.transformOrigin = '50% 100%'; }
+                else if (e === 'left') { s.left = m; s.top = '50%'; s.transform = 'translate3d(0,-50%,0)'; s.transformOrigin = '0 50%'; }
+                else if (e === 'right') { s.right = m; s.top = '50%'; s.transform = 'translate3d(0,-50%,0)'; s.transformOrigin = '100% 50%'; }
+                else { s.top = m; s.left = '50%'; s.transform = 'translate3d(-50%,0,0)'; s.transformOrigin = '50% 0'; }
                 ring = 'rgb(' + rgb.join(',') + ')';
                 tc = light ? '#1c1c1e' : '#ffffff';
                 sc = light ? '#55555c' : '#b0b0b8';
                 dc = light ? '#77777e' : '#8e8e93';
+                lv.style.color = tc; ct.style.color = tc;
               }
 
               function applySize(w, h) {
@@ -1487,16 +3056,69 @@ jobs:
                 isl.style.borderRadius = rad(h, w) + 'px';
               }
 
-              /* ---------- baris notifikasi ---------- */
-              function squircle(el) { el.style.clipPath = SQ; el.style.webkitClipPath = SQ; }
+              function squircle(e) { e.style.clipPath = SQ; e.style.webkitClipPath = SQ; }
 
+              /* ---------- gelombang mini ---------- */
+              function makeWave(n, on, h) {
+                var w = el('div', 'wv'); w.dataset.on = on ? '1' : '0'; w.style.height = (h || 20) + 'px'; w.dataset.h = h || 20;
+                for (var i = 0; i < n; i++) w.appendChild(document.createElement('span'));
+                waves.push(w); startWaves();
+                return w;
+              }
+              function startWaves() {
+                if (waveT) return;
+                waveT = setInterval(function () {
+                  var any = false;
+                  waves = waves.filter(function (w) { return w.isConnected; });
+                  waves.forEach(function (w) {
+                    any = true;
+                    var on = w.dataset.on === '1', mx = +w.dataset.h || 20;
+                    for (var i = 0; i < w.children.length; i++) {
+                      var v = on ? clamp(lvl * 3 + Math.random() * 0.45, 0.1, 1) : 0.1;
+                      w.children[i].style.height = Math.max(3, Math.round(v * mx)) + 'px';
+                    }
+                  });
+                  if (!any) { clearInterval(waveT); waveT = null; }
+                }, 80);
+              }
+
+              /* ---------- live activity (pill kecil) ---------- */
+              function iconEl(a) {
+                var d = el('div', 'ico');
+                if (a.icon) { var im = document.createElement('img'); im.src = a.icon; im.draggable = false; d.appendChild(im); squircle(d); }
+                else { d.textContent = a.glyph || '\u25CF'; if (a.color) d.style.color = a.color; }
+                return d;
+              }
+              function renderLive() {
+                lv.textContent = '';
+                if (!liveOn()) { lv.style.display = 'none'; return; }
+                lv.style.display = '';
+                var srt = lives.slice().sort(function (a, b) { return (b.p || 0) - (a.p || 0); });
+                var prim = null, dots = [];
+                srt.forEach(function (a) { if (a.dot) dots.push(a.dot); if (!a.dotOnly && !prim) prim = a; });
+                var ls = el('div', 'ls'), rs = el('div', 'rs');
+                if (prim) {
+                  if (prim.glyph || prim.icon) ls.appendChild(iconEl(prim));
+                  if (prim.wave) ls.appendChild(makeWave(4, !!prim.on, 16));
+                  else if (prim.ring >= 0 && prim.ring != null) {
+                    var r = el('div', ''); r.style.cssText = 'width:20px;height:20px;border-radius:50%;background:conic-gradient(' + (prim.color || '#0a84ff') + ' ' + (prim.ring * 3.6) + 'deg,rgba(255,255,255,.18) 0)';
+                    var inner = el('div', ''); inner.style.cssText = 'margin:4px;width:12px;height:12px;border-radius:50%;background:' + ring;
+                    r.appendChild(inner); ls.appendChild(r);
+                  }
+                }
+                if (dots.length) dots.forEach(function (c) { var d = el('span', 'dt'); d.style.background = c; d.style.boxShadow = '0 0 8px ' + c; rs.appendChild(d); });
+                else if (prim && prim.val) { rs.textContent = prim.val; rs.style.color = prim.vc || tc; }
+                lv.appendChild(ls); lv.appendChild(rs);
+              }
+
+              /* ---------- baris notifikasi ---------- */
               function makeRow(e, single) {
-                var r = document.createElement('div'); r.className = 'fxr';
-                var a = document.createElement('div'); a.className = 'fxa';
-                var pic = document.createElement('div'); pic.className = 'pic';
+                var r = el('div', 'fxr');
+                var a = el('div', 'fxa');
+                var pic = el('div', 'pic');
                 var h = hueOf(e.app || e.title);
                 if (e.img) {
-                  pic.style.borderRadius = '50%';
+                  pic.style.borderRadius = e.imgsq ? '10px' : '50%';
                   var im = document.createElement('img'); im.src = e.img; im.draggable = false; pic.appendChild(im);
                 } else if (e.icon) {
                   squircle(pic);
@@ -1506,28 +3128,133 @@ jobs:
                 }
                 a.appendChild(pic);
                 if (e.img && (e.icon || e.app)) {
-                  var bd = document.createElement('div'); bd.className = 'bd'; bd.style.background = ring; squircle(bd);
-                  var bi = document.createElement('div'); squircle(bi);
+                  var bd = el('div', 'bd'); bd.style.background = ring; squircle(bd);
+                  var bi = el('div'); squircle(bi);
                   if (e.icon) { var bimg = document.createElement('img'); bimg.src = e.icon; bi.appendChild(bimg); }
                   else { bi.style.background = grad(h); bi.textContent = letter(e.app); }
                   bd.appendChild(bi); a.appendChild(bd);
                 }
-                var t = document.createElement('div'); t.className = 'fxt';
-                var l = document.createElement('div'); l.className = 'fxl';
-                var b = document.createElement('b'); b.style.color = tc; b.textContent = e.title || '';
-                var tm = document.createElement('i'); tm.style.color = dc; tm.textContent = e.time || 'sekarang';
+                var t = el('div', 'fxt');
+                var l = el('div', 'fxl');
+                var b = el('b', '', e.title || ''); b.style.color = tc;
+                var tm = el('i', '', e.time || 'sekarang'); tm.style.color = dc;
                 l.appendChild(b); l.appendChild(tm); t.appendChild(l);
-                if (e.text) {
-                  var x = document.createElement('div'); x.className = 'fxx' + (single ? '' : ' one'); x.style.color = sc; x.textContent = e.text; t.appendChild(x);
-                }
+                if (e.text) { var x = el('div', 'fxx' + (single ? '' : ' one'), e.text); x.style.color = sc; t.appendChild(x); }
                 r.appendChild(a); r.appendChild(t);
                 return r;
               }
 
+              /* ---------- panel ---------- */
+              function btn(svg, act, arg, cls) {
+                var b = el('button', 'fxb' + (cls ? ' ' + cls : '')); b.innerHTML = svg; b.dataset.act = act; if (arg != null) b.dataset.arg = arg; return b;
+              }
+              function bar(pct, color) {
+                var b = el('div', 'bar'), i = document.createElement('i');
+                i.style.width = clamp(pct, 0, 100) + '%'; i.style.background = color; b.appendChild(i); return b;
+              }
+              function meter(label, pct, color) {
+                var m = el('div', 'mt'); m.appendChild(el('em', '', label));
+                m.appendChild(bar(pct < 0 ? 0 : pct, color)); m.appendChild(el('u', '', pct < 0 ? '-' : Math.round(pct) + '%'));
+                return m;
+              }
+              function lvColor(p) { return p >= 90 ? '#ff453a' : (p >= 70 ? '#ff9f0a' : '#30d158'); }
+
+              function buildPanel(p) {
+                var w = el('div', 'fxp');
+                var t = p.type;
+                if (t === 'media') {
+                  var hd = el('div', 'hd'), art = el('div', 'art');
+                  if (p.icon) { var im = document.createElement('img'); im.src = p.icon; im.draggable = false; art.appendChild(im); } else art.textContent = '\u266A';
+                  squircle(art);
+                  var tx = el('div', 'tx'), b = el('b', '', p.title || 'Audio sedang diputar'), s = el('span', '', [p.artist, p.app].filter(Boolean).join(' \u00B7 '));
+                  b.style.color = tc; s.style.color = sc; tx.appendChild(b); tx.appendChild(s);
+                  hd.appendChild(art); hd.appendChild(tx);
+                  var wv = makeWave(5, !!p.play, 24); wv.style.color = '#ff375f'; hd.appendChild(wv);
+                  w.appendChild(hd);
+                  var ctl = el('div', 'ctl');
+                  ctl.appendChild(btn(ICONS.prev, 'media', 'prev'));
+                  ctl.appendChild(btn(p.play ? ICONS.pause : ICONS.play, 'media', 'playpause', 'big'));
+                  ctl.appendChild(btn(ICONS.next, 'media', 'next'));
+                  w.appendChild(ctl);
+                } else if (t === 'net') {
+                  var two = el('div', 'two');
+                  var a1 = el('div'), a2 = el('div');
+                  a1.appendChild(el('div', '', '\u2193 Unduh')); a1.firstChild.style.cssText = 'font-size:12px;color:' + sc;
+                  var v1 = el('div', 'big2', fmtRate(p.d)); v1.style.color = '#30d158'; a1.appendChild(v1);
+                  a2.appendChild(el('div', '', '\u2191 Unggah')); a2.firstChild.style.cssText = 'font-size:12px;color:' + sc;
+                  var v2 = el('div', 'big2', fmtRate(p.u)); v2.style.color = '#0a84ff'; a2.appendChild(v2);
+                  two.appendChild(a1); two.appendChild(a2); w.appendChild(two);
+                  var spk = el('div', 'spk'), hh = p.h || [], mx = 1;
+                  hh.forEach(function (v) { mx = Math.max(mx, v); });
+                  hh.forEach(function (v) { var i = document.createElement('i'); i.style.height = Math.max(2, Math.round(30 * v / mx)) + 'px'; spk.appendChild(i); });
+                  spk.style.color = '#30d158'; w.appendChild(spk);
+                } else if (t === 'rows') {
+                  if (p.title) { var th = el('div', '', p.title); th.style.cssText = 'font-size:13px;font-weight:600;margin-bottom:4px;color:' + tc; w.appendChild(th); }
+                  (p.rows || []).forEach(function (r) {
+                    var row = el('div', 'pr'), d = el('span', 'dt'); d.style.background = r.c || '#fff';
+                    var tt = el('div', 'tt'); tt.textContent = r.t || ''; tt.style.color = tc;
+                    row.appendChild(d); row.appendChild(tt);
+                    if (r.s) { var sm = el('small', '', r.s); sm.style.color = sc; row.appendChild(sm); }
+                    w.appendChild(row);
+                  });
+                } else if (t === 'mon') {
+                  var hh2 = el('div', '', p.lag ? 'PC terasa berat' : 'Pemakaian sistem');
+                  hh2.style.cssText = 'font-size:13px;font-weight:600;margin-bottom:4px;color:' + (p.lag ? '#ff9f0a' : tc);
+                  w.appendChild(hh2);
+                  w.appendChild(meter('CPU', p.cpu, lvColor(p.cpu)));
+                  w.appendChild(meter('RAM', p.ram, lvColor(p.ram)));
+                  if (p.gpu >= 0) w.appendChild(meter('GPU', p.gpu, lvColor(p.gpu)));
+                  if (p.lag && p.top && p.top.length) {
+                    var sep = el('div', '', 'Paling banyak memakai memori'); sep.style.cssText = 'font-size:11px;margin:8px 0 2px;color:' + dc; w.appendChild(sep);
+                    p.top.slice(0, 3).forEach(function (x) {
+                      var row = el('div', 'pr'), tt = el('div', 'tt'); tt.textContent = x.n; tt.style.color = tc;
+                      var sm = el('small', '', x.mb + ' MB'); sm.style.color = sc;
+                      var k = el('button', 'fxb sm', 'End Task'); k.dataset.act = 'kill'; k.dataset.arg = x.pid;
+                      row.appendChild(tt); row.appendChild(sm); row.appendChild(k); w.appendChild(row);
+                    });
+                  }
+                } else if (t === 'prog') {
+                  var h3 = el('div', 'hd'), tx3 = el('div', 'tx');
+                  var b3 = el('b', '', p.title || 'Sedang berjalan'), s3 = el('span', '', p.sub || ''); b3.style.color = tc; s3.style.color = sc;
+                  tx3.appendChild(b3); tx3.appendChild(s3);
+                  var pc = el('div', 'big2', p.pct + '%'); pc.style.color = '#0a84ff';
+                  h3.appendChild(tx3); h3.appendChild(pc); w.appendChild(h3);
+                  var bb = bar(p.pct, '#0a84ff'); bb.style.marginTop = '10px'; w.appendChild(bb);
+                } else if (t === 'game') {
+                  var g2 = el('div', 'two');
+                  [['FPS', p.fps >= 0 ? p.fps : '-', '#30d158'], ['PING', p.ping >= 0 ? p.ping + ' ms' : '-', p.ping > 100 ? '#ff453a' : (p.ping > 60 ? '#ff9f0a' : '#0a84ff')], ['JITTER', p.jit >= 0 ? p.jit + ' ms' : '-', '#bf5af2']].forEach(function (x) {
+                    var c = el('div'); var lb = el('div', '', x[0]); lb.style.cssText = 'font-size:11px;color:' + sc; var vv = el('div', 'big2', String(x[1])); vv.style.color = x[2]; c.appendChild(lb); c.appendChild(vv); g2.appendChild(c);
+                  });
+                  w.appendChild(g2);
+                  if (p.exe) { var ex = el('div', '', p.exe); ex.style.cssText = 'font-size:11px;margin-top:6px;color:' + dc; w.appendChild(ex); }
+                } else if (t === 'hub') {
+                  var ht = el('div', '', p.drop ? 'Lepaskan di sini' : 'Kantong sementara'); ht.style.cssText = 'font-size:13px;font-weight:600;color:' + tc; w.appendChild(ht);
+                  var items = p.items || [];
+                  if (!items.length) { var em = el('div', 'empty', 'Seret file, gambar, atau teks ke sini'); em.style.color = sc; w.appendChild(em); }
+                  else {
+                    var gr = el('div', 'hubg');
+                    items.forEach(function (it) {
+                      var c = el('div', 'hit'); c.draggable = true; c.dataset.hid = it.id;
+                      var hi = el('div', 'hi');
+                      if (it.thumb) { var im3 = document.createElement('img'); im3.src = it.thumb; hi.appendChild(im3); } else hi.textContent = it.glyph || '\uD83D\uDCC4';
+                      var nm = el('span', '', it.name || ''); nm.style.color = sc;
+                      var x = el('div', 'x', '\u00D7'); x.dataset.act = 'hubdel'; x.dataset.arg = it.id;
+                      c.appendChild(hi); c.appendChild(nm); c.appendChild(x); gr.appendChild(c);
+                    });
+                    w.appendChild(gr);
+                    var hint = el('div', '', 'Tarik keluar untuk menempel ke aplikasi lain'); hint.style.cssText = 'font-size:11px;margin-top:8px;color:' + dc; w.appendChild(hint);
+                  }
+                }
+                return w;
+              }
+
               function rebuild() {
                 ct.textContent = '';
-                var single = entries.length === 1;
-                for (var i = 0; i < entries.length; i++) ct.appendChild(makeRow(entries[i], single));
+                if (mode === 'panel' && curPanel) ct.appendChild(buildPanel(curPanel));
+                else {
+                  var single = entries.length === 1;
+                  for (var i = 0; i < entries.length; i++) ct.appendChild(makeRow(entries[i], single));
+                }
                 ct.style.width = eW() + 'px';
               }
 
@@ -1541,7 +3268,7 @@ jobs:
                 r.animate([{ transform: 'translateY(10px)', opacity: fade ? 0 : 1 }, { transform: 'none', opacity: 1 }],
                   { duration: 340, delay: delay, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'backwards' });
                 var av = r.firstChild;
-                if (av && av.animate) av.animate([{ transform: 'scale(.6)' }, { transform: 'scale(1)' }],
+                if (av && av.animate && av.className === 'fxa') av.animate([{ transform: 'scale(.6)' }, { transform: 'scale(1)' }],
                   { duration: 420, delay: delay + 40, easing: 'cubic-bezier(.3,1.7,.5,1)', fill: 'backwards' });
               }
 
@@ -1563,38 +3290,47 @@ jobs:
                 var done = Math.abs(S.w - S.tw) < 0.4 && Math.abs(S.h - S.th) < 0.4 && Math.abs(S.vw) < 3 && Math.abs(S.vh) < 3;
                 if (done) {
                   S.w = S.tw; S.h = S.th; S.vw = 0; S.vh = 0; S.run = false;
-                  if (openingFx) { openingFx = false; ct.style.opacity = 1; ct.style.scale = 1; }
+                  if (openingFx) { openingFx = false; ct.style.opacity = 1; ct.style.scale = 1; ct.style.filter = 'none'; }
                 }
                 applySize(S.w, S.h);
                 progress();
-                if (done) { if (!open && !C.always) { isl.classList.remove('on'); if (o.onIdle) o.onIdle(); } return; }
+                if (done) { if (!open && !keepVisible()) { isl.classList.remove('on'); if (o.onIdle) o.onIdle(); } return; }
                 requestAnimationFrame(frame);
               }
 
+              // isi pill ikut "meleleh" (blur + skala) saat membesar, seperti iOS
               function progress() {
                 if (!openingFx) return;
-                var span = S.th - ph();
-                var p = span <= 0 ? 1 : (S.h - ph()) / span;
+                var base = idleHeight, span = S.th - base;
+                var p = span <= 0 ? 1 : (S.h - base) / span;
                 var t = clamp((p - 0.30) / 0.45, 0, 1), a = t * t * (3 - 2 * t);
-                ct.style.opacity = a; ct.style.scale = 0.9 + 0.1 * a;
+                ct.style.opacity = a; ct.style.scale = 0.9 + 0.1 * a; ct.style.filter = a >= 1 ? 'none' : 'blur(' + ((1 - a) * 9).toFixed(1) + 'px)';
               }
+              var idleHeight = 32;
 
               function arm() {
                 clearTimeout(timer);
-                if (hover || !open) return;
+                if (hover || !open || sticky) return;
                 timer = setTimeout(collapse, clamp(+C.dur || 4500, 2000, 20000));
               }
 
-              function expandFresh() {
+              function layerOpen() {
+                ct.style.transition = 'none';
+                lv.style.transition = 'opacity .1s ease,filter .1s ease';
+                lv.style.opacity = 0; lv.style.filter = 'blur(6px)';
+              }
+
+              function expandFresh(animateRows) {
                 rebuild();
                 var h = contentH();
-                open = true; openingFx = true;
-                if (!S.w) { S.w = pw(); S.h = ph(); applySize(S.w, S.h); }
+                open = true; openingFx = true; idleHeight = ph();
+                if (!S.w) { S.w = idleW(); S.h = ph(); applySize(S.w, S.h); }
                 isl.classList.add('on');
-                ct.style.opacity = 0; ct.style.scale = 0.9;
-                for (var i = 0; i < ct.children.length; i++) rowIn(ct.children[i], 120 + i * 60, false);
+                layerOpen();
+                ct.style.opacity = 0; ct.style.scale = 0.9; ct.style.filter = 'blur(9px)';
+                if (animateRows !== false) for (var i = 0; i < ct.children.length; i++) rowIn(ct.children[i], 120 + i * 60, false);
                 springTo(eW(), h, true);
-                arm();
+                style();
               }
 
               function pulse() {
@@ -1604,11 +3340,16 @@ jobs:
               }
 
               function collapse() {
-                clearTimeout(timer);
+                clearTimeout(timer); clearTimeout(leaveT); clearTimeout(hoverT);
                 if (!open) return;
-                open = false; openingFx = false; glowRgb = null; style();
-                if (ct.animate) { ct.style.opacity = 0; } else ct.style.opacity = 0;
-                springTo(pw(), ph(), false);
+                open = false; openingFx = false; glowRgb = null; sticky = false; mode = 'rows'; curPanel = null; lastPanelJson = '';
+                style();
+                ct.style.transition = 'opacity .14s ease,filter .14s ease';
+                ct.style.opacity = 0; ct.style.filter = 'blur(7px)';
+                renderLive();
+                lv.style.transition = 'opacity .26s ease .12s,filter .26s ease .12s';
+                lv.style.opacity = 1; lv.style.filter = 'none';
+                springTo(idleW(), ph(), false);
                 if (o.onCollapse) o.onCollapse();
               }
 
@@ -1619,14 +3360,14 @@ jobs:
                   try {
                     var s = 20, cv = document.createElement('canvas'); cv.width = cv.height = s;
                     var cx = cv.getContext('2d'); cx.drawImage(im, 0, 0, s, s);
-                    var d = cx.getImageData(0, 0, s, s).data, r = 0, g = 0, b = 0, n = 0;
+                    var d = cx.getImageData(0, 0, s, s).data, r = 0, g2 = 0, b = 0, n = 0;
                     for (var i = 0; i < d.length; i += 4) {
                       if (d[i + 3] < 200) continue;
                       var mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
-                      if (mx - mn < 40) continue;            // abaikan abu-abu/putih/hitam, ambil warna yang berwarna
-                      r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+                      if (mx - mn < 40) continue;
+                      r += d[i]; g2 += d[i + 1]; b += d[i + 2]; n++;
                     }
-                    glowRgb = n > 3 ? [Math.round(r / n), Math.round(g / n), Math.round(b / n)] : null;
+                    glowRgb = n > 3 ? [Math.round(r / n), Math.round(g2 / n), Math.round(b / n)] : null;
                   } catch (x) { glowRgb = null; }
                   style();
                 };
@@ -1636,12 +3377,13 @@ jobs:
 
               function show(e) {
                 tint(e.icon || e.img);
-                if (!open) entries = [];
+                if (!open || mode !== 'rows') { entries = []; mode = 'rows'; curPanel = null; sticky = false; }
                 entries.push(e);
                 while (entries.length > 3) entries.shift();
                 if (o.sound) { try { o.sound(e); } catch (x) {} }
                 if (!open) { expandFresh(); return; }
-                if (openingFx) { openingFx = false; ct.style.opacity = 1; ct.style.scale = 1; }
+                if (openingFx) { openingFx = false; ct.style.opacity = 1; ct.style.scale = 1; ct.style.filter = 'none'; }
+                ct.style.transition = 'none'; ct.style.opacity = 1; ct.style.filter = 'none';
                 rebuild();
                 springTo(eW(), contentH(), true);
                 rowIn(ct.lastChild, 60, true);
@@ -1649,45 +3391,120 @@ jobs:
                 arm();
               }
 
-              /* ---------- sentuhan ---------- */
+              // buka panel (media, jaringan, monitor, hub, dll)
+              function showPanel(spec, opt) {
+                opt = opt || {};
+                var js = JSON.stringify(spec);
+                if (open && mode === 'panel' && lastPanelJson === js) { arm(); return; }
+                var wasPanel = open && mode === 'panel';
+                mode = 'panel'; curPanel = spec; lastPanelJson = js; sticky = !!opt.sticky;
+                if (opt.glow) tint(opt.glow); else if (!open) { glowRgb = null; style(); }
+                if (!open) { expandFresh(false); }
+                else {
+                  if (openingFx) { openingFx = false; ct.style.opacity = 1; ct.style.scale = 1; ct.style.filter = 'none'; }
+                  ct.style.transition = 'none'; ct.style.opacity = 1; ct.style.filter = 'none';
+                  rebuild(); springTo(eW(), contentH(), true);
+                  if (!wasPanel) pulse();
+                }
+                if (opt.hoverOpen) { clearTimeout(timer); } else arm();
+              }
+
+              function setLive(list) {
+                lives = Array.isArray(list) ? list : [];
+                renderLive();
+                if (!open) {
+                  lv.style.transition = 'none'; lv.style.opacity = 1; lv.style.filter = 'none';
+                  if (lives.length) { isl.classList.add('on'); }
+                  if (!S.w) { S.w = idleW(); S.h = ph(); applySize(S.w, S.h); }
+                  springTo(idleW(), ph(), false);
+                  if (!lives.length && !C.always) { /* frame() akan menyembunyikan setelah mengecil */ }
+                } else if (mode === 'panel' && curPanel && curPanel.id) {
+                  // perbarui panel yang sedang terbuka kalau datanya berubah
+                  var cur = null;
+                  lives.forEach(function (a) { if (a.panel && a.panel.id === curPanel.id) cur = a.panel; });
+                  if (cur) showPanel(cur, { hoverOpen: hover && !sticky, sticky: sticky });
+                }
+              }
+
+              function topPanel() {
+                var srt = lives.slice().sort(function (a, b) { return (b.p || 0) - (a.p || 0); });
+                for (var i = 0; i < srt.length; i++) if (srt[i].panel) return srt[i].panel;
+                return null;
+              }
+
+              /* ---------- sentuhan & hover ---------- */
               isl.addEventListener('pointerdown', function (ev) {
                 downY = ev.clientY;
+                if (ev.target.closest && ev.target.closest('[data-act],[data-hid]')) return;
                 isl.classList.remove('rel'); isl.style.scale = 0.965;
-                try { isl.setPointerCapture(ev.pointerId); } catch (x) {}
               });
               function release() { isl.classList.add('rel'); isl.style.scale = 1; }
               isl.addEventListener('pointercancel', release);
               isl.addEventListener('pointerup', function (ev) {
                 release();
+                var tg = ev.target;
+                var ab = tg.closest ? tg.closest('[data-act]') : null;
+                if (ab) {
+                  if (o.onAct) o.onAct(ab.dataset.act, ab.dataset.arg);
+                  return;
+                }
+                if (tg.closest && tg.closest('[data-hid]')) return;
                 if (downY - ev.clientY > 18) { collapse(); return; }
                 var rc = isl.getBoundingClientRect();
                 if (ev.clientX < rc.left || ev.clientX > rc.right || ev.clientY < rc.top || ev.clientY > rc.bottom) return;
-                if (!open) { if (o.onPill) o.onPill(); return; }
-                var el = document.elementFromPoint(ev.clientX, ev.clientY), row = el && el.closest ? el.closest('.fxr') : null, idx = -1;
+                if (!open) {
+                  var tp = topPanel();
+                  if (tp) { showPanel(tp, { sticky: true }); return; }
+                  if (o.onPill) o.onPill();
+                  return;
+                }
+                if (mode === 'panel') { if (sticky) collapse(); else { sticky = true; clearTimeout(timer); } return; }
+                var el2 = document.elementFromPoint(ev.clientX, ev.clientY), row = el2 && el2.closest ? el2.closest('.fxr') : null, idx = -1;
                 if (row) for (var i = 0; i < ct.children.length; i++) if (ct.children[i] === row) idx = i;
                 if (idx < 0) idx = entries.length - 1;
                 if (o.onTap) o.onTap(entries[idx], idx);
                 collapse();
               });
-              isl.addEventListener('mouseenter', function () { hover = true; clearTimeout(timer); });
-              isl.addEventListener('mouseleave', function () { hover = false; arm(); });
+              isl.addEventListener('mouseenter', function () {
+                hover = true; clearTimeout(timer); clearTimeout(leaveT);
+                if (!open && liveOn()) {
+                  clearTimeout(hoverT);
+                  hoverT = setTimeout(function () { var tp = topPanel(); if (tp && hover && !open) showPanel(tp, { hoverOpen: true }); }, 140);
+                }
+              });
+              isl.addEventListener('mouseleave', function () {
+                hover = false; clearTimeout(hoverT);
+                if (open && mode === 'panel' && !sticky) { clearTimeout(leaveT); leaveT = setTimeout(collapse, 420); }
+                else arm();
+              });
+              isl.addEventListener('dragstart', function (ev) {
+                var it = ev.target.closest ? ev.target.closest('[data-hid]') : null;
+                if (it) { ev.preventDefault(); if (o.onDrag) o.onDrag(it.dataset.hid); }
+              });
+              isl.addEventListener('dragenter', function () { isl.classList.add('drop'); });
+              isl.addEventListener('dragleave', function (ev) { if (!ev.relatedTarget || !isl.contains(ev.relatedTarget)) isl.classList.remove('drop'); });
+              isl.addEventListener('drop', function () { isl.classList.remove('drop'); });
 
               /* ---------- konfigurasi ---------- */
               function config(c) {
                 for (var k in c) if (c.hasOwnProperty(k)) C[k] = c[k];
                 style();
                 if (!open && !S.run) {
-                  S.w = pw(); S.h = ph(); applySize(S.w, S.h);
-                  if (C.always) isl.classList.add('on'); else if (!S.run) isl.classList.remove('on');
+                  S.w = idleW(); S.h = ph(); applySize(S.w, S.h);
+                  if (keepVisible()) isl.classList.add('on'); else isl.classList.remove('on');
+                  renderLive();
                 } else if (open) {
                   rebuild(); springTo(eW(), contentH(), true);
                 }
               }
-              style(); S.w = pw(); S.h = ph(); applySize(S.w, S.h);
+              style(); S.w = idleW(); S.h = ph(); applySize(S.w, S.h);
 
               return {
-                config: config, show: show, collapse: collapse,
+                config: config, show: show, collapse: collapse, panel: showPanel, live: setLive,
+                level: function (p) { lvl = clamp((+p || 0) / 1000, 0, 1); },
                 isOpen: function () { return open; },
+                isLive: function () { return lives.length > 0; },
+                mode: function () { return mode; },
                 rect: function () { return isl.classList.contains('on') ? isl.getBoundingClientRect() : null; },
                 el: isl
               };
@@ -1705,26 +3522,33 @@ jobs:
                 var p = a.play(); if (p && p.catch) p.catch(function () {});
               } catch (e) {}
             }
+            var inside = false;
             var core = makeIsland(document.body, {
-              sound: function () { if (cur.snd) play(cur.surl, cur.svol); },
-              onTap: function (e) { fxo.send('tap', (e && e.appId) || ''); },
+              sound: function (e) { if (cur.snd && !e.quiet) play(cur.surl, cur.svol); },
+              onTap: function (e) { fxo.send('tap', { id: (e && e.appId) || '', kind: (e && e.kind) || '' }); },
+              onAct: function (a, arg) { fxo.send('act', { a: a, arg: arg }); },
+              onDrag: function (id) { fxo.send('dragout', String(id)); },
               onIdle: function () { inside = false; fxo.send('idle'); }
             });
-            var inside = false;
+            function interactive() { return core.isOpen() || core.isLive(); }
             document.addEventListener('mousemove', function (ev) {
               var r = core.rect();
-              var i = core.isOpen() && !!r && ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
+              var i = interactive() && !!r && ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
               if (i !== inside) { inside = i; fxo.send('mouse', i); }
             });
             document.addEventListener('mouseleave', function () { if (inside) { inside = false; fxo.send('mouse', false); } });
             fxo.on('cfg', function (c) {
               cur = { snd: !!c.snd, surl: c.surl, svol: c.svol, bat: !!c.bat };
               core.config({ bg: c.bg, op: c.op, cw: c.cw, ew: c.ew, dh: c.dh, top: c.top, always: c.always, dur: c.dur, glow: !!c.glow, edge: c.edge });
-              if (!c.always && !core.isOpen()) fxo.send('idle');
+              if (!c.always && !core.isOpen() && !core.isLive()) fxo.send('idle');
             });
             fxo.on('show', function (e) { core.show(e); });
+            fxo.on('live', function (l) { core.live(l); });
+            fxo.on('lvl', function (p) { core.level(p); });
+            fxo.on('panel', function (d) { core.panel(d.spec, { sticky: !!d.sticky, glow: d.glow }); });
             fxo.on('sound', function (d) { play(d.url, d.vol); });
             fxo.on('stop', function () { core.collapse(); });
+            fxo.on('dz', function (v) { document.getElementById('dz').style.display = v ? 'block' : 'none'; });
             function svg(c, g) {
               return 'data:image/svg+xml;utf8,' + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><rect width='96' height='96' fill='" + c + "'/><text x='48' y='67' font-size='52' text-anchor='middle'>" + g + '</text></svg>');
             }
@@ -1761,7 +3585,7 @@ jobs:
           <title>Anim</title>
           <style>
           html,body{margin:0;height:100%;overflow:hidden;background:transparent}
-          .card{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform,opacity;box-shadow:0 14px 34px rgba(0,0,0,.32)}
+          .card{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform,opacity}
           .ic{position:absolute;left:0;top:0;width:60px;height:60px;will-change:transform,opacity;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35))}
           .ic img{width:100%;height:100%;display:block}
           </style>
@@ -1812,19 +3636,20 @@ jobs:
                 var c2 = 'rgb(' + col.map(function (v) { return Math.round(v * 0.72); }).join(',') + ')';
                 var card = document.createElement('div'); card.className = 'card';
                 card.style.left = R.x + 'px'; card.style.top = R.y + 'px'; card.style.width = W + 'px'; card.style.height = H + 'px';
-                card.style.background = 'linear-gradient(160deg,' + c1 + ',' + c2 + ')';
+                card.style.background = c1;
                 var ic = document.createElement('div'); ic.className = 'ic';
                 if (d.icon) { var im = document.createElement('img'); im.src = d.icon; ic.appendChild(im); }
                 document.body.appendChild(card); document.body.appendChild(ic);
                 active++;
                 var opening = !!d.opening, endR = d.max ? 0 : 9;
-                var ease = opening ? EASE_OPEN : EASE_CLOSE, dur = opening ? 440 : 370;
+                var ease = opening ? EASE_OPEN : EASE_CLOSE, dur = opening ? 380 : 320;
                 var ox = d.origin.x, oy = d.origin.y;
                 var cx1 = R.x + W / 2, cy1 = R.y + H / 2;
-                var t0 = 0;
+                var t0 = performance.now(), first = true;
                 function step(ts) {
-                  if (!t0) t0 = ts;
-                  var f = c01((ts - t0) / dur), g = ease(f);
+                  var el = ts - t0;
+                  if (first) { first = false; if (el > 40) { t0 = ts - 40; el = 40; } }
+                  var f = c01(el / dur), g = ease(f);
                   var t = opening ? g : 1 - g;                      // 0 = ukuran ikon, 1 = ukuran jendela
                   var sx = lerp(ICON / W, 1, t), sy = lerp(ICON / H, 1, t);
                   var tx = lerp(ox - ICON / 2 - R.x, 0, t), ty = lerp(oy - ICON / 2 - R.y, 0, t);
@@ -1868,6 +3693,14 @@ jobs:
           ls -la fx; test -s fx/fxhelper.cs || { echo "::error::fx/fxhelper.cs tidak ada"; exit 1; }
           (cd fx && "$CSC" -nologo -target:exe -optimize+ -platform:anycpu -warn:0 -out:fxhelper.exe -r:System.Drawing.dll -r:System.Xml.dll fxhelper.cs) || { echo "::error::kompilasi fxhelper.cs gagal"; exit 1; }
           mv fx/fxhelper.exe fx/bin/fxhelper.exe
+          # pembantu tambahan (media, jaringan, monitor, kursor, dll). Opsional: kalau gagal dikompilasi, EXE tetap jadi tanpa fitur itu.
+          if (cd fx && "$CSC" -nologo -target:exe -optimize+ -platform:anycpu -warn:0 -out:fxsys.exe -r:System.Drawing.dll -r:System.dll fxsys.cs); then
+            mv fx/fxsys.exe fx/bin/fxsys.exe
+            echo "fxsys.exe OK"
+          else
+            echo "::warning::fxsys.cs gagal dikompilasi - fitur tambahan dinonaktifkan"
+            head -c 4096 /dev/zero > fx/bin/fxsys.exe
+          fi
           test -f fx/bin/fxhelper.exe || { echo "::error::fxhelper.exe gagal dibuat"; exit 1; }
           echo "Uji ikon pembantu (tidak wajib berhasil):"
           fx/bin/fxhelper.exe icon "C:\\Windows\\System32\\notepad.exe" 64 | head -c 24 || true
@@ -1953,7 +3786,7 @@ jobs:
               appId: "com.apkmaker.app", productName: name,
               directories: { output: "dist", buildResources: "build" },
               files: ["main.js", "app-config.json", "icon.png", "www/**/*"].concat(e.FX === "true" ? ["fx/**/*", "!fx/bin", "!fx/**/*.cs"] : []),
-              extraResources: e.FX === "true" ? [{ from: "fx/bin/fxhelper.exe", to: "fxhelper.exe" }] : undefined,
+              extraResources: e.FX === "true" ? [{ from: "fx/bin/fxhelper.exe", to: "fxhelper.exe" }, { from: "fx/bin/fxsys.exe", to: "fxsys.exe" }] : undefined,
               win: { target: "nsis", icon: "build/icon.png" },
               nsis: { oneClick: false, perMachine: false, allowToChangeInstallationDirectory: true, runAfterFinish: true, createDesktopShortcut: true, createStartMenuShortcut: true },
               artifactName: "app.${ext}"
@@ -1965,6 +3798,7 @@ jobs:
           const path = require("path");
           const cfg = require("./app-config.json");
           const fx = cfg.fx ? require("./fx/fx.js") : null;
+          if (cfg.fx) { app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion"); app.commandLine.appendSwitch("disable-renderer-backgrounding"); app.commandLine.appendSwitch("disable-background-timer-throttling"); }
           const safe = u => /^https?:/i.test(u);
           const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
           let win = null, blocked = false, forced = "", tray = null, quitting = false;
