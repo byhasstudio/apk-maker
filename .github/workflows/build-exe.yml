@@ -925,6 +925,49 @@ jobs:
           using System.Threading;
           using Microsoft.Win32;
 
+          // ----- memberi tahu Windows bahwa tema gelap/terang berubah (setelah registri diubah)
+          static class MbTheme
+          {
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessageTimeout(IntPtr h, uint msg, IntPtr w, string l, uint flags, uint timeout, out IntPtr res);
+              public static void Broadcast()
+              {
+                  IntPtr r;
+                  SendMessageTimeout(new IntPtr(0xFFFF), 0x001A, IntPtr.Zero, "ImmersiveColorSet", 2, 1500, out r);
+              }
+          }
+
+          // ----- AppBar: menyisakan ruang di tepi atas layar supaya jendela maksimal tidak menutup menu bar
+          static class MbBar
+          {
+              [StructLayout(LayoutKind.Sequential)] struct RECT { public int L, T, R, B; }
+              [StructLayout(LayoutKind.Sequential)] struct APPBARDATA { public int cbSize; public IntPtr hWnd; public uint uCallbackMessage; public uint uEdge; public RECT rc; public IntPtr lParam; }
+              [DllImport("shell32.dll")] static extern UIntPtr SHAppBarMessage(uint msg, ref APPBARDATA d);
+              static IntPtr cur = IntPtr.Zero;
+          
+              public static void Off()
+              {
+                  if (cur == IntPtr.Zero) return;
+                  APPBARDATA d = new APPBARDATA();
+                  d.cbSize = Marshal.SizeOf(typeof(APPBARDATA)); d.hWnd = cur;
+                  SHAppBarMessage(1, ref d);
+                  cur = IntPtr.Zero;
+              }
+          
+              public static void Set(long hwnd, int x, int y, int w, int h)
+              {
+                  Off();
+                  APPBARDATA d = new APPBARDATA();
+                  d.cbSize = Marshal.SizeOf(typeof(APPBARDATA)); d.hWnd = new IntPtr(hwnd);
+                  d.uCallbackMessage = 0x0401; d.uEdge = 1;
+                  SHAppBarMessage(0, ref d);
+                  d.rc.L = x; d.rc.T = y; d.rc.R = x + w; d.rc.B = y + h;
+                  SHAppBarMessage(2, ref d);
+                  d.rc.B = d.rc.T + h;
+                  SHAppBarMessage(3, ref d);
+                  cur = d.hWnd;
+              }
+          }
+
           static class Program
           {
               static readonly object O = new object();
@@ -981,6 +1024,7 @@ jobs:
                       Spawn(delegate () { Guard(Sys.PingLoop); });
                       Spawn(delegate () { Guard(Sys.Mouse); });
                       Spawn(delegate () { Guard(Sys.Clip); });
+                      Spawn(delegate () { Guard(Sys.Volume); });
                       Emit("{\"t\":\"ready\"}");
                       string line;
                       while ((line = Console.In.ReadLine()) != null)
@@ -992,6 +1036,7 @@ jobs:
                   {
                       Emit("{\"t\":\"err\",\"m\":" + J(e.GetType().Name + ": " + e.Message) + "}");
                   }
+                  try { MbBar.Off(); } catch (Exception) { }
                   try { CursorFx.Restore(); } catch (Exception) { }
                   Environment.Exit(0);
                   return 0;
@@ -1016,6 +1061,18 @@ jobs:
                   else if (c == "games") Sys.Extra = Sys.Names(p.Length > 1 ? p[1] : "");
                   else if (c == "nogames") Sys.NoGame = Sys.Names(p.Length > 1 ? p[1] : "");
                   else if (c == "wins") Spawn(delegate () { Guard(Sys.Wins); });
+                  else if (c == "vol" && p.Length > 1) { int vv; if (int.TryParse(p[1], out vv)) Sys.SetVol(vv); }
+                  else if (c == "mute") Sys.ToggleMute();
+                  else if (c == "theme") { try { MbTheme.Broadcast(); } catch (Exception) { } }
+                  else if (c == "bar")
+                  {
+                      if (p.Length > 5)
+                      {
+                          long hw; int bx, by, bw, bh;
+                          if (long.TryParse(p[1], out hw) && int.TryParse(p[2], out bx) && int.TryParse(p[3], out by) && int.TryParse(p[4], out bw) && int.TryParse(p[5], out bh)) MbBar.Set(hw, bx, by, bw, bh);
+                      }
+                      else MbBar.Off();
+                  }
                   else if (c == "cursor")
                   {
                       if (p.Length > 1 && p[1] == "off") { CursorFx.Restore(); return; }
@@ -1448,6 +1505,101 @@ jobs:
               interface IAudioMeterInformation
               {
                   [PreserveSig] int GetPeakValue(out float peak);
+              }
+
+              // ----- volume master (menu bar)
+              [ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+              interface IAudioEndpointVolume
+              {
+                  [PreserveSig] int RegisterControlChangeNotify(IntPtr n);
+                  [PreserveSig] int UnregisterControlChangeNotify(IntPtr n);
+                  [PreserveSig] int GetChannelCount(out uint c);
+                  [PreserveSig] int SetMasterVolumeLevel(float l, ref Guid g);
+                  [PreserveSig] int SetMasterVolumeLevelScalar(float l, ref Guid g);
+                  [PreserveSig] int GetMasterVolumeLevel(out float l);
+                  [PreserveSig] int GetMasterVolumeLevelScalar(out float l);
+                  [PreserveSig] int SetChannelVolumeLevel(uint c, float l, ref Guid g);
+                  [PreserveSig] int SetChannelVolumeLevelScalar(uint c, float l, ref Guid g);
+                  [PreserveSig] int GetChannelVolumeLevel(uint c, out float l);
+                  [PreserveSig] int GetChannelVolumeLevelScalar(uint c, out float l);
+                  [PreserveSig] int SetMute([MarshalAs(UnmanagedType.Bool)] bool m, ref Guid g);
+                  [PreserveSig] int GetMute([MarshalAs(UnmanagedType.Bool)] out bool m);
+              }
+              
+              static IAudioEndpointVolume VolEv = null;
+              static readonly object VolLock = new object();
+              
+              static IAudioEndpointVolume OpenVol()
+              {
+                  IMMDeviceEnumerator en = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
+                  IMMDevice dev;
+                  if (en.GetDefaultAudioEndpoint(0, 1, out dev) != 0 || dev == null) return null;
+                  Guid iid = new Guid("5CDF2C82-841E-4546-9722-0CF74078229A");
+                  object o;
+                  if (dev.Activate(ref iid, 23, IntPtr.Zero, out o) != 0) return null;
+                  return o as IAudioEndpointVolume;
+              }
+              
+              public static void SetVol(int v)
+              {
+                  try
+                  {
+                      lock (VolLock)
+                      {
+                          if (VolEv == null) VolEv = OpenVol();
+                          if (VolEv == null) return;
+                          Guid g = Guid.Empty;
+                          VolEv.SetMasterVolumeLevelScalar(Math.Max(0, Math.Min(100, v)) / 100f, ref g);
+                          if (v > 0) VolEv.SetMute(false, ref g);
+                      }
+                  }
+                  catch (Exception) { VolEv = null; }
+              }
+              
+              public static void ToggleMute()
+              {
+                  try
+                  {
+                      lock (VolLock)
+                      {
+                          if (VolEv == null) VolEv = OpenVol();
+                          if (VolEv == null) return;
+                          bool m;
+                          if (VolEv.GetMute(out m) != 0) return;
+                          Guid g = Guid.Empty;
+                          VolEv.SetMute(!m, ref g);
+                      }
+                  }
+                  catch (Exception) { VolEv = null; }
+              }
+              
+              public static void Volume()
+              {
+                  string last = "";
+                  while (true)
+                  {
+                      try
+                      {
+                          lock (VolLock)
+                          {
+                              if (VolEv == null) VolEv = OpenVol();
+                              if (VolEv != null)
+                              {
+                                  float v = 0; bool m = false;
+                                  int r1 = VolEv.GetMasterVolumeLevelScalar(out v);
+                                  int r2 = VolEv.GetMute(out m);
+                                  if (r1 != 0 || r2 != 0) VolEv = null;
+                                  else
+                                  {
+                                      string js = "{\"t\":\"vol\",\"v\":" + (int)Math.Round(v * 100) + ",\"m\":" + (m ? 1 : 0) + "}";
+                                      if (js != last) { last = js; Program.Emit(js); }
+                                  }
+                              }
+                          }
+                      }
+                      catch (Exception) { VolEv = null; }
+                      Thread.Sleep(450);
+                  }
               }
 
               static IAudioMeterInformation OpenMeter()
@@ -2010,6 +2162,7 @@ jobs:
             appnotif: true, live: true, media: true, mtoast: true, devs: true, net: true, rmon: 1, prog: true, hub: true, game: true,
             curs: false, cstyle: "ring", ccolor: "#ffffff", csize: 36,
             auto: true, fpsreal: true, gamelist: [], nogame: [], xh: false, xhgame: false, xhstyle: "cross", xhcolor: "#00ff66", xhsize: 14, xhthick: 2, xhgap: 4, xhop: 90, cal: true, city: "", lang: "id",
+            spot: true, spotfiles: true, lp: true, cc: true, mb: false, mbhide: false, mbres: true, mb24: true, mbdate: true, mbsec: false,
             dock: false, dicons: true, dv: 2, dsize: 64, dzoom: 150, dtheme: "dark", dhide: false, dtb: true, dmargin: 6, drun: true, dpins: [], dseed: false
           };
 
@@ -2553,12 +2706,12 @@ jobs:
 
           /* ----- pengelolaan proses ----- */
           function startSys() {
-            if (procs.sys || !S.enabled || quitting) return;
+            if (procs.sys || !(S.enabled || S.mb) || quitting) return;
             if (!sysExists()) { sysState = { ok: false, err: "fxsys.exe tidak ditemukan" }; return; }
             procs.sys = runHelper([], onSys, () => {
               procs.sys = null; sysState = { ok: false, err: sysState.err || "pembantu berhenti" };
               clearSysLive();
-              if (S.enabled && !quitting && sysTries++ < 5) setTimeout(startSys, 3000);
+              if ((S.enabled || S.mb) && !quitting && sysTries++ < 5) setTimeout(startSys, 3000);
             }, sysExe());
           }
           function stopSys() {
@@ -2595,7 +2748,7 @@ jobs:
             else sysCmd("cursor off");
           }
           const DOCKOPTS = ["dhide", "dsize", "dzoom", "dtheme", "dmargin", "drun"];
-          const BOOLOPT = ["auto", "fpsreal", "appnotif", "live", "media", "mtoast", "devs", "net", "prog", "hub", "game", "curs", "xh", "xhgame", "cal", "dock", "dhide", "dtb", "drun", "dicons"];
+          const BOOLOPT = ["auto", "fpsreal", "appnotif", "live", "media", "mtoast", "devs", "net", "prog", "hub", "game", "curs", "xh", "xhgame", "cal", "spot", "spotfiles", "lp", "cc", "mb", "mbhide", "mbres", "mb24", "mbdate", "mbsec", "dock", "dhide", "dtb", "drun", "dicons"];
           function setOpt(key, val) {
             if (BOOLOPT.indexOf(key) >= 0) S[key] = !!val;
             else if (key === "rmon") S.rmon = Math.round(clamp(val, 0, 2));
@@ -2625,6 +2778,12 @@ jobs:
             if (key === "dock" && S.dock) S.dtb = true;      // menyalakan Dock = mode macOS penuh: taskbar Windows ikut hilang
             save();
             if (key === "appnotif") applyAnim();
+            if (key === "mb" || key === "mbres") { applyMenubar(); if (key === "mbres") mbVis(true); }
+            else if (key === "mbhide") mbVis(true);
+                      if (key === "spot") applySpot();
+                      if (key === "lp") dockPush(true);
+                      if (key === "cc") mbSend("cfg", mbCfg());
+            else if (/^mb/.test(key)) mbSend("cfg", mbCfg());
             if (key === "dock" || key === "dtb") applyDock();
             else if (key === "dicons") { icSync(); dockPush(true); }
             else if (DOCKOPTS.indexOf(key) >= 0) { dockSend("cfg", dockCfg()); if (key === "drun") dockPush(true); }
@@ -2644,6 +2803,8 @@ jobs:
 
           /* ----- pesan dari fxsys.exe ----- */
           function onSys(m) {
+            if (m.t === "vol") { mbVol = { v: m.v | 0, m: m.m ? 1 : 0 }; mbSend("vol", mbVol); ccSend("vol", mbVol); return; }
+            if (m.t === "fg" && !S.enabled) { gameState.full = !!m.full; gameState.exe = String(m.exe || ""); gameState.cur = String(m.cur || ""); mbSend("app", mbApp()); mbVis(); return; }
             if (!S.enabled) return;
             switch (m.t) {
               case "ready": sysState = { ok: true, err: "" }; sysTries = 0; syncSysFlags(); applyCursor(); break;
@@ -2655,7 +2816,7 @@ jobs:
               case "media": onMedia(m); break;
               case "lvl": if (L.media && mediaState.play) toIsl("lvl", m.p | 0); break;
               case "prog": onProg(m); break;
-              case "fg": onFg(m); break;
+              case "fg": onFg(m); mbSend("app", mbApp()); mbVis(); break;
               case "wins": winsList = (Array.isArray(m.l) ? m.l : []).filter(x => x && typeof x.n === "string").map(x => ({ n: x.n.slice(0, 60), t: String(x.t || "").slice(0, 60) })).slice(0, 40); break;
               case "fps": if (!pm.p || !pm.got) { gameState.fps = m.v | 0; gameState.real = false; refreshGame(); } break;
               case "ping": onPing(m); break;
@@ -3190,7 +3351,7 @@ jobs:
           function dockCfg() {
             return {
               size: S.dsize, zoom: S.dzoom, theme: S.dtheme === "light" ? "light" : "dark", hide: !!S.dhide, margin: S.dmargin,
-              L: { open: T("Buka"), close: T("Tutup"), keep: T("Simpan di Dock"), remove: T("Hapus dari Dock"), dl: T("Unduhan"), bin: T("Tempat sampah"), tb: T("Tampilkan/sembunyikan taskbar"), ic: T("Ikon desktop"), st: T("Menu Start") }
+              L: { open: T("Buka"), close: T("Tutup"), keep: T("Simpan di Dock"), remove: T("Hapus dari Dock"), dl: T("Unduhan"), bin: T("Tempat sampah"), tb: T("Tampilkan/sembunyikan taskbar"), ic: T("Ikon desktop"), st: T("Menu Start"), lp: T("Launchpad") }
             };
           }
           function dockSend(ch, d) {
@@ -3269,7 +3430,7 @@ jobs:
                 runs.push(it);
               });
             }
-            const items = [{ k: "st", t: "st", name: "" }].concat(pins);
+            const items = [{ k: "st", t: "st", name: "" }].concat(S.lp !== false ? [{ k: "lp", t: "lp", name: "" }] : [], pins);
             if (pins.length && runs.length) items.push({ k: "s1", t: "sep" });
             runs.forEach(r => items.push(r));
             items.push({ k: "s2", t: "sep" });
@@ -3516,6 +3677,7 @@ jobs:
             if (p.k === "tb") { tbToggle(); return; }
             if (p.k === "ic") { setOpt("dicons", !S.dicons); return; }
             if (p.k === "st") { dockCmd("start"); return; }
+                      if (p.k === "lp") { toggleLp(); return; }
             if (p.k === "dl") { try { shell.openPath(app.getPath("downloads")); } catch (_) {} return; }
             if (p.k === "bin") { try { spawn("explorer.exe", ["shell:RecycleBinFolder"], { detached: true, stdio: "ignore", windowsHide: true }).unref(); } catch (_) {} return; }
             const it = dockMap.get(p.k);
@@ -3550,12 +3712,368 @@ jobs:
             try { tbRestore(); } catch (_) {} try { icRestore(); } catch (_) {}
           }
 
+          /* ---------- Menu bar ala macOS: nama aplikasi aktif, jam, baterai, Wi-Fi, volume ---------- */
+          const MB_H = 28;
+          let mbWin = null, mbReady = false, mbWifiT = null, mbTopT = null, mbShown = false, mbDisp = false;
+          let mbWifi = { k: "none", n: "", s: 0 }, mbVol = { v: -1, m: 0 };
+          const mbSend = (ch, d) => { if (mbWin && !mbWin.isDestroyed() && mbReady) { try { mbWin.webContents.send("mb:" + ch, d); } catch (_) {} } };
+          const fromMb = e => !!(mbWin && !mbWin.isDestroyed() && e.sender === mbWin.webContents);
+          function mbBounds() { const d = screen.getPrimaryDisplay().bounds; return { x: d.x, y: d.y, width: d.width, height: MB_H }; }
+          function mbCfg() { return { cc: S.cc !== false, h24: S.mb24 !== false, date: S.mbdate !== false, sec: !!S.mbsec, loc: I18N.loc(S.lang) }; }
+          function mbApp() {
+            const c = String(gameState.cur || "").toLowerCase().replace(/\.exe$/, "");
+            if (!c || ["explorer", "searchhost", "searchapp", "startmenuexperiencehost", "shellexperiencehost", "applicationframehost", "fxdock"].indexOf(c) >= 0) return T("Desktop");
+            return niceName(gameState.cur);
+          }
+          function mbPollWifi() {
+            if ((!mbWin || mbWin.isDestroyed()) && (!ccWin || ccWin.isDestroyed())) return;
+            execFile("netsh", ["wlan", "show", "interfaces"], { windowsHide: true, timeout: 4000 }, (_err, out) => {
+              const o = String(out || ""), ss = /^\s*SSID\s*:\s*(.+?)\s*$/m.exec(o), sg = /^\s*[^:\r\n]+:\s*(\d{1,3})%/m.exec(o);
+              let w = { k: "none", n: "", s: 0 };
+              if (ss && sg) w = { k: "wifi", n: ss[1].slice(0, 40), s: Math.min(100, sg[1] | 0) };
+              else {
+                try {
+                  const n = require("os").networkInterfaces();
+                  if (Object.keys(n).some(k => (n[k] || []).some(a => a.family === "IPv4" && !a.internal && !/^169\.254\./.test(a.address)))) w = { k: "eth", n: "", s: 100 };
+                } catch (_) {}
+              }
+              if (w.k !== mbWifi.k || w.n !== mbWifi.n || w.s !== mbWifi.s) { mbWifi = w; mbSend("wifi", w); ccSend("wifi", w); }
+            });
+          }
+          function ensureMb() {
+            if (mbWin && !mbWin.isDestroyed()) return mbWin;
+            const o = overlayOpts(mbBounds());
+            o.webPreferences = { preload: path.join(__dirname, "menubar-preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false };
+            mbWin = new BrowserWindow(o);
+            mbReady = false; mbShown = false;
+            try { mbWin.setAlwaysOnTop(true, "screen-saver"); } catch (_) {}
+            mbWin.on("closed", () => { mbWin = null; mbReady = false; mbShown = false; });
+            mbWin.webContents.on("did-finish-load", () => {
+              mbReady = true; mbSend("cfg", mbCfg()); mbSend("app", mbApp()); mbSend("wifi", mbWifi); mbSend("vol", mbVol); mbVis();
+            });
+            mbWin.loadFile(path.join(__dirname, "menubar.html"));
+            return mbWin;
+          }
+          function mbReserve() {
+            if (!mbWin || mbWin.isDestroyed()) return;
+            if (!S.mb || S.mbres === false || !mbShown) { sysCmd("bar off"); return; }
+            try {
+              const r = screen.dipToScreenRect(mbWin, mbBounds()), h = mbWin.getNativeWindowHandle();
+              const hw = h.length >= 8 ? Number(h.readBigUInt64LE(0)) : h.readUInt32LE(0);
+              sysCmd("bar " + hw + " " + r.x + " " + r.y + " " + r.width + " " + r.height);
+            } catch (_) {}
+          }
+          function mbVis(force) {
+            if (!mbWin || mbWin.isDestroyed() || !mbReady) return;
+            const want = !!S.mb && !S.mbhide && !gameState.full && !(S.dock && dockFs);
+            try {
+              const b = mbBounds(), c = mbWin.getBounds();
+              const moved = b.x !== c.x || b.y !== c.y || b.width !== c.width || b.height !== c.height;
+              if (moved) mbWin.setBounds(b);
+              if (want && !mbWin.isVisible()) { mbWin.setAlwaysOnTop(true, "screen-saver"); mbWin.showInactive(); }
+              else if (!want && mbWin.isVisible()) mbWin.hide();
+              if (want !== mbShown || moved || force) { mbShown = want; mbReserve(); }
+            } catch (_) {}
+          }
+          function applyMenubar() {
+            if (!S.mb) { stopMenubar(); return; }
+            ensureMb(); startSys();
+            try { globalShortcut.register("CommandOrControl+Alt+M", () => setOpt("mbhide", !S.mbhide)); } catch (_) {}
+            if (!mbWifiT) { mbPollWifi(); mbWifiT = setInterval(mbPollWifi, 15000); }
+            if (!mbTopT) mbTopT = setInterval(() => { mbVis(); if (mbWin && !mbWin.isDestroyed() && mbWin.isVisible()) { try { mbWin.setAlwaysOnTop(true, "screen-saver"); } catch (_) {} } }, 2000);
+            if (!mbDisp) { mbDisp = true; screen.on("display-metrics-changed", () => mbVis(true)); }
+            mbVis(true);
+          }
+          function stopMenubar() {
+            if (mbWifiT) { clearInterval(mbWifiT); mbWifiT = null; }
+            if (mbTopT) { clearInterval(mbTopT); mbTopT = null; }
+            sysCmd("bar off");
+            try { globalShortcut.unregister("CommandOrControl+Alt+M"); } catch (_) {}
+            if (mbWin && !mbWin.isDestroyed()) { try { mbWin.destroy(); } catch (_) {} }
+            mbWin = null; mbReady = false; mbShown = false;
+            if (!S.enabled) stopSys();
+          }
+          function mbAct(p) {
+            if (p.a === "vol") sysCmd("vol " + Math.round(clamp(p.v, 0, 100)));
+            else if (p.a === "mute") sysCmd("mute");
+            else if (p.a === "cc") toggleCc();
+            else if (p.a === "wifi") { try { shell.openExternal("ms-settings:network-wifi"); } catch (_) {} }
+            else if (p.a === "bat") { try { shell.openExternal("ms-settings:batterysaver"); } catch (_) {} }
+            else if (p.a === "clock") { try { openCal(); } catch (_) {} }
+          }
+
+          /* ---------- Spotlight (Ctrl+Space): buka aplikasi, cari file, kalkulator cepat ---------- */
+          let spotWin = null, spotReady = false, spotWant = false, spotGen = 0, spotLast = [], spotKeyOk = false;
+          let spotIdx = [], spotIdxAt = 0, spotIdxBusy = false;
+          const spotSend = (ch, d) => { if (spotWin && !spotWin.isDestroyed() && spotReady) { try { spotWin.webContents.send("sp:" + ch, d); } catch (_) {} } };
+          const fromSpot = e => !!(spotWin && !spotWin.isDestroyed() && e.sender === spotWin.webContents);
+          function spotRoots() {
+            const h = require("os").homedir(), r = ["Desktop", "Documents", "Downloads", "Pictures", "Music", "Videos"].map(d => path.join(h, d));
+            if (process.env.OneDrive) r.push(process.env.OneDrive);
+            return r;
+          }
+          async function spotBuild() {
+            if (spotIdxBusy) return;
+            spotIdxBusy = true;
+            const out = [], seen = new Set(), q = spotRoots().map(r => [r, 0]);
+            try {
+              while (q.length && out.length < 60000) {
+                const [d, dep] = q.shift();
+                let es = [];
+                try { es = await fs.promises.readdir(d, { withFileTypes: true }); } catch (_) { continue; }
+                for (const e of es) {
+                  if (e.name[0] === "." || e.name[0] === "~" || e.name === "node_modules" || /^desktop\.ini$/i.test(e.name)) continue;
+                  const f = path.join(d, e.name);
+                  if (seen.has(f)) continue;
+                  seen.add(f);
+                  if (e.isDirectory()) { if (dep < 4) q.push([f, dep + 1]); out.push({ n: e.name, p: f, d: 1 }); }
+                  else out.push({ n: e.name, p: f, d: 0 });
+                }
+              }
+            } catch (_) {}
+            spotIdx = out; spotIdxAt = Date.now(); spotIdxBusy = false;
+          }
+          function spotScore(name, toks) {
+            const n = String(name).toLowerCase();
+            let s = 0;
+            for (const t of toks) { const i = n.indexOf(t); if (i < 0) return -1; s += i === 0 ? 0 : (/[\s._-]/.test(n[i - 1]) ? 1 : 3); }
+            return s * 1000 + n.length;
+          }
+          function spotCalc(q) {
+            const FN = ["sqrt", "sin", "cos", "tan", "log", "ln", "abs", "round", "floor", "ceil"], MAP = ["sqrt", "sin", "cos", "tan", "log10", "log", "abs", "round", "floor", "ceil"];
+            let s = String(q).toLowerCase().replace(/,/g, ".").replace(/\^/g, "**").replace(/\u00d7/g, "*").replace(/\u00f7/g, "/").replace(/\bpi\b/g, "(3.141592653589793)");
+            s = s.replace(/\b(sqrt|sin|cos|tan|log|ln|abs|round|floor|ceil)\b/g, m => "#" + FN.indexOf(m));
+            if (!/^[0-9+\-*\/%().\s#]+$/.test(s) || !/\d/.test(s) || !/[+*\/%#]|[\d)]\s*-/.test(s)) return null;
+            s = s.replace(/#(\d)/g, (_m, k) => "Math." + MAP[+k]);
+            try {
+              const v = Function('"use strict"; return (' + s + ")")();
+              if (typeof v !== "number" || !isFinite(v)) return null;
+              const raw = String(Number(v.toPrecision(12)));
+              let shown = raw;
+              try { shown = v.toLocaleString(I18N.loc(S.lang), { maximumFractionDigits: 10 }); } catch (_) {}
+              return { text: shown, raw: raw };
+            } catch (_) { return null; }
+          }
+          function spotSearch(qs) {
+            const q = String(qs || "").trim().slice(0, 200), res = [];
+            if (!q) return res;
+            const c = spotCalc(q);
+            if (c) res.push({ t: "calc", n: "= " + c.text, s: q + "  \u00b7 " + T("Enter untuk menyalin"), raw: c.raw });
+            const toks = q.toLowerCase().split(/\s+/).filter(Boolean);
+            startApps.map(a => ({ a: a, sc: spotScore(a.n, toks) })).filter(x => x.sc >= 0).sort((x, y) => x.sc - y.sc).slice(0, 6)
+              .forEach(x => res.push({ t: "app", n: x.a.n, s: T("Aplikasi"), p: x.a.p }));
+            if (S.spotfiles !== false && q.length >= 2) {
+              spotIdx.map(f => ({ f: f, sc: spotScore(f.n, toks) })).filter(x => x.sc >= 0).sort((x, y) => x.sc - y.sc).slice(0, 6)
+                .forEach(x => res.push({ t: x.f.d ? "dir" : "file", n: x.f.n, s: path.dirname(x.f.p).replace(require("os").homedir(), "~"), p: x.f.p }));
+            }
+            res.forEach((r, i) => { r.i = i; });
+            return res.slice(0, 12);
+          }
+          function spotQuery(q) {
+            const gen = ++spotGen;
+            spotLast = spotSearch(q);
+            spotSend("res", spotLast.map(r => ({ i: r.i, t: r.t, n: r.n, s: r.s })));
+            spotLast.forEach(r => {
+              if (r.t === "app") appIcon(r.p, 32).then(v => { if (v && gen === spotGen) spotSend("icon", { i: r.i, v: v }); });
+              else if (r.t === "file" || r.t === "dir") app.getFileIcon(r.p, { size: "normal" }).then(img => { if (gen === spotGen) spotSend("icon", { i: r.i, v: img.toDataURL() }); }).catch(() => {});
+            });
+          }
+          function spotHide() { if (spotWin && !spotWin.isDestroyed() && spotWin.isVisible()) { try { spotWin.hide(); } catch (_) {} } }
+          function spotRun(i) {
+            const r = spotLast.find(x => x.i === (i | 0));
+            if (!r) return;
+            spotHide();
+            try {
+              if (r.t === "app") openApp(r.p);
+              else if (r.t === "file" || r.t === "dir") shell.openPath(r.p);
+              else if (r.t === "calc") clipboard.writeText(r.raw);
+            } catch (_) {}
+          }
+          function ensureSpot() {
+            if (spotWin && !spotWin.isDestroyed()) return spotWin;
+            spotWin = new BrowserWindow({
+              width: 688, height: 112, show: false, frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false,
+              fullscreenable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false, backgroundColor: "#00000000",
+              webPreferences: { preload: path.join(__dirname, "spot-preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false }
+            });
+            spotReady = false;
+            spotWin.on("blur", () => spotHide());
+            spotWin.on("closed", () => { spotWin = null; spotReady = false; });
+            spotWin.webContents.on("did-finish-load", () => { spotReady = true; if (spotWant) showSpot(); });
+            spotWin.loadFile(path.join(__dirname, "spot.html"));
+            return spotWin;
+          }
+          function showSpot() {
+            if (!S.spot && !spotWant) return;
+            const w = ensureSpot();
+            if (!spotReady) { spotWant = true; return; }
+            spotWant = false;
+            try {
+              const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).bounds;
+              w.setBounds({ x: Math.round(d.x + (d.width - 688) / 2), y: Math.round(d.y + d.height * 0.2), width: 688, height: 112 });
+              w.setAlwaysOnTop(true, "screen-saver");
+              w.show(); w.focus(); w.webContents.focus();
+            } catch (_) {}
+            spotLast = [];
+            spotSend("show", 1);
+            if (S.spotfiles !== false && Date.now() - spotIdxAt > 300000) spotBuild();
+          }
+          function toggleSpot() { if (spotWin && !spotWin.isDestroyed() && spotWin.isVisible()) spotHide(); else showSpot(); }
+          function applySpot() {
+            try { globalShortcut.unregister("CommandOrControl+Space"); } catch (_) {}
+            spotKeyOk = false;
+            if (!S.spot) { spotWant = false; if (spotWin && !spotWin.isDestroyed()) { try { spotWin.destroy(); } catch (_) {} } spotWin = null; spotReady = false; return; }
+            try { spotKeyOk = !!globalShortcut.register("CommandOrControl+Space", toggleSpot); } catch (_) { spotKeyOk = false; }
+            if (S.spotfiles !== false && !spotIdxAt) setTimeout(spotBuild, 4000);
+          }
+
+          /* ---------- Launchpad: grid semua aplikasi layar penuh, dibuka dari ikon di Dock ---------- */
+          let lpWin = null, lpReady = false, lpWant = false, lpList = [], lpHiddenAt = 0, lpBusy = 0, lpRetry = 0;
+          const lpQ = [];
+          const lpSend = (ch, d) => { if (lpWin && !lpWin.isDestroyed() && lpReady) { try { lpWin.webContents.send("lp:" + ch, d); } catch (_) {} } };
+          const fromLp = e => !!(lpWin && !lpWin.isDestroyed() && e.sender === lpWin.webContents);
+          function lpApps() {
+            let l = startApps.map(a => ({ n: a.n, p: a.p }));
+            if (!l.length) l = Object.keys(S.seen || {}).map(id => ({ n: String(S.seen[id]), p: id }));
+            try { l.sort((a, b) => a.n.localeCompare(b.n, I18N.loc(S.lang))); } catch (_) { l.sort((a, b) => a.n.localeCompare(b.n)); }
+            return l;
+          }
+          function lpPump() {
+            while (lpBusy < 3 && lpQ.length) {
+              const it = lpQ.shift();
+              lpBusy++;
+              appIcon(it[1], 128).then(v => { lpBusy--; if (v) lpSend("icon", { i: it[0], v: v }); lpPump(); }).catch(() => { lpBusy--; lpPump(); });
+            }
+          }
+          function lpPayload() {
+            return { apps: lpList.map((a, i) => ({ i: i, n: a.n })), ready: !!appsReady, light: S.dtheme === "light",
+                     L: { search: T("Cari"), empty: T("Tidak ada hasil"), load: T("Memuat aplikasi...") } };
+          }
+          function ensureLp() {
+            if (lpWin && !lpWin.isDestroyed()) return lpWin;
+            const b = screen.getPrimaryDisplay().bounds;
+            lpWin = new BrowserWindow({
+              x: b.x, y: b.y, width: b.width, height: b.height, show: false, frame: false, transparent: true, resizable: false, movable: false,
+              minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false, backgroundColor: "#00000000",
+              webPreferences: { preload: path.join(__dirname, "launchpad-preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false }
+            });
+            lpReady = false;
+            lpWin.on("blur", () => hideLp());
+            lpWin.on("closed", () => { lpWin = null; lpReady = false; });
+            lpWin.webContents.on("did-finish-load", () => { lpReady = true; if (lpWant) showLp(); });
+            lpWin.loadFile(path.join(__dirname, "launchpad.html"));
+            return lpWin;
+          }
+          function showLp() {
+            const w = ensureLp();
+            if (!lpReady) { lpWant = true; return; }
+            lpWant = false;
+            lpList = lpApps(); lpQ.length = 0;
+            try {
+              w.setBounds(screen.getPrimaryDisplay().bounds);
+              w.setAlwaysOnTop(true, "screen-saver");
+              w.show(); w.focus(); w.webContents.focus();
+            } catch (_) {}
+            lpSend("show", lpPayload());
+            lpRetry = 0;
+            const again = () => {
+              if (!lpWin || lpWin.isDestroyed() || !lpWin.isVisible() || lpList.length || lpRetry++ > 5) return;
+              lpList = lpApps();
+              if (lpList.length) lpSend("apps", lpPayload()); else setTimeout(again, 2500);
+            };
+            if (!lpList.length) setTimeout(again, 2500);
+          }
+          function hideLp() { if (lpWin && !lpWin.isDestroyed() && lpWin.isVisible()) { try { lpWin.hide(); } catch (_) {} lpHiddenAt = Date.now(); lpQ.length = 0; } }
+          function toggleLp() { if (lpWin && !lpWin.isDestroyed() && lpWin.isVisible()) hideLp(); else if (Date.now() - lpHiddenAt > 250) showLp(); }
+
+          /* ---------- Control Center: panel tombol cepat dari menu bar ---------- */
+          const CC_W = 344;
+          const CC_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
+          let ccWin = null, ccReady = false, ccWant = false, ccHiddenAt = 0, ccDark = false, ccBri = -1, ccBriT = null;
+          const ccSend = (ch, d) => { if (ccWin && !ccWin.isDestroyed() && ccReady) { try { ccWin.webContents.send("cc:" + ch, d); } catch (_) {} } };
+          const fromCc = e => !!(ccWin && !ccWin.isDestroyed() && e.sender === ccWin.webContents);
+          function ccReadDark(cb) {
+            execFile("reg", ["query", CC_KEY, "/v", "AppsUseLightTheme"], { windowsHide: true, timeout: 3000 }, (_e, out) => {
+              const m = /AppsUseLightTheme\s+REG_DWORD\s+0x([0-9a-f]+)/i.exec(String(out || ""));
+              cb(m ? parseInt(m[1], 16) === 0 : false);
+            });
+          }
+          function ccSetDark(on) {
+            const v = on ? "0" : "1";
+            ["AppsUseLightTheme", "SystemUsesLightTheme"].forEach(k => {
+              try { execFile("reg", ["add", CC_KEY, "/v", k, "/t", "REG_DWORD", "/d", v, "/f"], { windowsHide: true, timeout: 3000 }, () => { sysCmd("theme"); }); } catch (_) {}
+            });
+            ccDark = !!on; ccSend("dark", ccDark);
+          }
+          function ccPs(script, cb) {
+            try {
+              execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script], { windowsHide: true, timeout: 8000 },
+                (e, out) => cb(e, String(out || "").trim()));
+            } catch (_) { cb(true, ""); }
+          }
+          function ccReadBri() {
+            ccPs("try { (Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness -ErrorAction Stop | Select-Object -First 1).CurrentBrightness } catch { '' }", (_e, o) => {
+              const n = parseInt(o, 10);
+              ccBri = isFinite(n) ? Math.max(0, Math.min(100, n)) : -1;
+              ccSend("bri", ccBri);
+            });
+          }
+          function ccSetBri(v) {
+            v = Math.round(clamp(v, 5, 100)); ccBri = v;
+            clearTimeout(ccBriT);
+            ccBriT = setTimeout(() => ccPs("Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{Timeout=1;Brightness=" + v + "} | Out-Null", () => {}), 150);
+          }
+          function ccSnapshot() {
+            return { dark: ccDark, dnd: !!S.dnd, vol: mbVol, wifi: mbWifi, bri: ccBri,
+                     L: { title: T("Pusat Kontrol"), wifi: T("Wi-Fi"), dark: T("Mode gelap"), dnd: T("Jangan ganggu"), vol: T("Volume"), bri: T("Kecerahan"),
+                          on: T("Aktif"), off: T("Mati"), disc: T("Tidak terhubung"), nosup: T("Tidak didukung di layar ini") } };
+          }
+          function ensureCc() {
+            if (ccWin && !ccWin.isDestroyed()) return ccWin;
+            ccWin = new BrowserWindow({
+              width: CC_W, height: 420, show: false, frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false,
+              fullscreenable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false, backgroundColor: "#00000000",
+              webPreferences: { preload: path.join(__dirname, "cc-preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false }
+            });
+            ccReady = false;
+            ccWin.on("blur", () => hideCc());
+            ccWin.on("closed", () => { ccWin = null; ccReady = false; });
+            ccWin.webContents.on("did-finish-load", () => { ccReady = true; if (ccWant) showCc(); });
+            ccWin.loadFile(path.join(__dirname, "cc.html"));
+            return ccWin;
+          }
+          function showCc() {
+            const w = ensureCc();
+            if (!ccReady) { ccWant = true; return; }
+            ccWant = false;
+            try {
+              const d = screen.getPrimaryDisplay().bounds, top = (S.mb && !S.mbhide && mbShown) ? MB_H : 0;
+              w.setBounds({ x: d.x + d.width - CC_W - 2, y: d.y + top, width: CC_W, height: 420 });
+              w.setAlwaysOnTop(true, "screen-saver");
+              w.show(); w.focus(); w.webContents.focus();
+            } catch (_) {}
+            ccSend("show", ccSnapshot());
+            ccReadDark(v => { ccDark = v; ccSend("dark", v); });
+            ccReadBri(); mbPollWifi();
+          }
+          function hideCc() { if (ccWin && !ccWin.isDestroyed() && ccWin.isVisible()) { try { ccWin.hide(); } catch (_) {} ccHiddenAt = Date.now(); } }
+          function toggleCc() { if (ccWin && !ccWin.isDestroyed() && ccWin.isVisible()) hideCc(); else if (Date.now() - ccHiddenAt > 250) showCc(); }
+          function ccAct(p) {
+            if (p.a === "dark") ccSetDark(!ccDark);
+            else if (p.a === "dnd") { S.dnd = !S.dnd; save(); ccSend("dnd", !!S.dnd); }
+            else if (p.a === "vol") sysCmd("vol " + Math.round(clamp(p.v, 0, 100)));
+            else if (p.a === "mute") sysCmd("mute");
+            else if (p.a === "bri") ccSetBri(p.v);
+            else if (p.a === "wifi") { try { shell.openExternal("ms-settings:network-wifi"); } catch (_) {} hideCc(); }
+            else if (p.a === "hide") hideCc();
+          }
+
           /* ---------- penerapan pengaturan ---------- */
           function applyEnabled() {
             if (S.enabled) {
               ensureIsland(); startNotif(); startClip(); startKeys(); keepTop(); startCur(); startSys(); xhUpdate();
             } else {
-              stopNotif(); stopSys(); xhStop(); destroyIsland(); stopClip(); stopKeys(); stopTop(); stopCur();
+              stopNotif(); if (!S.mb) stopSys(); xhStop(); destroyIsland(); stopClip(); stopKeys(); stopTop(); stopCur();
             }
           }
           // Jalan otomatis saat Windows menyala (diam-diam, tanpa membuka jendela utama). Island ikut muncul lagi karena status "aktif" tersimpan.
@@ -3582,6 +4100,8 @@ jobs:
                 appnotif: !!S.appnotif, live: !!S.live, media: !!S.media, mtoast: S.mtoast !== false, devs: !!S.devs, net: !!S.net, rmon: S.rmon | 0, prog: !!S.prog, hub: !!S.hub, game: !!S.game,
                 curs: !!S.curs, cstyle: S.cstyle, ccolor: S.ccolor, csize: S.csize,
                 auto: !!S.auto, fpsreal: !!S.fpsreal, xh: !!S.xh, xhgame: !!S.xhgame, xhstyle: S.xhstyle, xhcolor: S.xhcolor, xhsize: S.xhsize, xhthick: S.xhthick, xhgap: S.xhgap, xhop: S.xhop, cal: !!S.cal, city: S.city || "",
+                spot: S.spot !== false, spotfiles: S.spotfiles !== false, spotkey: !!spotKeyOk, lp: S.lp !== false,
+                cc: S.cc !== false, mb: !!S.mb, mbhide: !!S.mbhide, mbres: S.mbres !== false, mb24: S.mb24 !== false, mbdate: S.mbdate !== false, mbsec: !!S.mbsec,
                 dock: !!S.dock, dicons: !!S.dicons, dsize: S.dsize, dzoom: S.dzoom, dtheme: S.dtheme, dhide: !!S.dhide, dtb: !!S.dtb, drun: S.drun !== false, dmargin: S.dmargin
             });
           }
@@ -3643,6 +4163,9 @@ jobs:
             dockPinRemove(id) { dockPinRemove(id); },
             dockPinMove(id, dir) { dockPinMove(id, dir); },
             openCal() { openCal(); },
+                      openSpot() { showSpot(); },
+                      openLaunchpad() { showLp(); },
+                      openCc() { showCc(); },
             grantFps() { grantFps(); },
             setGameMark(name, mode) { setGameMark(name, mode); },
             reshow(i) { const h = hist[Number(i)]; if (h) showIsland({ title: h.title, text: h.text, app: h.app, appId: h.appId, time: T("tadi") }); }
@@ -3695,6 +4218,16 @@ jobs:
               dockRects = (Array.isArray(r) ? r : []).slice(0, 4).map(o => ({ x: Number(o && o.x), y: Number(o && o.y), w: Number(o && o.w), h: Number(o && o.h) })).filter(o => isFinite(o.x) && isFinite(o.y) && isFinite(o.w) && isFinite(o.h));
             });
             ipcMain.on("dock:act", (e, p) => { if (fromDock(e)) dockAct(p); });
+            ipcMain.on("mb:act", (e, p) => { if (fromMb(e) && p && typeof p === "object") mbAct(p); });
+                      ipcMain.on("sp:q", (e, q) => { if (fromSpot(e)) spotQuery(q); });
+                      ipcMain.on("sp:run", (e, i) => { if (fromSpot(e)) spotRun(i); });
+                      ipcMain.on("sp:hide", e => { if (fromSpot(e)) spotHide(); });
+                      ipcMain.on("lp:icons", (e, a) => { if (!fromLp(e) || !Array.isArray(a)) return; a.slice(0, 120).forEach(i => { const x = lpList[i | 0]; if (x) { lpQ.push([i | 0, x.p]); } }); lpPump(); });
+                      ipcMain.on("lp:run", (e, i) => { if (!fromLp(e)) return; const x = lpList[i | 0]; hideLp(); if (x) openApp(x.p); });
+                      ipcMain.on("lp:hide", e => { if (fromLp(e)) hideLp(); });
+                      ipcMain.on("cc:act", (e, p) => { if (fromCc(e) && p && typeof p === "object") ccAct(p); });
+                      ipcMain.on("cc:h", (e, h) => { if (fromCc(e) && ccWin && !ccWin.isDestroyed()) { const b = ccWin.getBounds(); ccWin.setBounds({ x: b.x, y: b.y, width: CC_W, height: Math.round(clamp(h, 120, 700)) }); } });
+                      ipcMain.on("sp:h", (e, h) => { if (fromSpot(e) && spotWin && !spotWin.isDestroyed()) { const b = spotWin.getBounds(); spotWin.setBounds({ x: b.x, y: b.y, width: 688, height: Math.round(clamp(h, 90, 700)) }); } });
             ipcMain.on("fx:hubenter", e => { if (fromIsl(e)) hubEnter(); });
             ipcMain.on("fx:drop", (e, d) => { if (fromIsl(e) && d) hubDrop(d); });
             ipcMain.on("fx:idle", e => {
@@ -3734,10 +4267,12 @@ jobs:
             // taskbar yang masih disembunyikan oleh sesi sebelumnya (aplikasi mati mendadak) dikembalikan dulu
             try { if (tbOrig() >= 0 && !(S.dock && S.dtb)) tbRestore(); } catch (_) {}
             try { if (!S.dock || !S.dicons) icRestore(); } catch (_) {}
-            app.on("will-quit", () => { try { stopDock(); } catch (_) {} });
+            app.on("will-quit", () => { try { stopDock(); } catch (_) {} try { stopMenubar(); } catch (_) {} try { globalShortcut.unregister("CommandOrControl+Space"); } catch (_) {} });
             process.on("exit", () => { try { tbRestore(); } catch (_) {} try { icRestore(); } catch (_) {} });
             applyEnabled();
             applyDock();
+            applyMenubar();
+            applySpot();
             applyAnim();
             applyAuto();
           }
@@ -5324,7 +5859,7 @@ jobs:
             var B = window.fxd || { on: function () {}, send: function () {} };
             var $ = function (i) { return document.getElementById(i); };
             var PAD = 12;
-            var cfg = { size: 48, zoom: 150, theme: "dark", hide: false, margin: 6, L: { open: "Open", close: "Quit", keep: "Keep in Dock", remove: "Remove from Dock", dl: "Downloads", bin: "Recycle Bin", tb: "Taskbar", ic: "Desktop icons", st: "Start" } };
+            var cfg = { size: 48, zoom: 150, theme: "dark", hide: false, margin: 6, L: { open: "Open", close: "Quit", keep: "Keep in Dock", remove: "Remove from Dock", dl: "Downloads", bin: "Recycle Bin", tb: "Taskbar", ic: "Desktop icons", st: "Start", lp: "Launchpad" } };
             var items = [], st = new Map(), icons = {};
             var cur = { x: -1, y: -1, edge: false };
             var shown = true, hideT = null, menuK = null, menuT = null, raf = 0, lastRects = "", bounce = {};
@@ -5345,6 +5880,9 @@ jobs:
               '<g fill="#4a7cf0"><rect x="14" y="14" width="10" height="10" rx="3"/><rect x="27" y="14" width="10" height="10" rx="3" fill="#e5484d"/><rect x="40" y="14" width="10" height="10" rx="3" fill="#2fb36b"/>' +
               '<rect x="14" y="27" width="10" height="10" rx="3" fill="#f0a000"/><rect x="27" y="27" width="10" height="10" rx="3"/><rect x="40" y="27" width="10" height="10" rx="3" fill="#8a5cf0"/>' +
               '<rect x="14" y="40" width="10" height="10" rx="3" fill="#2fb36b"/><rect x="27" y="40" width="10" height="10" rx="3" fill="#e5484d"/><rect x="40" y="40" width="10" height="10" rx="3"/></g></svg>';
+            var SVG_LP = '<svg viewBox="0 0 64 64"><defs><linearGradient id="gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fb4ff"/><stop offset="1" stop-color="#3f5fd8"/></linearGradient></defs>' +
+              '<rect x="4" y="4" width="56" height="56" rx="14" fill="url(#gl)"/><path d="M32 12c7 5 10 14 8 25H24c-2-11 1-20 8-25z" fill="#fff"/><circle cx="32" cy="26" r="4" fill="#3f5fd8"/>' +
+              '<path d="M24 37l-6 9 8-3zM40 37l6 9-8-3z" fill="#ffd166"/><path d="M28 40h8l-4 10z" fill="#ff8a4c"/></svg>';
             var SVG_IC0 = '<svg viewBox="0 0 64 64"><defs><linearGradient id="gi0" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b6478"/><stop offset="1" stop-color="#2f3646"/></linearGradient></defs>' +
               '<rect x="5" y="8" width="54" height="40" rx="8" fill="url(#gi0)"/><rect x="24" y="50" width="16" height="4" rx="2" fill="#9aa6c2"/><rect x="16" y="54" width="32" height="3" rx="1.5" fill="#9aa6c2"/>' +
               '<g fill="#e9edf5"><rect x="13" y="15" width="9" height="9" rx="2.5"/><rect x="13" y="29" width="9" height="9" rx="2.5"/><rect x="27" y="15" width="9" height="9" rx="2.5"/></g></svg>';
@@ -5375,6 +5913,7 @@ jobs:
               var ic = s.el.firstChild, it = s.it;
               if (it.t === "dl") { if (s.img !== "dl") { ic.innerHTML = SVG_DL; s.img = "dl"; } return; }
               if (it.t === "st") { if (s.img !== "st") { ic.innerHTML = SVG_ST; s.img = "st"; } return; }
+              if (it.t === "lp") { if (s.img !== "lp") { ic.innerHTML = SVG_LP; s.img = "lp"; } return; }
               if (it.t === "ic") { var ik = it.hid ? "ic1" : "ic0"; if (s.img !== ik) { ic.innerHTML = it.hid ? SVG_IC1 : SVG_IC0; s.img = ik; } return; }
               if (it.t === "tb") { if (s.img !== "tb") { ic.innerHTML = SVG_TB; s.img = "tb"; } return; }
               if (it.t === "bin") { if (s.img !== "bin") { ic.innerHTML = SVG_BIN; s.img = "bin"; } return; }
@@ -5487,7 +6026,7 @@ jobs:
               var tip = $("tip");
               if (inside && hov >= 0 && !menuK && shown) {
                 var he = els[hov], hk = he.getAttribute("data-k"), hs = st.get(hk), r = he.getBoundingClientRect();
-                var label = hs ? (hs.it.t === "dl" ? cfg.L.dl : hs.it.t === "bin" ? cfg.L.bin : hs.it.t === "tb" ? cfg.L.tb : hs.it.t === "ic" ? cfg.L.ic : hs.it.t === "st" ? cfg.L.st : (hs.it.name || "")) : "";
+                var label = hs ? (hs.it.t === "dl" ? cfg.L.dl : hs.it.t === "bin" ? cfg.L.bin : hs.it.t === "tb" ? cfg.L.tb : hs.it.t === "ic" ? cfg.L.ic : hs.it.t === "st" ? cfg.L.st : hs.it.t === "lp" ? cfg.L.lp : (hs.it.name || "")) : "";
                 if (label) {
                   tip.textContent = label; tip.style.opacity = "1";
                   var tw = tip.offsetWidth, lx = Math.max(tw / 2 + 6, Math.min(window.innerWidth - tw / 2 - 6, r.left + r.width / 2));
@@ -5564,6 +6103,404 @@ jobs:
             on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("dock:" + ch, (_e, d) => cb(d)); },
             send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("dock:" + ch, d); }
           });
+          FX_EOS
+          cat > fx/menubar-preload.js <<'FX_EOS'
+          const { contextBridge, ipcRenderer } = require("electron");
+          const IN = ["cfg", "app", "wifi", "vol"], OUT = ["act"];
+          contextBridge.exposeInMainWorld("mbar", {
+            on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("mb:" + ch, (_e, d) => cb(d)); },
+            send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("mb:" + ch, d); }
+          });
+          FX_EOS
+          cat > fx/menubar.html <<'FX_EOS'
+          <!DOCTYPE html>
+          <html><head><meta charset="utf-8"><title>Menu bar</title>
+          <style>
+            :root { --bg:rgba(246,246,248,.86); --fg:#1d1d1f; --dim:rgba(0,0,0,.45); --hv:rgba(0,0,0,.08); --ln:rgba(0,0,0,.12); }
+            @media (prefers-color-scheme: dark) { :root { --bg:rgba(28,28,32,.84); --fg:#f5f5f7; --dim:rgba(255,255,255,.4); --hv:rgba(255,255,255,.12); --ln:rgba(255,255,255,.1); } }
+            * { box-sizing:border-box; margin:0; user-select:none; -webkit-user-select:none; }
+            html, body { height:100%; overflow:hidden; background:transparent; }
+            body { font:600 13px/28px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; color:var(--fg); }
+            #bar { height:28px; display:flex; align-items:center; justify-content:space-between; padding:0 10px; background:var(--bg); border-bottom:1px solid var(--ln); }
+            .grp { display:flex; align-items:center; gap:2px; min-width:0; }
+            .it { height:22px; padding:0 8px; border-radius:6px; display:flex; align-items:center; gap:6px; font-weight:500; white-space:nowrap; cursor:default; }
+            .it:hover { background:var(--hv); }
+            #app { font-weight:700; max-width:42vw; overflow:hidden; text-overflow:ellipsis; display:block; line-height:22px; }
+            svg { width:16px; height:16px; fill:var(--fg); stroke:none; flex:none; }
+            svg .st { fill:none; stroke:var(--fg); stroke-width:2; stroke-linecap:round; }
+            .w1,.w2,.w3 { transition:opacity .2s; } .dim { opacity:.28; }
+            .bt { width:24px; height:12px; border:1.5px solid var(--fg); border-radius:4px; position:relative; flex:none; opacity:.9; }
+            .bt::after { content:""; position:absolute; right:-4px; top:3px; width:2px; height:4px; background:var(--fg); border-radius:0 1px 1px 0; }
+            .bt i { position:absolute; left:1px; top:1px; bottom:1px; border-radius:2px; background:var(--fg); }
+            .bt.low i { background:#ff453a; } .bt.chg i { background:#30d158; }
+            .hide { display:none !important; }
+          </style></head>
+          <body>
+          <div id="bar">
+            <div class="grp"><div class="it" id="iapp"><span id="app">Desktop</span></div></div>
+            <div class="grp">
+              <div class="it hide" id="ibat" title=""><span id="bpct"></span><span class="bt" id="bt"><i id="bi"></i></span></div>
+              <div class="it" id="iwifi"><svg viewBox="0 0 24 24" id="wsvg"><path class="st w3" d="M2.5 9a14 14 0 0 1 19 0"/><path class="st w2" d="M5.5 12.6a9.6 9.6 0 0 1 13 0"/><path class="st w1" d="M8.6 16.1a5 5 0 0 1 6.8 0"/><circle cx="12" cy="19.6" r="1.5"/></svg></div>
+              <div class="it" id="ivol"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9H3z"/><path class="st" id="vw1" d="M15.5 9a4.2 4.2 0 0 1 0 6"/><path class="st" id="vw2" d="M18.3 6.3a8 8 0 0 1 0 11.4"/><path class="st hide" id="vx" d="M15 9.5l6 5M21 9.5l-6 5"/></svg></div>
+              <div class="it" id="icc" title="Control Center"><svg viewBox="0 0 24 24"><rect class="st" x="3" y="4.5" width="18" height="6.5" rx="3.25"/><circle cx="8" cy="7.75" r="1.7"/><rect class="st" x="3" y="13" width="18" height="6.5" rx="3.25"/><circle cx="16" cy="16.25" r="1.7"/></svg></div>
+              <div class="it" id="iclk"><span id="clk"></span></div>
+            </div>
+          </div>
+          <script>
+          (function () {
+            var $ = function (i) { return document.getElementById(i); };
+            var cfg = { h24: true, date: true, sec: false, loc: "id-ID" }, vol = { v: -1, m: 0 };
+            function clock() {
+              var d = new Date(), s = "";
+              try {
+                if (cfg.date) s += new Intl.DateTimeFormat(cfg.loc, { weekday: "short", day: "numeric", month: "short" }).format(d) + "  ";
+                s += new Intl.DateTimeFormat(cfg.loc, { hour: "numeric", minute: "2-digit", second: cfg.sec ? "2-digit" : undefined, hour12: !cfg.h24 }).format(d);
+              } catch (e) { s = d.toLocaleTimeString(); }
+              $("clk").textContent = s;
+            }
+            function wifi(w) {
+              var svg = $("wsvg"), lv = w.k === "wifi" ? (w.s >= 75 ? 3 : w.s >= 50 ? 2 : w.s >= 25 ? 1 : 0) : 0;
+              ["w1", "w2", "w3"].forEach(function (c, i) { svg.querySelector("." + c).classList.toggle("dim", w.k === "wifi" ? i >= Math.max(lv, 1) : true); });
+              if (w.k === "eth") ["w1", "w2", "w3"].forEach(function (c) { svg.querySelector("." + c).classList.remove("dim"); });
+              $("iwifi").title = w.k === "wifi" ? w.n + " (" + w.s + "%)" : (w.k === "eth" ? "Ethernet" : "Offline");
+              $("iwifi").style.opacity = w.k === "none" ? .5 : 1;
+            }
+            function volUi() {
+              var v = vol.v, mu = vol.m || v === 0;
+              $("vx").classList.toggle("hide", !mu);
+              $("vw1").classList.toggle("hide", mu || v < 1); $("vw2").classList.toggle("hide", mu || v < 50);
+              $("ivol").title = v < 0 ? "" : (vol.m ? "Mute" : v + "%");
+              $("ivol").classList.toggle("hide", v < 0);
+            }
+            window.mbar.on("cfg", function (c) { cfg = c; clock(); $("icc").classList.toggle("hide", c.cc === false); });
+            window.mbar.on("app", function (n) { $("app").textContent = n; });
+            window.mbar.on("wifi", wifi);
+            window.mbar.on("vol", function (v) { vol = v; volUi(); });
+            $("ivol").onclick = function () { window.mbar.send("act", { a: "mute" }); };
+            $("ivol").onwheel = function (e) { e.preventDefault(); if (vol.v < 0) return; var n = Math.max(0, Math.min(100, vol.v + (e.deltaY < 0 ? 5 : -5))); vol.v = n; volUi(); window.mbar.send("act", { a: "vol", v: n }); };
+            $("iwifi").onclick = function () { window.mbar.send("act", { a: "wifi" }); };
+            $("ibat").onclick = function () { window.mbar.send("act", { a: "bat" }); };
+            $("iclk").onclick = function () { window.mbar.send("act", { a: "clock" }); };
+            $("icc").onclick = function () { window.mbar.send("act", { a: "cc" }); };
+            if (navigator.getBattery) {
+              navigator.getBattery().then(function (b) {
+                function u() {
+                  var p = Math.round(b.level * 100), full = p >= 99 && b.charging;
+                  $("ibat").classList.remove("hide"); $("bpct").textContent = p + "%";
+                  $("bi").style.right = (100 - Math.min(100, p)) * 0.01 * 20 + 1 + "px";
+                  $("bt").classList.toggle("low", p <= 20 && !b.charging); $("bt").classList.toggle("chg", b.charging);
+                  $("ibat").title = b.charging ? (full ? "Penuh" : "Mengisi daya") : "";
+                }
+                ["levelchange", "chargingchange"].forEach(function (ev) { b.addEventListener(ev, u); });
+                u();
+              }).catch(function () {});
+            }
+            wifi({ k: "none", n: "", s: 0 }); volUi(); clock(); setInterval(clock, 1000);
+          })();
+          </script></body></html>
+          FX_EOS
+          cat > fx/spot-preload.js <<'FX_EOS'
+          const { contextBridge, ipcRenderer } = require("electron");
+          const IN = ["show", "res", "icon"], OUT = ["q", "run", "hide", "h"];
+          contextBridge.exposeInMainWorld("spot", {
+            on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("sp:" + ch, (_e, d) => cb(d)); },
+            send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("sp:" + ch, d); }
+          });
+          FX_EOS
+          cat > fx/spot.html <<'FX_EOS'
+          <!DOCTYPE html>
+          <html><head><meta charset="utf-8"><title>Spotlight</title>
+          <style>
+            :root { --bg:rgba(250,250,252,.95); --fg:#1d1d1f; --dim:rgba(0,0,0,.5); --sel:rgba(124,92,255,.16); --ln:rgba(0,0,0,.08); }
+            @media (prefers-color-scheme: dark) { :root { --bg:rgba(36,36,42,.95); --fg:#f5f5f7; --dim:rgba(255,255,255,.5); --sel:rgba(124,92,255,.35); --ln:rgba(255,255,255,.1); } }
+            * { box-sizing:border-box; margin:0; user-select:none; -webkit-user-select:none; }
+            html, body { overflow:hidden; background:transparent; font:14px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; color:var(--fg); }
+            body { padding:24px; }
+            #box { background:var(--bg); border:1px solid var(--ln); border-radius:18px; box-shadow:0 18px 50px rgba(0,0,0,.35); overflow:hidden; }
+            #top { display:flex; align-items:center; gap:12px; padding:0 18px; height:64px; }
+            #top svg { width:22px; height:22px; flex:none; fill:none; stroke:var(--dim); stroke-width:2; stroke-linecap:round; }
+            #in { flex:1; border:0; outline:0; background:transparent; color:var(--fg); font:400 22px "Segoe UI Variable Display","Segoe UI",system-ui,sans-serif; user-select:text; -webkit-user-select:text; }
+            #in::placeholder { color:var(--dim); }
+            #list { border-top:1px solid var(--ln); padding:6px; max-height:520px; overflow-y:auto; }
+            .r { display:flex; align-items:center; gap:12px; padding:7px 10px; border-radius:10px; cursor:default; }
+            .r.sel { background:var(--sel); }
+            .ic { width:32px; height:32px; flex:none; display:flex; align-items:center; justify-content:center; font-size:22px; border-radius:8px; }
+            .ic img { width:32px; height:32px; object-fit:contain; }
+            .tx { min-width:0; flex:1; } .tx b { display:block; font-weight:500; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .tx small { display:block; color:var(--dim); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .r.calc .tx b { font-size:20px; font-weight:600; }
+            .none { padding:16px; text-align:center; color:var(--dim); }
+            .hide { display:none; }
+          </style></head>
+          <body>
+          <div id="box">
+            <div id="top"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="in" type="text" placeholder="Spotlight: cari aplikasi, file, atau hitung" autocomplete="off" spellcheck="false"></div>
+            <div id="list" class="hide"></div>
+          </div>
+          <script>
+          (function () {
+            var $ = function (i) { return document.getElementById(i); }, items = [], sel = 0, tmr = null, q = "";
+            var GL = { app: "\u25A6", file: "\uD83D\uDCC4", dir: "\uD83D\uDCC1", calc: "\uFF1D" };
+            function size() { window.spot.send("h", $("box").offsetHeight + 48); }
+            function mark() { var rs = $("list").children; for (var i = 0; i < rs.length; i++) { rs[i].classList.toggle("sel", i === sel); if (i === sel) rs[i].scrollIntoView({ block: "nearest" }); } }
+            function render() {
+              var l = $("list");
+              l.textContent = "";
+              if (!q) { l.classList.add("hide"); size(); return; }
+              l.classList.remove("hide");
+              if (!items.length) { var n = document.createElement("div"); n.className = "none"; n.textContent = "Tidak ada hasil"; l.appendChild(n); size(); return; }
+              items.forEach(function (it, i) {
+                var r = document.createElement("div"); r.className = "r " + it.t; r.dataset.i = i;
+                var ic = document.createElement("div"); ic.className = "ic"; ic.id = "ic" + it.i; ic.textContent = GL[it.t] || "";
+                var tx = document.createElement("div"); tx.className = "tx";
+                var b = document.createElement("b"); b.textContent = it.n; var s = document.createElement("small"); s.textContent = it.s || "";
+                tx.appendChild(b); tx.appendChild(s); r.appendChild(ic); r.appendChild(tx);
+                r.onmousemove = function () { if (sel !== i) { sel = i; mark(); } };
+                r.onclick = function () { window.spot.send("run", it.i); };
+                l.appendChild(r);
+              });
+              sel = 0; mark(); size();
+            }
+            function ask() { clearTimeout(tmr); tmr = setTimeout(function () { window.spot.send("q", q); }, 50); }
+            $("in").oninput = function () { q = this.value.trim(); if (!q) { items = []; render(); } ask(); };
+            document.onkeydown = function (e) {
+              if (e.key === "Escape") { window.spot.send("hide"); return; }
+              if (e.key === "ArrowDown") { e.preventDefault(); if (items.length) { sel = (sel + 1) % items.length; mark(); } }
+              else if (e.key === "ArrowUp") { e.preventDefault(); if (items.length) { sel = (sel - 1 + items.length) % items.length; mark(); } }
+              else if (e.key === "Enter") { e.preventDefault(); if (items[sel]) window.spot.send("run", items[sel].i); }
+            };
+            window.spot.on("show", function () { $("in").value = ""; q = ""; items = []; render(); $("in").focus(); });
+            window.spot.on("res", function (r) { items = r || []; render(); });
+            window.spot.on("icon", function (d) {
+              var e = $("ic" + d.i);
+              if (e && /^data:image\/png;base64,/.test(d.v)) { e.textContent = ""; var im = document.createElement("img"); im.src = d.v; e.appendChild(im); }
+            });
+            size();
+          })();
+          </script></body></html>
+          FX_EOS
+          cat > fx/launchpad-preload.js <<'FX_EOS'
+          const { contextBridge, ipcRenderer } = require("electron");
+          const IN = ["show", "apps", "icon"], OUT = ["icons", "run", "hide"];
+          contextBridge.exposeInMainWorld("lpad", {
+            on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("lp:" + ch, (_e, d) => cb(d)); },
+            send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("lp:" + ch, d); }
+          });
+          FX_EOS
+          cat > fx/launchpad.html <<'FX_EOS'
+          <!DOCTYPE html>
+          <html><head><meta charset="utf-8"><title>Launchpad</title>
+          <style>
+            :root { --bg:rgba(14,14,24,.82); --fg:#fff; --dim:rgba(255,255,255,.55); --fld:rgba(255,255,255,.14); --sel:rgba(255,255,255,.2); --dot:rgba(255,255,255,.35); }
+            body.light { --bg:rgba(238,238,246,.84); --fg:#1d1d1f; --dim:rgba(0,0,0,.5); --fld:rgba(0,0,0,.08); --sel:rgba(0,0,0,.12); --dot:rgba(0,0,0,.3); }
+            * { box-sizing:border-box; margin:0; user-select:none; -webkit-user-select:none; }
+            html, body { height:100%; overflow:hidden; background:transparent; font:14px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; color:var(--fg); }
+            #wrap { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; animation:zin .22s ease-out; }
+            #wrap.out { opacity:0; transform:scale(1.06); transition:opacity .16s, transform .16s; animation:none; }
+            @keyframes zin { from { opacity:0; transform:scale(1.08); } to { opacity:1; transform:scale(1); } }
+            #sb { margin:56px auto 0; width:280px; height:34px; border-radius:10px; background:var(--fld); display:flex; align-items:center; gap:8px; padding:0 12px; flex:none; }
+            #sb svg { width:16px; height:16px; fill:none; stroke:var(--dim); stroke-width:2; stroke-linecap:round; flex:none; }
+            #q { flex:1; min-width:0; border:0; outline:0; background:transparent; color:var(--fg); font:400 15px "Segoe UI",system-ui,sans-serif; text-align:left; user-select:text; -webkit-user-select:text; }
+            #q::placeholder { color:var(--dim); }
+            #pages { flex:1; min-height:0; margin:24px 5% 0; overflow:hidden; }
+            #track { display:flex; height:100%; transition:transform .35s cubic-bezier(.2,.8,.2,1); }
+            .pg { flex:0 0 100%; display:grid; gap:10px 6px; align-content:center; justify-items:center; padding:0 2%; }
+            .ap { width:130px; padding:8px 4px; border-radius:16px; display:flex; flex-direction:column; align-items:center; gap:8px; cursor:default; }
+            .ap:hover, .ap.sel { background:var(--sel); }
+            .ic { width:76px; height:76px; display:flex; align-items:center; justify-content:center; }
+            .ic img { width:76px; height:76px; object-fit:contain; filter:drop-shadow(0 4px 8px rgba(0,0,0,.3)); }
+            .fb { width:68px; height:68px; border-radius:17px; display:flex; align-items:center; justify-content:center; font-size:30px; font-weight:700; color:#fff; }
+            .lb { max-width:122px; text-align:center; font-size:13px; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word; text-shadow:0 1px 3px rgba(0,0,0,.25); }
+            #dots { height:26px; margin:6px 0 112px; display:flex; justify-content:center; align-items:center; gap:12px; flex:none; }
+            #dots i { width:8px; height:8px; border-radius:50%; background:var(--dot); cursor:default; } #dots i.on { background:var(--fg); }
+            #msg { margin:auto; color:var(--dim); font-size:16px; }
+          </style></head>
+          <body>
+          <div id="wrap">
+            <div id="sb"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" type="text" placeholder="Cari" autocomplete="off" spellcheck="false"></div>
+            <div id="pages"><div id="track"></div></div>
+            <div id="dots"></div>
+          </div>
+          <script>
+          (function () {
+            var $ = function (i) { return document.getElementById(i); };
+            var apps = [], view = [], page = 0, pages = 1, cols = 7, rows = 4, per = 28, sel = -1, q = "", asked = {}, icons = {}, L = { empty: "", load: "" }, ready = true, closing = false, wheelAt = 0, dragX = null, moved = false;
+            function hue(s) { var h = 0; s = String(s || ""); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
+            function layout() { cols = Math.max(4, Math.min(8, Math.floor(innerWidth * 0.84 / 140))); rows = Math.max(2, Math.min(5, Math.floor((innerHeight - 250) / 128))); per = cols * rows; }
+            function filter() { var t = q.toLowerCase().split(/\s+/).filter(Boolean); view = t.length ? apps.filter(function (a) { var n = a.n.toLowerCase(); return t.every(function (x) { return n.indexOf(x) >= 0; }); }) : apps.slice(); }
+            function setIcon(i) {
+              var e = $("ap" + i); if (!e || !icons[i]) return;
+              var ic = e.firstChild; ic.textContent = ""; var im = new Image(); im.draggable = false; im.src = icons[i]; ic.appendChild(im);
+            }
+            function need() {
+              var list = [];
+              for (var p = Math.max(0, page - 1); p <= Math.min(pages - 1, page + 1); p++) {
+                view.slice(p * per, (p + 1) * per).forEach(function (a) { if (!asked[a.i]) { asked[a.i] = 1; list.push(a.i); } });
+              }
+              if (list.length) window.lpad.send("icons", list);
+            }
+            function go(p, anim) {
+              page = Math.max(0, Math.min(pages - 1, p));
+              var t = $("track"); if (anim === false) t.style.transition = "none";
+              t.style.transform = "translateX(-" + (page * 100) + "%)";
+              if (anim === false) { void t.offsetWidth; t.style.transition = ""; }
+              var d = $("dots").children; for (var i = 0; i < d.length; i++) d[i].classList.toggle("on", i === page);
+              need();
+            }
+            function mark() {
+              var els = document.querySelectorAll(".ap.sel"); for (var i = 0; i < els.length; i++) els[i].classList.remove("sel");
+              if (sel >= 0 && view[sel]) { var e = $("ap" + view[sel].i); if (e) e.classList.add("sel"); }
+            }
+            function build() {
+              layout(); filter(); pages = Math.max(1, Math.ceil(view.length / per)); if (page >= pages) page = pages - 1;
+              var tr = $("track"), dots = $("dots"); tr.textContent = ""; dots.textContent = "";
+              if (!view.length) { var m = document.createElement("div"); m.id = "msg"; m.textContent = apps.length || ready ? L.empty : L.load; tr.appendChild(m); go(0, false); return; }
+              for (var p = 0; p < pages; p++) {
+                var pg = document.createElement("div"); pg.className = "pg";
+                pg.style.gridTemplateColumns = "repeat(" + cols + ",1fr)"; pg.style.gridTemplateRows = "repeat(" + rows + ",1fr)";
+                view.slice(p * per, (p + 1) * per).forEach(function (a, k) {
+                  var el = document.createElement("div"); el.className = "ap"; el.id = "ap" + a.i;
+                  var ic = document.createElement("div"); ic.className = "ic";
+                  var f = document.createElement("div"); f.className = "fb"; f.textContent = (a.n || "?").charAt(0).toUpperCase();
+                  var h = hue(a.n); f.style.background = "linear-gradient(135deg,hsl(" + h + ",70%,62%),hsl(" + ((h + 28) % 360) + ",60%,44%))"; ic.appendChild(f);
+                  var lb = document.createElement("div"); lb.className = "lb"; lb.textContent = a.n;
+                  el.appendChild(ic); el.appendChild(lb);
+                  el.onclick = function () { if (!moved) window.lpad.send("run", a.i); };
+                  pg.appendChild(el);
+                });
+                tr.appendChild(pg);
+                if (pages > 1) { var d = document.createElement("i"); (function (pp) { d.onclick = function (e) { e.stopPropagation(); go(pp); }; })(p); dots.appendChild(d); }
+              }
+              Object.keys(icons).forEach(function (i) { setIcon(+i); });
+              mark(); go(page, false);
+            }
+            function close() { if (closing) return; closing = true; $("wrap").classList.add("out"); setTimeout(function () { window.lpad.send("hide"); }, 170); }
+            function load(d, reset) {
+              apps = (d && d.apps) || []; ready = !d || d.ready !== false; L = (d && d.L) || L;
+              if (d && d.L) $("q").placeholder = d.L.search || "Cari";
+              document.body.classList.toggle("light", !!(d && d.light));
+              if (reset) { q = ""; $("q").value = ""; page = 0; sel = -1; asked = {}; icons = {}; closing = false; var w = $("wrap"); w.classList.remove("out"); w.style.animation = "none"; void w.offsetWidth; w.style.animation = ""; }
+              build(); $("q").focus();
+            }
+            $("q").oninput = function () { q = this.value.trim(); page = 0; sel = q ? 0 : -1; build(); mark(); };
+            document.onkeydown = function (e) {
+              if (e.key === "Escape") { if (q) { $("q").value = ""; q = ""; sel = -1; page = 0; build(); } else close(); return; }
+              if (!view.length) return;
+              var n = sel;
+              if (e.key === "Enter") { e.preventDefault(); var t = view[sel >= 0 ? sel : 0]; if (t && (q || sel >= 0)) window.lpad.send("run", t.i); return; }
+              if (e.key === "ArrowRight") n = sel < 0 ? 0 : sel + 1;
+              else if (e.key === "ArrowLeft") n = sel < 0 ? 0 : sel - 1;
+              else if (e.key === "ArrowDown") n = sel < 0 ? 0 : sel + cols;
+              else if (e.key === "ArrowUp") n = sel < 0 ? 0 : sel - cols;
+              else if (e.key === "PageDown") { e.preventDefault(); go(page + 1); return; }
+              else if (e.key === "PageUp") { e.preventDefault(); go(page - 1); return; }
+              else return;
+              e.preventDefault(); sel = Math.max(0, Math.min(view.length - 1, n)); var np = Math.floor(sel / per); if (np !== page) go(np); mark();
+            };
+            document.addEventListener("wheel", function (e) { var now = Date.now(); if (Math.abs(e.deltaY) + Math.abs(e.deltaX) < 20 || now - wheelAt < 380) return; wheelAt = now; go(page + ((e.deltaY || e.deltaX) > 0 ? 1 : -1)); }, { passive: true });
+            document.addEventListener("pointerdown", function (e) { dragX = e.clientX; moved = false; });
+            document.addEventListener("pointerup", function (e) { if (dragX === null) return; var dx = e.clientX - dragX; dragX = null; if (Math.abs(dx) > 70) { moved = true; go(page + (dx < 0 ? 1 : -1)); setTimeout(function () { moved = false; }, 50); } });
+            $("wrap").addEventListener("click", function (e) { var t = e.target; if (t === $("wrap") || t === $("pages") || t === $("track") || (t.className === "pg") || t === $("dots")) close(); });
+            window.addEventListener("resize", function () { build(); });
+            window.lpad.on("show", function (d) { load(d, true); });
+            window.lpad.on("apps", function (d) { load(d, false); });
+            window.lpad.on("icon", function (d) { if (d && /^data:image\/png;base64,/.test(d.v)) { icons[d.i] = d.v; setIcon(d.i); } });
+          })();
+          </script></body></html>
+          FX_EOS
+          cat > fx/cc-preload.js <<'FX_EOS'
+          const { contextBridge, ipcRenderer } = require("electron");
+          const IN = ["show", "dark", "dnd", "vol", "wifi", "bri"], OUT = ["act", "h"];
+          contextBridge.exposeInMainWorld("cc", {
+            on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("cc:" + ch, (_e, d) => cb(d)); },
+            send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("cc:" + ch, d); }
+          });
+          FX_EOS
+          cat > fx/cc.html <<'FX_EOS'
+          <!DOCTYPE html>
+          <html><head><meta charset="utf-8"><title>Control Center</title>
+          <style>
+            :root { --bg:rgba(246,246,250,.95); --card:rgba(0,0,0,.05); --fg:#1d1d1f; --dim:rgba(0,0,0,.5); --ln:rgba(0,0,0,.08); --off:rgba(0,0,0,.12); --trk:rgba(0,0,0,.14); }
+            @media (prefers-color-scheme: dark) { :root { --bg:rgba(36,36,42,.95); --card:rgba(255,255,255,.08); --fg:#f5f5f7; --dim:rgba(255,255,255,.55); --ln:rgba(255,255,255,.1); --off:rgba(255,255,255,.16); --trk:rgba(255,255,255,.2); } }
+            * { box-sizing:border-box; margin:0; user-select:none; -webkit-user-select:none; }
+            html, body { overflow:hidden; background:transparent; font:13px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; color:var(--fg); }
+            body { padding:6px 12px 18px; }
+            #box { background:var(--bg); border:1px solid var(--ln); border-radius:20px; padding:12px; box-shadow:0 16px 44px rgba(0,0,0,.35); display:flex; flex-direction:column; gap:10px; }
+            .card { background:var(--card); border-radius:14px; }
+            .tile { display:flex; align-items:center; gap:10px; padding:10px; cursor:default; }
+            .tile:hover { filter:brightness(.97); }
+            .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+            .grid .tile { flex-direction:column; align-items:flex-start; min-height:92px; justify-content:space-between; }
+            .ci { width:34px; height:34px; border-radius:50%; background:var(--off); display:flex; align-items:center; justify-content:center; flex:none; transition:background .15s; }
+            .ci svg { width:18px; height:18px; fill:var(--fg); stroke:none; } .ci svg .st { fill:none; stroke:var(--fg); stroke-width:2; stroke-linecap:round; }
+            .on .ci { background:#0a84ff; } #t-dnd.on .ci { background:#5e5ce6; } .on .ci svg { fill:#fff; } .on .ci svg .st { stroke:#fff; }
+            .tx b { display:block; font-weight:600; font-size:13px; } .tx small { display:block; color:var(--dim); font-size:12px; margin-top:1px; max-width:230px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .grid .tx small { max-width:130px; }
+            .sl { padding:10px 12px 12px; } .sl .hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; font-weight:600; }
+            .sl .hd span:last-child { color:var(--dim); font-weight:400; }
+            .row { display:flex; align-items:center; gap:10px; }
+            .row svg { width:18px; height:18px; fill:var(--fg); flex:none; } .row svg .st { fill:none; stroke:var(--fg); stroke-width:2; stroke-linecap:round; }
+            .mute { cursor:default; display:flex; }
+            input[type=range] { -webkit-appearance:none; appearance:none; flex:1; height:22px; border-radius:11px; outline:none; cursor:default;
+              background:linear-gradient(90deg,#fff var(--p,50%),var(--trk) var(--p,50%)); border:1px solid var(--ln); }
+            @media (prefers-color-scheme: light) { input[type=range] { background:linear-gradient(90deg,#0a84ff var(--p,50%),var(--trk) var(--p,50%)); } }
+            input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.4); }
+            input[disabled] { opacity:.4; } .hide { display:none !important; }
+          </style></head>
+          <body>
+          <div id="box">
+            <div class="card tile" id="t-wifi"><div class="ci"><svg viewBox="0 0 24 24"><path class="st" d="M2.5 9a14 14 0 0 1 19 0"/><path class="st" d="M5.5 12.6a9.6 9.6 0 0 1 13 0"/><path class="st" d="M8.6 16.1a5 5 0 0 1 6.8 0"/><circle cx="12" cy="19.6" r="1.5"/></svg></div><div class="tx"><b id="wt">Wi-Fi</b><small id="ws"></small></div></div>
+            <div class="grid">
+              <div class="card tile" id="t-dark"><div class="ci"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg></div><div class="tx"><b id="dt">Mode gelap</b><small id="ds"></small></div></div>
+              <div class="card tile" id="t-dnd"><div class="ci"><svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7v3.5L3.5 16v1.5h17V16L19 13.5V10a7 7 0 0 0-7-7zM9.5 19.5a2.5 2.5 0 0 0 5 0z"/></svg></div><div class="tx"><b id="nt">Jangan ganggu</b><small id="ns"></small></div></div>
+            </div>
+            <div class="card sl" id="r-bri"><div class="hd"><span id="bt">Kecerahan</span><span id="bv"></span></div><div class="row"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path class="st" d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><input id="bri" type="range" min="5" max="100" value="50"></div></div>
+            <div class="card sl" id="r-vol"><div class="hd"><span id="vt">Volume</span><span id="vv"></span></div><div class="row"><span class="mute" id="mute"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9H3z"/><path class="st" id="w1" d="M15.5 9a4.2 4.2 0 0 1 0 6"/><path class="st" id="w2" d="M18.3 6.3a8 8 0 0 1 0 11.4"/><path class="st hide" id="wx" d="M15 9.5l6 5M21 9.5l-6 5"/></svg></span><input id="vol" type="range" min="0" max="100" value="50"></div></div>
+          </div>
+          <script>
+          (function () {
+            var $ = function (i) { return document.getElementById(i); };
+            var S = { dark: false, dnd: false, vol: { v: -1, m: 0 }, wifi: { k: "none", n: "", s: 0 }, bri: -1 }, L = {}, drag = { vol: false, bri: false }, sendT = {};
+            function size() { window.cc.send("h", $("box").offsetHeight + 24); }
+            function fill(el) { el.style.setProperty("--p", ((el.value - el.min) / (el.max - el.min) * 100) + "%"); }
+            function paint() {
+              $("t-wifi").classList.toggle("on", S.wifi.k !== "none");
+              $("ws").textContent = S.wifi.k === "wifi" ? S.wifi.n : (S.wifi.k === "eth" ? "Ethernet" : (L.disc || ""));
+              $("t-dark").classList.toggle("on", !!S.dark); $("ds").textContent = S.dark ? (L.on || "") : (L.off || "");
+              $("t-dnd").classList.toggle("on", !!S.dnd); $("ns").textContent = S.dnd ? (L.on || "") : (L.off || "");
+              var v = S.vol.v, mu = !!S.vol.m || v === 0;
+              $("r-vol").classList.toggle("hide", v < 0);
+              if (!drag.vol && v >= 0) { $("vol").value = S.vol.m ? 0 : v; fill($("vol")); }
+              $("vv").textContent = v < 0 ? "" : (S.vol.m ? "Mute" : v + "%");
+              $("wx").classList.toggle("hide", !mu); $("w1").classList.toggle("hide", mu || v < 1); $("w2").classList.toggle("hide", mu || v < 50);
+              var b = S.bri, bs = $("bri");
+              bs.disabled = b < 0; $("bv").textContent = b < 0 ? (L.nosup || "") : b + "%";
+              if (!drag.bri && b >= 0) { bs.value = b; } fill(bs);
+              size();
+            }
+            function throttle(k, fn) { if (sendT[k]) return; sendT[k] = setTimeout(function () { sendT[k] = 0; fn(); }, 60); }
+            $("vol").oninput = function () { fill(this); S.vol = { v: +this.value, m: 0 }; $("vv").textContent = this.value + "%"; throttle("vol", function () { window.cc.send("act", { a: "vol", v: +$("vol").value }); }); };
+            $("vol").onpointerdown = function () { drag.vol = true; }; $("vol").onpointerup = function () { setTimeout(function () { drag.vol = false; }, 600); };
+            $("bri").oninput = function () { fill(this); S.bri = +this.value; $("bv").textContent = this.value + "%"; throttle("bri", function () { window.cc.send("act", { a: "bri", v: +$("bri").value }); }); };
+            $("bri").onpointerdown = function () { drag.bri = true; }; $("bri").onpointerup = function () { setTimeout(function () { drag.bri = false; }, 800); };
+            $("mute").onclick = function () { window.cc.send("act", { a: "mute" }); };
+            $("t-wifi").onclick = function () { window.cc.send("act", { a: "wifi" }); };
+            $("t-dark").onclick = function () { S.dark = !S.dark; paint(); window.cc.send("act", { a: "dark" }); };
+            $("t-dnd").onclick = function () { S.dnd = !S.dnd; paint(); window.cc.send("act", { a: "dnd" }); };
+            document.onkeydown = function (e) { if (e.key === "Escape") window.cc.send("act", { a: "hide" }); };
+            window.cc.on("show", function (d) {
+              S = d; L = d.L || {};
+              $("wt").textContent = L.wifi || "Wi-Fi"; $("dt").textContent = L.dark || ""; $("nt").textContent = L.dnd || ""; $("vt").textContent = L.vol || ""; $("bt").textContent = L.bri || "";
+              paint();
+            });
+            window.cc.on("dark", function (v) { S.dark = !!v; paint(); });
+            window.cc.on("dnd", function (v) { S.dnd = !!v; paint(); });
+            window.cc.on("vol", function (v) { S.vol = v; paint(); });
+            window.cc.on("wifi", function (v) { S.wifi = v; paint(); });
+            window.cc.on("bri", function (v) { S.bri = v; paint(); });
+            paint();
+          })();
+          </script></body></html>
           FX_EOS
           pg 38 "Mengompilasi pembantu sistem"
           CSC="$(cygpath -u "${WINDIR:-C:\\Windows}")/Microsoft.NET/Framework64/v4.0.30319/csc.exe"
