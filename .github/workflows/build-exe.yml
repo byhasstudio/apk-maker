@@ -1967,6 +1967,30 @@ jobs:
               }
           }
           FX_EOS
+          cat > fx/i18n.js <<'FX_EOS'
+          "use strict";
+          // Bahasa untuk island, menu tray, dan pesan dari proses utama. Kunci = teks Indonesia asli.
+          const LANGS = ["id", "en", "ms", "ja", "zh", "es"];
+          const IDX = { en: 0, ms: 1, ja: 2, zh: 3, es: 4 };
+          const LOC = { id: "id-ID", en: "en-US", ms: "ms-MY", ja: "ja-JP", zh: "zh-CN", es: "es-ES" };
+          const D = {"fxhelper.exe tidak ditemukan":["fxhelper.exe not found","fxhelper.exe tidak ditemui","fxhelper.exe が見つかりません","找不到 fxhelper.exe","No se encontró fxhelper.exe"],"fxsys.exe tidak ditemukan":["fxsys.exe not found","fxsys.exe tidak ditemui","fxsys.exe が見つかりません","找不到 fxsys.exe","No se encontró fxsys.exe"],"pembaca berhenti":["reader stopped","pembaca berhenti","リーダーが停止しました","读取器已停止","el lector se detuvo"],"pembantu berhenti":["helper stopped","pembantu berhenti","ヘルパーが停止しました","辅助程序已停止","el ayudante se detuvo"],"PresentMon tidak ada":["PresentMon not found","PresentMon tiada","PresentMon が見つかりません","未找到 PresentMon","PresentMon no encontrado"],"Database notifikasi Windows tidak ditemukan":["Windows notification database not found","Pangkalan data pemberitahuan Windows tidak ditemui","Windows の通知データベースが見つかりません","未找到 Windows 通知数据库","No se encontró la base de datos de notificaciones de Windows"],"Jangan ganggu aktif":["Do Not Disturb on","Jangan ganggu aktif","サイレントモード オン","勿扰已开启","No molestar activado"],"Notifikasi tidak ditampilkan di island":["Notifications are not shown in the island","Pemberitahuan tidak dipaparkan di island","通知はアイランドに表示されません","通知不会显示在岛上","Las notificaciones no se muestran en la isla"],"Jangan ganggu mati":["Do Not Disturb off","Jangan ganggu dimatikan","サイレントモード オフ","勿扰已关闭","No molestar desactivado"],"Notifikasi tampil lagi":["Notifications show again","Pemberitahuan dipaparkan semula","通知が再び表示されます","通知将再次显示","Las notificaciones vuelven a mostrarse"],"Aplikasi dibuka":["App opened","Aplikasi dibuka","アプリを開きました","应用已打开","Aplicación abierta"],"baru saja":["just now","baru sahaja","たった今","刚刚","ahora mismo"],"tadi":["earlier","tadi","先ほど","刚才","antes"],"sekarang":["now","sekarang","今","现在","ahora"],"Notifikasi":["Notification","Pemberitahuan","通知","通知","Notificación"],"Disalin":["Copied","Disalin","コピーしました","已复制","Copiado"],"Gambar disalin":["Image copied","Imej disalin","画像をコピーしました","图片已复制","Imagen copiada"],"Papan klip":["Clipboard","Papan keratan","クリップボード","剪贴板","Portapapeles"],"Ketuk: tempel":["Tap: paste","Ketik: tampal","タップで貼り付け","点按粘贴","Toca: pegar"],"Merekam layar / audio":["Recording screen / audio","Merakam skrin / audio","画面 / 音声を録画中","正在录制屏幕 / 音频","Grabando pantalla / audio"],"Mikrofon dipakai":["Microphone in use","Mikrofon digunakan","マイクを使用中","麦克风使用中","Micrófono en uso"],"Kamera dipakai":["Camera in use","Kamera digunakan","カメラを使用中","摄像头使用中","Cámara en uso"],"Sedang aktif":["Currently active","Sedang aktif","現在アクティブ","当前活动","Activo ahora"],"Privasi":["Privacy","Privasi","プライバシー","隐私","Privacidad"],"Audio sedang diputar":["Audio is playing","Audio sedang dimainkan","オーディオを再生中","正在播放音频","Reproduciendo audio"],"Suara dari PC":["Sound from the PC","Bunyi dari PC","PC からの音","来自电脑的声音","Sonido del PC"],"Audio":["Audio","Audio","オーディオ","音频","Audio"],"Selesai":["Done","Selesai","完了","完成","Listo"],"{n} · proses rampung":["{n} · process finished","{n} · proses selesai","{n} · 処理が完了しました","{n} · 处理完成","{n} · proceso terminado"],"Progres":["Progress","Kemajuan","進捗","进度","Progreso"],"Sedang berjalan":["In progress","Sedang berjalan","実行中","进行中","En curso"],"FPS akurat butuh izin":["Accurate FPS needs permission","FPS tepat perlukan kebenaran","正確な FPS には権限が必要です","精确 FPS 需要授权","Los FPS precisos necesitan permiso"],"Buka pengaturan lalu tekan \"Beri izin FPS\" (sekali saja)":["Open settings and press \"Grant FPS permission\" (only once)","Buka tetapan kemudian tekan \"Beri kebenaran FPS\" (sekali sahaja)","設定を開いて「FPS の権限を付与」を押してください（一度だけ）","打开设置并点击“授予 FPS 权限”（仅一次）","Abre los ajustes y pulsa \"Conceder permiso de FPS\" (solo una vez)"],"Izin diminta":["Permission requested","Kebenaran diminta","権限をリクエストしました","已请求授权","Permiso solicitado"],"Setujui jendela admin (Yes). Hasilnya aku cek otomatis.":["Approve the admin window (Yes). I will check the result automatically.","Luluskan tetingkap admin (Yes). Hasilnya saya semak secara automatik.","管理者ウィンドウで「はい」を選んでください。結果は自動で確認します。","请在管理员窗口中点击“是”。结果会自动检查。","Aprueba la ventana de administrador (Sí). Comprobaré el resultado automáticamente."],"Izin belum masuk":["Permission not granted","Kebenaran belum diberi","権限が付与されていません","尚未获得授权","Permiso no concedido"],"Jendela admin tadi ditolak atau ditutup. Tekan Beri izin FPS lagi lalu pilih Yes.":["The admin window was declined or closed. Press Grant FPS permission again and choose Yes.","Tetingkap admin tadi ditolak atau ditutup. Tekan Beri kebenaran FPS sekali lagi dan pilih Yes.","管理者ウィンドウが拒否されたか閉じられました。もう一度「FPS の権限を付与」を押し、「はい」を選んでください。","管理员窗口被拒绝或已关闭。请再次点击“授予 FPS 权限”并选择“是”。","La ventana de administrador se rechazó o se cerró. Pulsa Conceder permiso de FPS de nuevo y elige Sí."],"Izin FPS aktif":["FPS permission active","Kebenaran FPS aktif","FPS の権限が有効です","FPS 权限已生效","Permiso de FPS activo"],"Sudah berlaku di sesi ini. Buka game, lalu tandai sebagai game di pengaturan bila belum muncul.":["Already in effect for this session. Open a game, then mark it as a game in settings if it does not appear.","Sudah berkuat kuasa dalam sesi ini. Buka permainan, kemudian tandakan sebagai permainan dalam tetapan jika belum muncul.","このセッションですでに有効です。ゲームを開き、表示されない場合は設定でゲームとして登録してください。","此会话中已生效。打开游戏后，如果没有出现，请在设置中将其标记为游戏。","Ya está activo en esta sesión. Abre un juego y, si no aparece, márcalo como juego en los ajustes."],"Izin terpasang":["Permission installed","Kebenaran dipasang","権限を設定しました","权限已安装","Permiso instalado"],"Tinggal keluar-masuk (sign out) Windows sekali supaya berlaku.":["Just sign out of Windows and back in once to make it take effect.","Tinggal log keluar dan masuk semula Windows sekali supaya berkuat kuasa.","あとは Windows からサインアウトして再度サインインすれば有効になります。","只需注销并重新登录一次 Windows 即可生效。","Solo cierra sesión en Windows y vuelve a entrar una vez para que surta efecto."],"Ditandai sebagai game":["Marked as a game","Ditandai sebagai permainan","ゲームとして登録しました","已标记为游戏","Marcado como juego"],"Bukan game":["Not a game","Bukan permainan","ゲームではありません","不是游戏","No es un juego"],"Game":["Game","Permainan","ゲーム","游戏","Juego"],"Waktu antar frame":["Frame time","Masa antara bingkai","フレームタイム","帧间隔时间","Tiempo entre fotogramas"],"Crosshair: {s}":["Crosshair: {s}","Crosshair: {s}","クロスヘア: {s}","准星：{s}","Mira: {s}"],"nyala":["on","hidup","オン","开","activada"],"mati":["off","mati","オフ","关","desactivada"],"Sembunyikan":["Hide","Sembunyikan","非表示","隐藏","Ocultar"],"PC terasa berat":["The PC feels sluggish","PC terasa berat","PC の動作が重くなっています","电脑有些卡顿","El PC va lento"],"Pemakaian sistem":["System usage","Penggunaan sistem","システム使用状況","系统占用","Uso del sistema"],"Paling banyak memakai memori":["Using the most memory","Paling banyak menggunakan memori","メモリ使用量が多い順","内存占用最多","Mayor uso de memoria"],"End Task":["End Task","Tamatkan Tugas","タスクを終了","结束任务","Finalizar tarea"],"↓ Unduh":["↓ Download","↓ Muat turun","↓ ダウンロード","↓ 下载","↓ Descarga"],"↑ Unggah":["↑ Upload","↑ Muat naik","↑ アップロード","↑ 上传","↑ Subida"],"Cerah":["Clear","Cerah","晴れ","晴","Despejado"],"Cerah berawan":["Mostly clear","Cerah berawan","晴れ時々曇り","晴间多云","Mayormente despejado"],"Berawan sebagian":["Partly cloudy","Separa mendung","一部曇り","局部多云","Parcialmente nublado"],"Mendung":["Overcast","Mendung","曇り","阴","Nublado"],"Berkabut":["Foggy","Berkabus","霧","有雾","Niebla"],"Kabut beku":["Freezing fog","Kabus beku","着氷性の霧","冻雾","Niebla helada"],"Gerimis ringan":["Light drizzle","Renyai ringan","弱い霧雨","小毛毛雨","Llovizna ligera"],"Gerimis":["Drizzle","Renyai","霧雨","毛毛雨","Llovizna"],"Gerimis lebat":["Heavy drizzle","Renyai lebat","強い霧雨","大毛毛雨","Llovizna intensa"],"Gerimis beku":["Freezing drizzle","Renyai beku","着氷性の霧雨","冻毛毛雨","Llovizna helada"],"Hujan ringan":["Light rain","Hujan ringan","小雨","小雨","Lluvia ligera"],"Hujan":["Rain","Hujan","雨","雨","Lluvia"],"Hujan lebat":["Heavy rain","Hujan lebat","大雨","大雨","Lluvia intensa"],"Hujan beku":["Freezing rain","Hujan beku","着氷性の雨","冻雨","Lluvia helada"],"Salju ringan":["Light snow","Salji ringan","弱い雪","小雪","Nieve ligera"],"Salju":["Snow","Salji","雪","雪","Nieve"],"Salju lebat":["Heavy snow","Salji lebat","大雪","大雪","Nieve intensa"],"Butiran salju":["Snow grains","Butiran salji","雪あられ","米雪","Granos de nieve"],"Hujan sebentar":["Rain showers","Hujan sekejap","にわか雨","阵雨","Chubascos"],"Hujan deras":["Violent rain showers","Hujan lebat mendadak","激しいにわか雨","强阵雨","Chubascos fuertes"],"Salju sebentar":["Snow showers","Salji sekejap","にわか雪","阵雪","Chubascos de nieve"],"Badai petir":["Thunderstorm","Ribut petir","雷雨","雷暴","Tormenta"],"Badai petir + es":["Thunderstorm with hail","Ribut petir dengan hujan batu","雹を伴う雷雨","雷暴伴冰雹","Tormenta con granizo"],"Kota tidak ditemukan":["City not found","Bandar tidak ditemui","都市が見つかりません","找不到该城市","Ciudad no encontrada"],"Lokasi tidak terdeteksi":["Location not detected","Lokasi tidak dikesan","場所を検出できません","无法检测位置","Ubicación no detectada"],"Cuaca belum bisa dimuat":["Weather could not be loaded yet","Cuaca belum dapat dimuatkan","天気をまだ読み込めません","暂时无法加载天气","Aún no se puede cargar el clima"],"Cuaca tidak tersedia":["Weather unavailable","Cuaca tidak tersedia","天気情報がありません","天气不可用","Clima no disponible"],"Terasa {a}° · Lembap {b}%":["Feels like {a}° · Humidity {b}%","Terasa {a}° · Kelembapan {b}%","体感 {a}° · 湿度 {b}%","体感 {a}° · 湿度 {b}%","Sensación {a}° · Humedad {b}%"],"Angin {a} km/j":["Wind {a} km/h","Angin {a} km/j","風 {a} km/h","风速 {a} km/h","Viento {a} km/h"],"Hujan {a}%":["Rain {a}%","Hujan {a}%","降水 {a}%","降雨 {a}%","Lluvia {a}%"],"T {a}° / R {b}°":["H {a}° / L {b}°","T {a}° / R {b}°","最高 {a}° / 最低 {b}°","高 {a}° / 低 {b}°","Máx {a}° / Mín {b}°"],"Lepaskan di sini":["Drop here","Lepaskan di sini","ここにドロップ","放在这里","Suelta aquí"],"Kantong sementara":["Temporary shelf","Rak sementara","一時置き場","临时暂存区","Bandeja temporal"],"Seret file, gambar, atau teks ke sini":["Drag a file, image, or text here","Seret fail, gambar atau teks ke sini","ファイル・画像・テキストをここにドラッグ","将文件、图片或文本拖到这里","Arrastra un archivo, imagen o texto aquí"],"Tarik keluar untuk menempel ke aplikasi lain":["Drag out to paste into another app","Tarik keluar untuk menampal ke aplikasi lain","外にドラッグして別のアプリに貼り付け","拖出即可粘贴到其他应用","Arrastra hacia fuera para pegar en otra aplicación"],"Baterai":["Battery","Bateri","バッテリー","电池","Batería"],"Mengisi daya":["Charging","Mengecas","充電中","正在充电","Cargando"],"Daya dicabut":["Unplugged","Pengecas dicabut","電源を取り外しました","已拔出电源","Desconectado"],"Baterai {n}%":["Battery {n}%","Bateri {n}%","バッテリー {n}%","电量 {n}%","Batería {n}%"],"Baterai penuh":["Battery full","Bateri penuh","バッテリー満充電","电量已满","Batería llena"],"Bisa dicabut dari charger":["You can unplug the charger","Boleh cabut pengecas","充電器を外せます","可以拔掉充电器了","Puedes desconectar el cargador"],"Baterai kritis":["Battery critical","Bateri kritikal","バッテリー残量わずか","电量严重不足","Batería crítica"],"Baterai lemah":["Battery low","Bateri lemah","バッテリー残量低下","电量低","Batería baja"],"{n}% tersisa":["{n}% left","{n}% berbaki","残り {n}%","剩余 {n}%","{n}% restante"],"Buka":["Open","Buka","開く","打开","Abrir"],"Jalan otomatis saat Windows menyala":["Start automatically with Windows","Berjalan automatik semasa Windows dihidupkan","Windows 起動時に自動で実行","Windows 启动时自动运行","Iniciar automáticamente con Windows"],"Animasi buka/tutup jendela":["Window open/close animation","Animasi buka/tutup tetingkap","ウィンドウ開閉アニメーション","窗口打开/关闭动画","Animación al abrir/cerrar ventanas"],"Jangan ganggu (Ctrl+Alt+N)":["Do Not Disturb (Ctrl+Alt+N)","Jangan ganggu (Ctrl+Alt+N)","サイレント（Ctrl+Alt+N）","勿扰（Ctrl+Alt+N）","No molestar (Ctrl+Alt+N)"],"Keluar":["Quit","Keluar","終了","退出","Salir"]};
+          const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+          const ok = l => LANGS.indexOf(l) >= 0;
+          function t(lang, k, v) {
+            let r = k == null ? "" : String(k);
+            if (r && has(D, r) && has(IDX, lang)) r = D[r][IDX[lang]] || D[r][0] || r;
+            if (v) for (const n in v) r = r.split("{" + n + "}").join(String(v[n]));
+            return r;
+          }
+          // kamus untuk jendela island (satu bahasa saja, supaya ringan dikirim lewat IPC)
+          function pack(lang) {
+            const o = {};
+            if (!has(IDX, lang)) return o;
+            for (const k in D) o[k] = D[k][IDX[lang]] || D[k][0];
+            return o;
+          }
+          module.exports = { LANGS, t, pack, ok, loc: l => LOC[l] || "id-ID", geo: l => (ok(l) ? l : "id") };
+          FX_EOS
           cat > fx/fx.js <<'FX_EOS'
           "use strict";
           // Modul efek Windows: Dynamic Island (membaca notifikasi Windows) + animasi buka/tutup jendela ala iOS.
@@ -1976,6 +2000,7 @@ jobs:
           const path = require("path");
           const { spawn, execFile } = require("child_process");
           const { fileURLToPath, pathToFileURL } = require("url");
+          const I18N = require("./i18n.js");
 
           const DEF = {
             enabled: false, anim: false, animmin: true, pill: true,
@@ -1984,10 +2009,12 @@ jobs:
             edge: "top", bat: true, clip: false, glow: true, dnd: false, qon: false, qfrom: "22:00", qto: "07:00", hot: true, mon: "primary", hist: true,
             appnotif: true, live: true, media: true, mtoast: true, devs: true, net: true, rmon: 1, prog: true, hub: true, game: true,
             curs: false, cstyle: "ring", ccolor: "#ffffff", csize: 36,
-            auto: true, fpsreal: true, gamelist: [], nogame: [], xh: false, xhgame: false, xhstyle: "cross", xhcolor: "#00ff66", xhsize: 14, xhthick: 2, xhgap: 4, xhop: 90, cal: true, city: ""
+            auto: true, fpsreal: true, gamelist: [], nogame: [], xh: false, xhgame: false, xhstyle: "cross", xhcolor: "#00ff66", xhsize: 14, xhthick: 2, xhgap: 4, xhop: 90, cal: true, city: "", lang: "id"
           };
 
           let ctx = null, S = Object.assign({}, DEF), started = false, quitting = false;
+          const T = (k, v) => I18N.t(S.lang, k, v);          // terjemahan sesuai bahasa pilihan
+          let langCb = () => {};
           let isl = null, islReady = false, islPend = [];
           const anims = new Map();            // id layar -> { win, ready, pend }
           const procs = { notif: null, win: null, sys: null };
@@ -2005,6 +2032,7 @@ jobs:
             if (!had && ctx && ctx.cfg && ctx.cfg.url) { S.enabled = true; S.anim = true; }
             if (!Array.isArray(S.fapps)) S.fapps = [];
             if (!S.seen || typeof S.seen !== "object") S.seen = {};
+            if (!I18N.ok(S.lang)) S.lang = "id";
           }
           function save() {
             clearTimeout(saveT);
@@ -2159,7 +2187,7 @@ jobs:
             });
           }
           function islCfg() {
-            return { bg: S.bg, op: S.op, cw: S.cw, ew: S.ew, dh: S.dh, top: 8 + S.dy, edge: S.edge, always: !!S.pill, dur: S.dur, glow: !!S.glow, bat: !!S.bat, snd: !!S.snd, surl: soundUrl(S.suri), svol: S.svol };
+            return { bg: S.bg, op: S.op, cw: S.cw, ew: S.ew, dh: S.dh, top: 8 + S.dy, edge: S.edge, always: !!S.pill, dur: S.dur, glow: !!S.glow, bat: !!S.bat, snd: !!S.snd, surl: soundUrl(S.suri), svol: S.svol, lang: S.lang, loc: I18N.loc(S.lang), tr: I18N.pack(S.lang) };
           }
           function ensureIsland() {
             if (isl && !isl.isDestroyed()) return isl;
@@ -2367,7 +2395,7 @@ jobs:
             if (appOpenAt.size > 200) appOpenAt.clear();
             const label = String(m.name || "").trim() || prettyApp(m.exe);
             const ico = m.icon ? "data:image/png;base64," + m.icon : (winIcons.get(m.exe) || "");
-            showIsland({ title: label, text: "Aplikasi dibuka", app: label, appId: "", icon: ico, kind: "app", quiet: true, time: "baru saja" });
+            showIsland({ title: label, text: T("Aplikasi dibuka"), app: label, appId: "", icon: ico, kind: "app", quiet: true, time: T("baru saja") });
             if (!ico && m.exe) exeIcon(m.exe);
           }
           function onWin(m) {
@@ -2431,7 +2459,7 @@ jobs:
               if (!fromSeq && t === clipLast) return;
               clipLast = t; clipSnap = { text: t };
               if (quiet()) return;
-              showIsland({ title: "Disalin", text: t.replace(/\s+/g, " ").trim().slice(0, 90), app: "Papan klip", icon: svgIcon("#0a84ff", "📋"), appId: "", kind: "clip", time: "Ketuk: tempel", quiet: true });
+              showIsland({ title: T("Disalin"), text: t.replace(/\s+/g, " ").trim().slice(0, 90), app: T("Papan klip"), icon: svgIcon("#0a84ff", "📋"), appId: "", kind: "clip", time: T("Ketuk: tempel"), quiet: true });
               return;
             }
             let img = null;
@@ -2441,7 +2469,7 @@ jobs:
               const th = k < 1 ? img.resize({ width: Math.max(1, Math.round(sz.width * k)), height: Math.max(1, Math.round(sz.height * k)) }) : img;
               clipSnap = { image: img }; clipLast = "";
               if (quiet()) return;
-              showIsland({ title: "Gambar disalin", text: sz.width + " \u00D7 " + sz.height + " px", img: th.toDataURL(), imgsq: true, app: "Papan klip", icon: svgIcon("#0a84ff", "🖼"), appId: "", kind: "clip", time: "Ketuk: tempel", quiet: true });
+              showIsland({ title: T("Gambar disalin"), text: sz.width + " \u00D7 " + sz.height + " px", img: th.toDataURL(), imgsq: true, app: T("Papan klip"), icon: svgIcon("#0a84ff", "🖼"), appId: "", kind: "clip", time: T("Ketuk: tempel"), quiet: true });
             }
           }
           // ketuk island = tempel isi papan klip ke aplikasi yang sedang aktif (island tidak mengambil fokus)
@@ -2472,8 +2500,8 @@ jobs:
           function toggleDnd(on) {
             S.dnd = on === undefined ? !S.dnd : !!on; save();
             showIsland(S.dnd
-              ? { title: "Jangan ganggu aktif", text: "Notifikasi tidak ditampilkan di island", app: "Dynamic Island", icon: svgIcon("#5e5ce6", "🌙"), appId: "" }
-              : { title: "Jangan ganggu mati", text: "Notifikasi tampil lagi", app: "Dynamic Island", icon: svgIcon("#30d158", "🔔"), appId: "" });
+              ? { title: T("Jangan ganggu aktif"), text: T("Notifikasi tidak ditampilkan di island"), app: "Dynamic Island", icon: svgIcon("#5e5ce6", "🌙"), appId: "" }
+              : { title: T("Jangan ganggu mati"), text: T("Notifikasi tampil lagi"), app: "Dynamic Island", icon: svgIcon("#30d158", "🔔"), appId: "" });
           }
           function startKeys() {
             stopKeys();
@@ -2576,6 +2604,13 @@ jobs:
             else if (key === "xhthick") S.xhthick = Math.round(clamp(val, 1, 8));
             else if (key === "xhgap") S.xhgap = Math.round(clamp(val, 0, 30));
             else if (key === "xhop") S.xhop = Math.round(clamp(val, 20, 100));
+            else if (key === "lang") {
+              const v = String(val || "");
+              if (S.lang === v || !I18N.ok(v)) return;
+              S.lang = v; wxCache = null; wxGeo = null;
+              if (isl && !isl.isDestroyed() && islReady) { try { isl.webContents.send("fx:cfg", islCfg()); } catch (_) {} }
+              try { langCb(); } catch (_) {}
+            }
             else if (key === "city") { S.city = String(val || "").replace(/[^\p{L}\p{N} ,.'-]/gu, "").slice(0, 60); wxCache = null; wxGeo = null; }
             else return;
             save();
@@ -2656,14 +2691,14 @@ jobs:
             devPrev = cur;
             if (!S.live || !S.devs) { ["rec", "mic", "cam"].forEach(k => setLive(k, null)); return; }
             const rows = [];
-            DEVDEF.forEach(d => cur[d[0]].forEach(n => rows.push({ c: d[1], t: d[2], s: niceName(n) })));
-            const panel = { id: "dev", type: "rows", title: "Sedang aktif", rows: rows };
+            DEVDEF.forEach(d => cur[d[0]].forEach(n => rows.push({ c: d[1], t: T(d[2]), s: niceName(n) })));
+            const panel = { id: "dev", type: "rows", title: T("Sedang aktif"), rows: rows };
             DEVDEF.forEach((d, i) => {
               const k = d[0], list = cur[k];
               if (!list.length) { setLive(k, null); return; }
               setLive(k, { id: k, p: 100 - i, dot: d[1], dotOnly: true, panel: panel });
               const fresh = list.filter(n => prev[k].indexOf(n) < 0);
-              if (fresh.length) showIsland({ title: d[2], text: fresh.map(niceName).join(", "), app: "Privasi", icon: svgIcon(d[1], d[3]), appId: "", kind: "dev", quiet: true });
+              if (fresh.length) showIsland({ title: T(d[2]), text: fresh.map(niceName).join(", "), app: T("Privasi"), icon: svgIcon(d[1], d[3]), appId: "", kind: "dev", quiet: true });
             });
           }
 
@@ -2682,9 +2717,9 @@ jobs:
               if (S.mtoast && (!mediaWas || key !== mediaToastKey) && Date.now() - mediaToastAt > 8000 && !quiet()) {
                 mediaToastAt = Date.now(); mediaToastKey = key;
                 showIsland({
-                  title: mediaState.title || "Audio sedang diputar",
-                  text: [mediaState.artist, mediaState.app].filter(Boolean).join(" \u00B7 ") || "Suara dari PC",
-                  app: mediaState.app || "Audio", icon: svgIcon("#ff375f", "\u266A"), appId: "", kind: "media", quiet: true
+                  title: mediaState.title || T("Audio sedang diputar"),
+                  text: [mediaState.artist, mediaState.app].filter(Boolean).join(" \u00B7 ") || T("Suara dari PC"),
+                  app: mediaState.app || T("Audio"), icon: svgIcon("#ff375f", "\u266A"), appId: "", kind: "media", quiet: true
                 });
               }
             } else if (L.media) {
@@ -2699,7 +2734,7 @@ jobs:
             const pct = m.pct | 0;
             if (m.pct < 0) {
               if (progState.pct >= 0 && progState.max >= 70 && S.prog && S.live && !quiet()) {
-                showIsland({ title: "Selesai", text: niceName(progState.app) + " \u00B7 proses rampung", app: "Progres", icon: svgIcon("#30d158", "\u2713"), appId: "", kind: "prog", quiet: true });
+                showIsland({ title: T("Selesai"), text: T("{n} · proses rampung", { n: niceName(progState.app) }), app: T("Progres"), icon: svgIcon("#30d158", "\u2713"), appId: "", kind: "prog", quiet: true });
               }
               progState = { pct: -1, app: "", what: "", max: 0 };
               setLive("prog", null);
@@ -2773,7 +2808,7 @@ jobs:
                 pm.tries++;
                 if (denied && !pm.warned && S.enabled && !quiet()) {
                   pm.warned = true;
-                  showIsland({ title: "FPS akurat butuh izin", text: "Buka pengaturan lalu tekan \"Beri izin FPS\" (sekali saja)", app: "FPS", icon: svgIcon("#ff9f0a", "\u26A0"), appId: "", quiet: true });
+                  showIsland({ title: T("FPS akurat butuh izin"), text: T('Buka pengaturan lalu tekan "Beri izin FPS" (sekali saja)'), app: "FPS", icon: svgIcon("#ff9f0a", "\u26A0"), appId: "", quiet: true });
                 }
                 if (!denied) setTimeout(pmSync, 4000);
               } else setTimeout(pmSync, 2000);
@@ -2832,7 +2867,7 @@ jobs:
             const b64 = Buffer.from(ps, "utf16le").toString("base64");
             const cmd = "Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile','-EncodedCommand','" + b64 + "'";
             pm.tries = 0; pm.warned = false;
-            showIsland({ title: "Izin diminta", text: "Setujui jendela admin (Yes). Hasilnya aku cek otomatis.", app: "FPS", icon: svgIcon("#0a84ff", "\u2713"), appId: "", quiet: true });
+            showIsland({ title: T("Izin diminta"), text: T("Setujui jendela admin (Yes). Hasilnya aku cek otomatis."), app: "FPS", icon: svgIcon("#0a84ff", "\u2713"), appId: "", quiet: true });
             try {
               execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", cmd], { windowsHide: true }, () => {
                 // cek apakah akun sudah ada di grup, lalu apakah sesi Windows ini sudah memuatnya (butuh sign out)
@@ -2840,9 +2875,9 @@ jobs:
                   const inGroup = !e && String(out).toLowerCase().indexOf(u.toLowerCase()) >= 0;
                   pmGrpCheck(() => {
                     let t, x, col, gl;
-                    if (!inGroup) { t = "Izin belum masuk"; x = "Jendela admin tadi ditolak atau ditutup. Tekan Beri izin FPS lagi lalu pilih Yes."; col = "#ff453a"; gl = "\u2715"; }
-                    else if (pmGrpV === 1) { t = "Izin FPS aktif"; x = "Sudah berlaku di sesi ini. Buka game, lalu tandai sebagai game di pengaturan bila belum muncul."; col = "#30d158"; gl = "\u2713"; }
-                    else { t = "Izin terpasang"; x = "Tinggal keluar-masuk (sign out) Windows sekali supaya berlaku."; col = "#ff9f0a"; gl = "\u26A0"; }
+                    if (!inGroup) { t = T("Izin belum masuk"); x = T("Jendela admin tadi ditolak atau ditutup. Tekan Beri izin FPS lagi lalu pilih Yes."); col = "#ff453a"; gl = "\u2715"; }
+                    else if (pmGrpV === 1) { t = T("Izin FPS aktif"); x = T("Sudah berlaku di sesi ini. Buka game, lalu tandai sebagai game di pengaturan bila belum muncul."); col = "#30d158"; gl = "\u2713"; }
+                    else { t = T("Izin terpasang"); x = T("Tinggal keluar-masuk (sign out) Windows sekali supaya berlaku."); col = "#ff9f0a"; gl = "\u26A0"; }
                     showIsland({ title: t, text: x, app: "FPS", icon: svgIcon(col, gl), appId: "", quiet: true });
                     pmSync();
                   });
@@ -2986,7 +3021,7 @@ jobs:
               add = true;
             }
             save(); syncSysFlags();
-            showIsland({ title: add ? "Ditandai sebagai game" : "Bukan game", text: niceName(n), app: "Game", icon: svgIcon(add ? "#30d158" : "#8e8e93", "🎮"), appId: "", quiet: true });
+            showIsland({ title: T(add ? "Ditandai sebagai game" : "Bukan game"), text: niceName(n), app: T("Game"), icon: svgIcon(add ? "#30d158" : "#8e8e93", "🎮"), appId: "", quiet: true });
           }
 
           /* ----- tombol di island ----- */
@@ -3059,7 +3094,7 @@ jobs:
             71: ["Salju ringan", "🌨"], 73: ["Salju", "🌨"], 75: ["Salju lebat", "❄️"], 77: ["Butiran salju", "🌨"],
             80: ["Hujan sebentar", "🌦"], 81: ["Hujan sebentar", "🌧"], 82: ["Hujan deras", "⛈"], 85: ["Salju sebentar", "🌨"], 86: ["Salju lebat", "❄️"],
             95: ["Badai petir", "⛈"], 96: ["Badai petir + es", "⛈"], 99: ["Badai petir + es", "⛈"] };
-          const wxInfo = c => WX[c] || ["-", "🌡"];
+          const wxInfo = c => { const w = WX[c]; return w ? [T(w[0]), w[1]] : ["-", "🌡"]; };
           let wxCache = null, wxAt = 0, wxKey = "", wxGeo = null;
           async function jget(url) {
             const r = await fetch(url, { signal: AbortSignal.timeout(8000), headers: { Accept: "application/json" } });
@@ -3070,15 +3105,15 @@ jobs:
             const city = String(S.city || "").trim();
             if (city) {
               if (wxGeo && wxGeo.key === city) return wxGeo;
-              const j = await jget("https://geocoding-api.open-meteo.com/v1/search?count=1&language=id&format=json&name=" + encodeURIComponent(city));
+              const j = await jget("https://geocoding-api.open-meteo.com/v1/search?count=1&language=" + I18N.geo(S.lang) + "&format=json&name=" + encodeURIComponent(city));
               const g = j && j.results && j.results[0];
-              if (!g) throw new Error("Kota tidak ditemukan");
+              if (!g) throw new Error(T("Kota tidak ditemukan"));
               wxGeo = { key: city, lat: g.latitude, lon: g.longitude, name: [g.name, g.admin1].filter(Boolean).join(", ") };
               return wxGeo;
             }
             if (wxGeo && wxGeo.key === "") return wxGeo;
             const j = await jget("https://ipwho.is/");
-            if (!j || j.success === false) throw new Error("Lokasi tidak terdeteksi");
+            if (!j || j.success === false) throw new Error(T("Lokasi tidak terdeteksi"));
             wxGeo = { key: "", lat: j.latitude, lon: j.longitude, name: [j.city, j.region].filter(Boolean).join(", ") };
             return wxGeo;
           }
@@ -3109,8 +3144,8 @@ jobs:
             if (!S.enabled || !S.cal || calBusy) return;
             calBusy = true;
             let w = null, err = "";
-            try { w = await Promise.race([getWeather(false), wait(6000, null)]); if (!w) err = "Cuaca belum bisa dimuat"; }
-            catch (e) { err = String((e && e.message) || "Cuaca tidak tersedia"); if (wxCache) w = wxCache; }
+            try { w = await Promise.race([getWeather(false), wait(6000, null)]); if (!w) err = T("Cuaca belum bisa dimuat"); }
+            catch (e) { err = String((e && e.message) || T("Cuaca tidak tersedia")); if (wxCache) w = wxCache; }
             calBusy = false;
             if (!isl || isl.isDestroyed()) return;
             toIsl("panel", { spec: { id: "cal", type: "cal", w: w, err: w ? "" : err }, sticky: true });
@@ -3155,7 +3190,7 @@ jobs:
             getState: () => JSON.stringify({ overlay: true, listener: !!notifState.ok, running: !!S.enabled && !!isl, supported: true, cam: true, a11y: true }),
             getInfo: () => JSON.stringify({
               platform: "windows", version: (ctx && ctx.cfg && ctx.cfg.version) || "", helper: fs.existsSync(helperExe()),
-              notif: notifState, enabled: !!S.enabled, anim: !!procs.win, pm: { ok: !!pm.ok, exists: pmExists(), err: pm.err || "", grp: pmGrp(), game: !!gameState.full, got: pm.got | 0 }, sys: { ok: !!sysState.ok, err: sysState.err || "", exists: sysExists() }, appsReady: appsReady, nApps: startApps.length
+              notif: Object.assign({}, notifState, { err: T(notifState.err || "") }), enabled: !!S.enabled, anim: !!procs.win, pm: { ok: !!pm.ok, exists: pmExists(), err: pm.err || "", grp: pmGrp(), game: !!gameState.full, got: pm.got | 0 }, sys: { ok: !!sysState.ok, err: sysState.err || "", exists: sysExists() }, appsReady: appsReady, nApps: startApps.length
             }),
             getApps: () => appsJson(),
             getIcon: id => iconCache.get(String(id || "") + "|64") || "",
@@ -3171,7 +3206,7 @@ jobs:
             openWinSettings() { try { shell.openExternal("ms-settings:notifications"); } catch (_) {} },
             start() { S.enabled = true; save(); applyEnabled(); },
             stop() { S.enabled = false; save(); applyEnabled(); },
-            test(title, text) { showIsland({ title: String(title || "Notifikasi").slice(0, 80), text: String(text || "").slice(0, 300), app: "Dynamic Island", icon: ownIcon, appId: "" }); },
+            test(title, text) { showIsland({ title: String(title || T("Notifikasi")).slice(0, 80), text: String(text || "").slice(0, 300), app: "Dynamic Island", icon: ownIcon, appId: "" }); },
             setStyle(hex, op, dy, cw, ew, cx, dh) {
               if (/^#[0-9a-f]{6}$/i.test(String(hex))) S.bg = String(hex);
               S.op = clamp(op, 40, 100); S.dy = clamp(dy, -30, 120); S.cw = clamp(cw, 40, 400); S.ew = clamp(ew, 160, 700);
@@ -3206,7 +3241,7 @@ jobs:
             openCal() { openCal(); },
             grantFps() { grantFps(); },
             setGameMark(name, mode) { setGameMark(name, mode); },
-            reshow(i) { const h = hist[Number(i)]; if (h) showIsland({ title: h.title, text: h.text, app: h.app, appId: h.appId, time: "tadi" }); }
+            reshow(i) { const h = hist[Number(i)]; if (h) showIsland({ title: h.title, text: h.text, app: h.app, appId: h.appId, time: T("tadi") }); }
           };
 
           function trusted(e) {
@@ -3286,12 +3321,12 @@ jobs:
           function trayItems() {
             return [
               { label: "Dynamic Island", type: "checkbox", checked: !!S.enabled, click: it => { S.enabled = it.checked; save(); applyEnabled(); } },
-              { label: "Animasi buka/tutup jendela", type: "checkbox", checked: !!S.anim, click: it => { S.anim = it.checked; save(); applyAnim(); } },
-              { label: "Jangan ganggu (Ctrl+Alt+N)", type: "checkbox", checked: !!S.dnd, click: it => { S.dnd = it.checked; save(); } }
+              { label: T("Animasi buka/tutup jendela"), type: "checkbox", checked: !!S.anim, click: it => { S.anim = it.checked; save(); applyAnim(); } },
+              { label: T("Jangan ganggu (Ctrl+Alt+N)"), type: "checkbox", checked: !!S.dnd, click: it => { S.dnd = it.checked; save(); } }
             ];
           }
 
-          module.exports = { start, stop, trayItems, setAuto: on => { S.auto = !!on; save(); applyAuto(); }, autoOn: () => !!S.auto };
+          module.exports = { start, stop, trayItems, T: (k, v) => T(k, v), onLang: f => { langCb = f || (() => {}); }, setAuto: on => { S.auto = !!on; save(); applyAuto(); }, autoOn: () => !!S.auto };
           FX_EOS
           cat > fx/preload.js <<'FX_EOS'
           "use strict";
@@ -3356,6 +3391,14 @@ jobs:
           <style>html,body{margin:0;height:100%;overflow:hidden;background:transparent}body{position:relative}</style>
           </head><body>
           <div id="dz" style="position:fixed;left:0;top:0;right:0;bottom:0;display:none;background:rgba(0,0,0,.004)"></div>
+          <script>
+          var TRN = {}, LOC = 'id-ID';
+          function LT(k, v) {
+            var r = (TRN && Object.prototype.hasOwnProperty.call(TRN, k) && TRN[k]) || k;
+            if (v) for (var n in v) r = r.split('{' + n + '}').join(String(v[n]));
+            return r;
+          }
+          </script>
           <script>
           /* ===== inti Dynamic Island: pill, notifikasi, live activity, panel (media, jaringan, monitor, hub, dll) ===== */
           (function (g) {
@@ -3601,7 +3644,7 @@ jobs:
                 var t = el('div', 'fxt');
                 var l = el('div', 'fxl');
                 var b = el('b', '', e.title || ''); b.style.color = tc;
-                var tm = el('i', '', e.time || 'sekarang'); tm.style.color = dc;
+                var tm = el('i', '', e.time || LT('sekarang')); tm.style.color = dc;
                 l.appendChild(b); l.appendChild(tm); t.appendChild(l);
                 if (e.text) { var x = el('div', 'fxx' + (single ? '' : ' one'), e.text); x.style.color = sc; t.appendChild(x); }
                 r.appendChild(a); r.appendChild(t);
@@ -3624,8 +3667,8 @@ jobs:
               function lvColor(p) { return p >= 90 ? '#ff453a' : (p >= 70 ? '#ff9f0a' : '#30d158'); }
 
               var clockEls = [], clockT = null;
-              function clockStr() { return new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/\./g, ':'); }
-              function dateStr() { return new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
+              function clockStr() { return new Date().toLocaleTimeString(LOC, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/\./g, ':'); }
+              function dateStr() { return new Date().toLocaleDateString(LOC, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
               function startClock() {
                 if (clockT) return;
                 clockT = setInterval(function () {
@@ -3642,7 +3685,7 @@ jobs:
                   var hd = el('div', 'hd'), art = el('div', 'art');
                   if (p.icon) { var im = document.createElement('img'); im.src = p.icon; im.draggable = false; art.appendChild(im); } else art.textContent = '\u266A';
                   squircle(art);
-                  var tx = el('div', 'tx'), b = el('b', '', p.title || 'Audio sedang diputar'), s = el('span', '', [p.artist, p.app].filter(Boolean).join(' \u00B7 '));
+                  var tx = el('div', 'tx'), b = el('b', '', p.title || LT('Audio sedang diputar')), s = el('span', '', [p.artist, p.app].filter(Boolean).join(' \u00B7 '));
                   b.style.color = tc; s.style.color = sc; tx.appendChild(b); tx.appendChild(s);
                   hd.appendChild(art); hd.appendChild(tx);
                   var wv = makeWave(5, !!p.play, 24); wv.style.color = '#ff375f'; hd.appendChild(wv);
@@ -3655,9 +3698,9 @@ jobs:
                 } else if (t === 'net') {
                   var two = el('div', 'two');
                   var a1 = el('div'), a2 = el('div');
-                  a1.appendChild(el('div', '', '\u2193 Unduh')); a1.firstChild.style.cssText = 'font-size:12px;color:' + sc;
+                  a1.appendChild(el('div', '', LT('↓ Unduh'))); a1.firstChild.style.cssText = 'font-size:12px;color:' + sc;
                   var v1 = el('div', 'big2', fmtRate(p.d)); v1.style.color = '#30d158'; a1.appendChild(v1);
-                  a2.appendChild(el('div', '', '\u2191 Unggah')); a2.firstChild.style.cssText = 'font-size:12px;color:' + sc;
+                  a2.appendChild(el('div', '', LT('↑ Unggah'))); a2.firstChild.style.cssText = 'font-size:12px;color:' + sc;
                   var v2 = el('div', 'big2', fmtRate(p.u)); v2.style.color = '#0a84ff'; a2.appendChild(v2);
                   two.appendChild(a1); two.appendChild(a2); w.appendChild(two);
                   var spk = el('div', 'spk'), hh = p.h || [], mx = 1;
@@ -3674,24 +3717,24 @@ jobs:
                     w.appendChild(row);
                   });
                 } else if (t === 'mon') {
-                  var hh2 = el('div', '', p.lag ? 'PC terasa berat' : 'Pemakaian sistem');
+                  var hh2 = el('div', '', LT(p.lag ? 'PC terasa berat' : 'Pemakaian sistem'));
                   hh2.style.cssText = 'font-size:13px;font-weight:600;margin-bottom:4px;color:' + (p.lag ? '#ff9f0a' : tc);
                   w.appendChild(hh2);
                   w.appendChild(meter('CPU', p.cpu, lvColor(p.cpu)));
                   w.appendChild(meter('RAM', p.ram, lvColor(p.ram)));
                   if (p.gpu >= 0) w.appendChild(meter('GPU', p.gpu, lvColor(p.gpu)));
                   if (p.lag && p.top && p.top.length) {
-                    var sep = el('div', '', 'Paling banyak memakai memori'); sep.style.cssText = 'font-size:11px;margin:8px 0 2px;color:' + dc; w.appendChild(sep);
+                    var sep = el('div', '', LT('Paling banyak memakai memori')); sep.style.cssText = 'font-size:11px;margin:8px 0 2px;color:' + dc; w.appendChild(sep);
                     p.top.slice(0, 3).forEach(function (x) {
                       var row = el('div', 'pr'), tt = el('div', 'tt'); tt.textContent = x.n; tt.style.color = tc;
                       var sm = el('small', '', x.mb + ' MB'); sm.style.color = sc;
-                      var k = el('button', 'fxb sm', 'End Task'); k.dataset.act = 'kill'; k.dataset.arg = x.pid;
+                      var k = el('button', 'fxb sm', LT('End Task')); k.dataset.act = 'kill'; k.dataset.arg = x.pid;
                       row.appendChild(tt); row.appendChild(sm); row.appendChild(k); w.appendChild(row);
                     });
                   }
                 } else if (t === 'prog') {
                   var h3 = el('div', 'hd'), tx3 = el('div', 'tx');
-                  var b3 = el('b', '', p.title || 'Sedang berjalan'), s3 = el('span', '', p.sub || ''); b3.style.color = tc; s3.style.color = sc;
+                  var b3 = el('b', '', p.title || LT('Sedang berjalan')), s3 = el('span', '', p.sub || ''); b3.style.color = tc; s3.style.color = sc;
                   tx3.appendChild(b3); tx3.appendChild(s3);
                   var pc = el('div', 'big2', p.pct + '%'); pc.style.color = '#0a84ff';
                   h3.appendChild(tx3); h3.appendChild(pc); w.appendChild(h3);
@@ -3706,14 +3749,14 @@ jobs:
                     var sp2 = el('div', 'spk'), mx2 = 1; p.h.forEach(function (v) { mx2 = Math.max(mx2, v); });
                     p.h.forEach(function (v) { var i2 = document.createElement('i'); i2.style.height = Math.max(2, Math.round(30 * v / mx2)) + 'px'; sp2.appendChild(i2); });
                     sp2.style.color = '#30d158'; w.appendChild(sp2);
-                    var fl = el('div', '', 'Waktu antar frame'); fl.style.cssText = 'font-size:10px;margin-top:2px;color:' + dc; w.appendChild(fl);
+                    var fl = el('div', '', LT('Waktu antar frame')); fl.style.cssText = 'font-size:10px;margin-top:2px;color:' + dc; w.appendChild(fl);
                   }
                   var mw = el('div'); mw.style.marginTop = '8px';
                   mw.appendChild(meter('CPU', p.cpu, lvColor(p.cpu))); mw.appendChild(meter('RAM', p.ram, lvColor(p.ram)));
                   if (p.gpu >= 0) mw.appendChild(meter('GPU', p.gpu, lvColor(p.gpu)));
                   w.appendChild(mw);
                   var gr2 = el('div', 'ctl'); gr2.style.gap = '8px';
-                  [['Crosshair: ' + (p.xh ? 'nyala' : 'mati'), 'xhtoggle'], ['Sembunyikan', 'gamehide'], ['Bukan game', 'notgame']].forEach(function (x) {
+                  [[LT('Crosshair: {s}', { s: LT(p.xh ? 'nyala' : 'mati') }), 'xhtoggle'], [LT('Sembunyikan'), 'gamehide'], [LT('Bukan game'), 'notgame']].forEach(function (x) {
                     var b2 = el('button', 'fxb sm nt', x[0]); b2.dataset.act = x[1]; gr2.appendChild(b2);
                   });
                   w.appendChild(gr2);
@@ -3727,10 +3770,10 @@ jobs:
                   var pb = el('button', '', '\u2039'); pb.dataset.act = 'calnav'; pb.dataset.arg = '-1';
                   var nb = el('button', '', '\u203A'); nb.dataset.act = 'calnav'; nb.dataset.arg = '1';
                   var MN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-                  var ttl = el('span', '', MN[vm.getMonth()] + ' ' + vm.getFullYear()); ttl.style.color = tc;
+                  var ttl = el('span', '', vm.toLocaleDateString(LOC, { month: 'long', year: 'numeric' })); ttl.style.color = tc;
                   ch.appendChild(pb); ch.appendChild(ttl); ch.appendChild(nb); cg.appendChild(ch);
                   var gd = el('div', 'gd'); gd.style.color = tc;
-                  ['Sen','Sel','Rab','Kam','Jum','Sab','Min'].forEach(function (n) { gd.appendChild(el('i', 'h', n)); });
+                  [0, 1, 2, 3, 4, 5, 6].forEach(function (n) { gd.appendChild(el('i', 'h', new Date(2024, 0, 1 + n).toLocaleDateString(LOC, { weekday: 'short' }))); });
                   var lead = (vm.getDay() + 6) % 7, dim = new Date(vm.getFullYear(), vm.getMonth() + 1, 0).getDate();
                   for (var q = 0; q < lead; q++) gd.appendChild(el('i', ''));
                   for (var dd = 1; dd <= dim; dd++) {
@@ -3742,16 +3785,16 @@ jobs:
                   if (W) {
                     var lc = el('small', '', W.place); lc.style.color = sc; wx.appendChild(lc);
                     var tm = el('div', 'tm', W.g + ' ' + W.t + '\u00B0'); tm.style.color = tc; wx.appendChild(tm);
-                    [W.text, 'Terasa ' + W.feels + '\u00B0 \u00B7 Lembap ' + W.hum + '%', 'Angin ' + W.wind + ' km/j' + (W.rain >= 0 ? ' \u00B7 Hujan ' + W.rain + '%' : ''), 'T ' + W.hi + '\u00B0 / R ' + W.lo + '\u00B0'].forEach(function (x) { var sm = el('small', '', x); sm.style.color = sc; wx.appendChild(sm); });
+                    [W.text, LT('Terasa {a}° · Lembap {b}%', { a: W.feels, b: W.hum }), LT('Angin {a} km/j', { a: W.wind }) + (W.rain >= 0 ? ' \u00B7 ' + LT('Hujan {a}%', { a: W.rain }) : ''), LT('T {a}° / R {b}°', { a: W.hi, b: W.lo })].forEach(function (x) { var sm = el('small', '', x); sm.style.color = sc; wx.appendChild(sm); });
                     var fc = el('div', 'fc'); fc.style.color = tc;
                     (W.days || []).forEach(function (x) { var dv = el('div'); dv.style.textAlign = 'center'; dv.textContent = x.g + ' ' + x.hi + '\u00B0'; fc.appendChild(dv); });
                     wx.appendChild(fc);
-                  } else { var er = el('small', '', p.err || 'Cuaca tidak tersedia'); er.style.color = sc; wx.appendChild(er); }
+                  } else { var er = el('small', '', p.err || LT('Cuaca tidak tersedia')); er.style.color = sc; wx.appendChild(er); }
                   cal.appendChild(wx); w.appendChild(cal);
                 } else if (t === 'hub') {
-                  var ht = el('div', '', p.drop ? 'Lepaskan di sini' : 'Kantong sementara'); ht.style.cssText = 'font-size:13px;font-weight:600;color:' + tc; w.appendChild(ht);
+                  var ht = el('div', '', LT(p.drop ? 'Lepaskan di sini' : 'Kantong sementara')); ht.style.cssText = 'font-size:13px;font-weight:600;color:' + tc; w.appendChild(ht);
                   var items = p.items || [];
-                  if (!items.length) { var em = el('div', 'empty', 'Seret file, gambar, atau teks ke sini'); em.style.color = sc; w.appendChild(em); }
+                  if (!items.length) { var em = el('div', 'empty', LT('Seret file, gambar, atau teks ke sini')); em.style.color = sc; w.appendChild(em); }
                   else {
                     var gr = el('div', 'hubg');
                     items.forEach(function (it) {
@@ -3763,7 +3806,7 @@ jobs:
                       c.appendChild(hi); c.appendChild(nm); c.appendChild(x); gr.appendChild(c);
                     });
                     w.appendChild(gr);
-                    var hint = el('div', '', 'Tarik keluar untuk menempel ke aplikasi lain'); hint.style.cssText = 'font-size:11px;margin-top:8px;color:' + dc; w.appendChild(hint);
+                    var hint = el('div', '', LT('Tarik keluar untuk menempel ke aplikasi lain')); hint.style.cssText = 'font-size:11px;margin-top:8px;color:' + dc; w.appendChild(hint);
                   }
                 }
                 return w;
@@ -4068,6 +4111,7 @@ jobs:
               if (i !== inside) { inside = i; fxo.send('mouse', i); }
             });
             fxo.on('cfg', function (c) {
+              TRN = c.tr || {}; LOC = c.loc || 'id-ID';
               cur = { snd: !!c.snd, surl: c.surl, svol: c.svol, bat: !!c.bat };
               core.config({ bg: c.bg, op: c.op, cw: c.cw, ew: c.ew, dh: c.dh, top: c.top, always: c.always, dur: c.dur, glow: !!c.glow, edge: c.edge });
               if (!c.always && !core.isOpen() && !core.isLive()) fxo.send('idle');
@@ -4082,7 +4126,7 @@ jobs:
             function svg(c, g) {
               return 'data:image/svg+xml;utf8,' + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96'><rect width='96' height='96' fill='" + c + "'/><text x='48' y='67' font-size='52' text-anchor='middle'>" + g + '</text></svg>');
             }
-            function local(t, x, c, g) { fxo.send('local', { title: t, text: x, app: 'Baterai', icon: svg(c, g) }); }
+            function local(t, x, c, g) { fxo.send('local', { title: t, text: x, app: LT('Baterai'), icon: svg(c, g) }); }
             if (navigator.getBattery) {
               navigator.getBattery().then(function (b) {
                 var warned = 0, full = b.level >= 1;
@@ -4090,16 +4134,16 @@ jobs:
                 b.addEventListener('chargingchange', function () {
                   if (!cur.bat) return;
                   warned = 0;
-                  if (b.charging) local('Mengisi daya', lv() + '%', '#30d158', '\u26A1'); else local('Daya dicabut', 'Baterai ' + lv() + '%', '#ff9f0a', '\uD83D\uDD0C');
+                  if (b.charging) local(LT('Mengisi daya'), lv() + '%', '#30d158', '\u26A1'); else local(LT('Daya dicabut'), LT('Baterai {n}%', { n: lv() }), '#ff9f0a', '\uD83D\uDD0C');
                 });
                 b.addEventListener('levelchange', function () {
                   if (!cur.bat) return;
                   var l = lv();
                   if (b.charging) {
-                    if (l >= 100 && !full) { full = true; local('Baterai penuh', 'Bisa dicabut dari charger', '#30d158', '\uD83D\uDD0B'); }
+                    if (l >= 100 && !full) { full = true; local(LT('Baterai penuh'), LT('Bisa dicabut dari charger'), '#30d158', '\uD83D\uDD0B'); }
                     if (l < 95) full = false;
-                  } else if (l <= 10 && warned < 2) { warned = 2; local('Baterai kritis', l + '% tersisa', '#ff453a', '\uD83E\uDEAB'); }
-                  else if (l <= 20 && warned < 1) { warned = 1; local('Baterai lemah', l + '% tersisa', '#ff9f0a', '\uD83D\uDD0B'); }
+                  } else if (l <= 10 && warned < 2) { warned = 2; local(LT('Baterai kritis'), LT('{n}% tersisa', { n: l }), '#ff453a', '\uD83E\uDEAB'); }
+                  else if (l <= 20 && warned < 1) { warned = 1; local(LT('Baterai lemah'), LT('{n}% tersisa', { n: l }), '#ff9f0a', '\uD83D\uDD0B'); }
                 });
               }).catch(function () {});
             }
@@ -4335,6 +4379,7 @@ jobs:
           const path = require("path");
           const cfg = require("./app-config.json");
           const fx = cfg.fx ? require("./fx/fx.js") : null;
+          const TT = k => { try { return fx && fx.T ? fx.T(k) : k; } catch (_) { return k; } };
           if (cfg.fx) { app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion"); app.commandLine.appendSwitch("disable-renderer-backgrounding"); app.commandLine.appendSwitch("disable-background-timer-throttling"); }
           const safe = u => /^https?:/i.test(u);
           const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
@@ -4403,13 +4448,15 @@ jobs:
               try {
                 tray = new Tray(path.join(__dirname, "icon.png"));
                 tray.setToolTip(cfg.name);
-                tray.setContextMenu(Menu.buildFromTemplate([
-                  { label: "Buka " + cfg.name, click: () => { win.show(); win.focus(); } },
-                  { label: "Jalan otomatis saat Windows menyala", type: "checkbox", checked: fx ? fx.autoOn() : app.getLoginItemSettings({ args: ["--hidden"] }).openAtLogin, click: it => { if (fx) fx.setAuto(it.checked); else app.setLoginItemSettings({ openAtLogin: it.checked, args: ["--hidden"] }); } },
+                const mkMenu = () => Menu.buildFromTemplate([
+                  { label: TT("Buka") + " " + cfg.name, click: () => { win.show(); win.focus(); } },
+                  { label: TT("Jalan otomatis saat Windows menyala"), type: "checkbox", checked: fx ? fx.autoOn() : app.getLoginItemSettings({ args: ["--hidden"] }).openAtLogin, click: it => { if (fx) fx.setAuto(it.checked); else app.setLoginItemSettings({ openAtLogin: it.checked, args: ["--hidden"] }); } },
                   ...(fx ? fx.trayItems() : []),
                   { type: "separator" },
-                  { label: "Keluar", click: () => { quitting = true; app.quit(); } }
-                ]));
+                  { label: TT("Keluar"), click: () => { quitting = true; app.quit(); } }
+                ]);
+                tray.setContextMenu(mkMenu());
+                if (fx && fx.onLang) fx.onLang(() => { try { tray.setContextMenu(mkMenu()); } catch (_) {} });
                 tray.on("click", () => { win.show(); win.focus(); });
                 win.on("close", ev => { if (!quitting) { ev.preventDefault(); win.hide(); } });
               } catch (_) {}
