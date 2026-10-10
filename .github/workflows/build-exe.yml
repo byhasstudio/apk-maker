@@ -5512,11 +5512,18 @@ jobs:
             }
           });
           fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
-          // Installer: tutup aplikasi + pembantunya dulu (aplikasi ini jalan di tray / otomatis saat Windows menyala, jadi sering masih hidup saat dipasang ulang)
-          const kill = (n) => "  nsExec::Exec 'taskkill /F /IM " + n + "'\n  Pop $0\n";
-          const nsh = (name) => "!macro " + name + "\n" + kill('\"${APP_EXECUTABLE_FILENAME}\"') + "  Sleep 3000\n" +
-            kill("fxdock.exe") + kill("fxhelper.exe") + kill("fxsys.exe") + kill("PresentMon.exe") + "  Sleep 500\n!macroend\n";
-          fs.writeFileSync("build/installer.nsh", nsh("customInit") + nsh("customUnInit"));
+          // Installer: tutup aplikasi + pembantunya dulu, KECUALI proses installer itu sendiri (kalau file installer kebetulan
+          // bernama sama dengan aplikasinya, pemeriksaan bawaan menganggap installer-nya sendiri sebagai aplikasi yang jalan dan macet).
+          const kill = (n, f) => "  nsExec::Exec 'taskkill /F /IM " + n + (f || "") + "'\n  Pop $0\n";
+          const nsh =
+            "!macro killOthers\n" +
+            "  System::Call 'kernel32::GetCurrentProcessId() i .R9'\n" +
+            kill('\"${APP_EXECUTABLE_FILENAME}\"', ' /FI \"PID ne $R9\"') + "  Sleep 3000\n" +
+            kill("fxdock.exe") + kill("fxhelper.exe") + kill("fxsys.exe") + kill("PresentMon.exe") + "  Sleep 500\n!macroend\n" +
+            "!macro customInit\n  !insertmacro killOthers\n!macroend\n" +
+            "!macro customCheckAppRunning\n  !insertmacro killOthers\n!macroend\n" +
+            "!macro customUnInit\n  !insertmacro killOthers\n!macroend\n";
+          fs.writeFileSync("build/installer.nsh", nsh);
           fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu, dialog, Tray } = require("electron");
           const fs = require("fs");
           const path = require("path");
@@ -5622,6 +5629,28 @@ jobs:
           app.on("window-all-closed", () => app.quit());
           `);
           JS
+          # Jaring pengaman: pemeriksaan "aplikasi sedang berjalan" bawaan electron-builder dimatikan langsung di templatenya,
+          # supaya dialog "cannot be closed" tidak mungkin muncul walau macro custom tidak terpakai.
+          node - <<'JS2'
+          const fs = require("fs"), path = require("path");
+          const root = path.join(process.cwd(), "node_modules", "app-builder-lib", "templates", "nsis");
+          function walk(d, out) {
+            for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+              const f = path.join(d, e.name);
+              if (e.isDirectory()) walk(f, out); else if (/\.nsh$/i.test(e.name)) out.push(f);
+            }
+            return out;
+          }
+          let patched = 0;
+          for (const f of walk(root, [])) {
+            const t = fs.readFileSync(f, "utf8");
+            if (!/!macro\s+CHECK_APP_RUNNING\b/.test(t)) continue;
+            fs.writeFileSync(f, t + "\n!ifmacrodef CHECK_APP_RUNNING\n!macroundef CHECK_APP_RUNNING\n!endif\n!macro CHECK_APP_RUNNING\n  !insertmacro killOthers\n!macroend\n");
+            console.log("CHECK_APP_RUNNING dinonaktifkan di " + f);
+            patched++;
+          }
+          if (!patched) console.log("::warning::template CHECK_APP_RUNNING tidak ditemukan; mengandalkan macro custom saja");
+          JS2
 
       - name: Progress 40%
         run: |
