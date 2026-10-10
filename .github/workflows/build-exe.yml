@@ -5512,6 +5512,11 @@ jobs:
             }
           });
           fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
+          // Installer: tutup aplikasi + pembantunya dulu (aplikasi ini jalan di tray / otomatis saat Windows menyala, jadi sering masih hidup saat dipasang ulang)
+          const kill = (n) => "  nsExec::Exec 'taskkill /F /IM " + n + "'\n  Pop $0\n";
+          const nsh = (name) => "!macro " + name + "\n" + kill('\"${APP_EXECUTABLE_FILENAME}\"') + "  Sleep 3000\n" +
+            kill("fxdock.exe") + kill("fxhelper.exe") + kill("fxsys.exe") + kill("PresentMon.exe") + "  Sleep 500\n!macroend\n";
+          fs.writeFileSync("build/installer.nsh", nsh("customInit") + nsh("customUnInit"));
           fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu, dialog, Tray } = require("electron");
           const fs = require("fs");
           const path = require("path");
