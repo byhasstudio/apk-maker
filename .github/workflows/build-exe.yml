@@ -1973,7 +1973,7 @@ jobs:
           const LANGS = ["id", "en", "ms", "ja", "zh", "es"];
           const IDX = { en: 0, ms: 1, ja: 2, zh: 3, es: 4 };
           const LOC = { id: "id-ID", en: "en-US", ms: "ms-MY", ja: "ja-JP", zh: "zh-CN", es: "es-ES" };
-          const D = {"Menu Start":["Start menu","Menu Mula","スタートメニュー","开始菜单","Menú Inicio"],"Tampilkan/sembunyikan taskbar":["Show/hide taskbar","Tunjuk/sembunyi bar tugas","タスクバーの表示/非表示","显示/隐藏任务栏","Mostrar/ocultar barra de tareas"],"Simpan di Dock":["Keep in Dock", "Simpan dalam Dock", "Dock に残す", "保留在程序坞", "Mantener en el Dock"],"Hapus dari Dock":["Remove from Dock", "Alih keluar daripada Dock", "Dock から削除", "从程序坞移除", "Quitar del Dock"],"Tutup":["Close", "Tutup", "閉じる", "关闭", "Cerrar"],"Unduhan":["Downloads", "Muat turun", "ダウンロード", "下载", "Descargas"],"Tempat sampah":["Recycle Bin", "Tong kitar semula", "ごみ箱", "回收站", "Papelera de reciclaje"],"Dock macOS":["macOS-style Dock", "Dock gaya macOS", "macOS 風 Dock", "macOS 风格程序坞", "Dock estilo macOS"],"fxdock.exe tidak ditemukan":["fxdock.exe not found", "fxdock.exe tidak ditemui", "fxdock.exe が見つかりません", "找不到 fxdock.exe", "No se encontró fxdock.exe"],"fxhelper.exe tidak ditemukan":["fxhelper.exe not found","fxhelper.exe tidak ditemui","fxhelper.exe が見つかりません","找不到 fxhelper.exe","No se encontró fxhelper.exe"],"fxsys.exe tidak ditemukan":["fxsys.exe not found","fxsys.exe tidak ditemui","fxsys.exe が見つかりません","找不到 fxsys.exe","No se encontró fxsys.exe"],"pembaca berhenti":["reader stopped","pembaca berhenti","リーダーが停止しました","读取器已停止","el lector se detuvo"],"pembantu berhenti":["helper stopped","pembantu berhenti","ヘルパーが停止しました","辅助程序已停止","el ayudante se detuvo"],"PresentMon tidak ada":["PresentMon not found","PresentMon tiada","PresentMon が見つかりません","未找到 PresentMon","PresentMon no encontrado"],"Database notifikasi Windows tidak ditemukan":["Windows notification database not found","Pangkalan data pemberitahuan Windows tidak ditemui","Windows の通知データベースが見つかりません","未找到 Windows 通知数据库","No se encontró la base de datos de notificaciones de Windows"],"Jangan ganggu aktif":["Do Not Disturb on","Jangan ganggu aktif","サイレントモード オン","勿扰已开启","No molestar activado"],"Notifikasi tidak ditampilkan di island":["Notifications are not shown in the island","Pemberitahuan tidak dipaparkan di island","通知はアイランドに表示されません","通知不会显示在岛上","Las notificaciones no se muestran en la isla"],"Jangan ganggu mati":["Do Not Disturb off","Jangan ganggu dimatikan","サイレントモード オフ","勿扰已关闭","No molestar desactivado"],"Notifikasi tampil lagi":["Notifications show again","Pemberitahuan dipaparkan semula","通知が再び表示されます","通知将再次显示","Las notificaciones vuelven a mostrarse"],"Aplikasi dibuka":["App opened","Aplikasi dibuka","アプリを開きました","应用已打开","Aplicación abierta"],"baru saja":["just now","baru sahaja","たった今","刚刚","ahora mismo"],"tadi":["earlier","tadi","先ほど","刚才","antes"],"sekarang":["now","sekarang","今","现在","ahora"],"Notifikasi":["Notification","Pemberitahuan","通知","通知","Notificación"],"Disalin":["Copied","Disalin","コピーしました","已复制","Copiado"],"Gambar disalin":["Image copied","Imej disalin","画像をコピーしました","图片已复制","Imagen copiada"],"Papan klip":["Clipboard","Papan keratan","クリップボード","剪贴板","Portapapeles"],"Ketuk: tempel":["Tap: paste","Ketik: tampal","タップで貼り付け","点按粘贴","Toca: pegar"],"Merekam layar / audio":["Recording screen / audio","Merakam skrin / audio","画面 / 音声を録画中","正在录制屏幕 / 音频","Grabando pantalla / audio"],"Mikrofon dipakai":["Microphone in use","Mikrofon digunakan","マイクを使用中","麦克风使用中","Micrófono en uso"],"Kamera dipakai":["Camera in use","Kamera digunakan","カメラを使用中","摄像头使用中","Cámara en uso"],"Sedang aktif":["Currently active","Sedang aktif","現在アクティブ","当前活动","Activo ahora"],"Privasi":["Privacy","Privasi","プライバシー","隐私","Privacidad"],"Audio sedang diputar":["Audio is playing","Audio sedang dimainkan","オーディオを再生中","正在播放音频","Reproduciendo audio"],"Suara dari PC":["Sound from the PC","Bunyi dari PC","PC からの音","来自电脑的声音","Sonido del PC"],"Audio":["Audio","Audio","オーディオ","音频","Audio"],"Selesai":["Done","Selesai","完了","完成","Listo"],"{n} · proses rampung":["{n} · process finished","{n} · proses selesai","{n} · 処理が完了しました","{n} · 处理完成","{n} · proceso terminado"],"Progres":["Progress","Kemajuan","進捗","进度","Progreso"],"Sedang berjalan":["In progress","Sedang berjalan","実行中","进行中","En curso"],"FPS akurat butuh izin":["Accurate FPS needs permission","FPS tepat perlukan kebenaran","正確な FPS には権限が必要です","精确 FPS 需要授权","Los FPS precisos necesitan permiso"],"Buka pengaturan lalu tekan \"Beri izin FPS\" (sekali saja)":["Open settings and press \"Grant FPS permission\" (only once)","Buka tetapan kemudian tekan \"Beri kebenaran FPS\" (sekali sahaja)","設定を開いて「FPS の権限を付与」を押してください（一度だけ）","打开设置并点击“授予 FPS 权限”（仅一次）","Abre los ajustes y pulsa \"Conceder permiso de FPS\" (solo una vez)"],"Izin diminta":["Permission requested","Kebenaran diminta","権限をリクエストしました","已请求授权","Permiso solicitado"],"Setujui jendela admin (Yes). Hasilnya aku cek otomatis.":["Approve the admin window (Yes). I will check the result automatically.","Luluskan tetingkap admin (Yes). Hasilnya saya semak secara automatik.","管理者ウィンドウで「はい」を選んでください。結果は自動で確認します。","请在管理员窗口中点击“是”。结果会自动检查。","Aprueba la ventana de administrador (Sí). Comprobaré el resultado automáticamente."],"Izin belum masuk":["Permission not granted","Kebenaran belum diberi","権限が付与されていません","尚未获得授权","Permiso no concedido"],"Jendela admin tadi ditolak atau ditutup. Tekan Beri izin FPS lagi lalu pilih Yes.":["The admin window was declined or closed. Press Grant FPS permission again and choose Yes.","Tetingkap admin tadi ditolak atau ditutup. Tekan Beri kebenaran FPS sekali lagi dan pilih Yes.","管理者ウィンドウが拒否されたか閉じられました。もう一度「FPS の権限を付与」を押し、「はい」を選んでください。","管理员窗口被拒绝或已关闭。请再次点击“授予 FPS 权限”并选择“是”。","La ventana de administrador se rechazó o se cerró. Pulsa Conceder permiso de FPS de nuevo y elige Sí."],"Izin FPS aktif":["FPS permission active","Kebenaran FPS aktif","FPS の権限が有効です","FPS 权限已生效","Permiso de FPS activo"],"Sudah berlaku di sesi ini. Buka game, lalu tandai sebagai game di pengaturan bila belum muncul.":["Already in effect for this session. Open a game, then mark it as a game in settings if it does not appear.","Sudah berkuat kuasa dalam sesi ini. Buka permainan, kemudian tandakan sebagai permainan dalam tetapan jika belum muncul.","このセッションですでに有効です。ゲームを開き、表示されない場合は設定でゲームとして登録してください。","此会话中已生效。打开游戏后，如果没有出现，请在设置中将其标记为游戏。","Ya está activo en esta sesión. Abre un juego y, si no aparece, márcalo como juego en los ajustes."],"Izin terpasang":["Permission installed","Kebenaran dipasang","権限を設定しました","权限已安装","Permiso instalado"],"Tinggal keluar-masuk (sign out) Windows sekali supaya berlaku.":["Just sign out of Windows and back in once to make it take effect.","Tinggal log keluar dan masuk semula Windows sekali supaya berkuat kuasa.","あとは Windows からサインアウトして再度サインインすれば有効になります。","只需注销并重新登录一次 Windows 即可生效。","Solo cierra sesión en Windows y vuelve a entrar una vez para que surta efecto."],"Ditandai sebagai game":["Marked as a game","Ditandai sebagai permainan","ゲームとして登録しました","已标记为游戏","Marcado como juego"],"Bukan game":["Not a game","Bukan permainan","ゲームではありません","不是游戏","No es un juego"],"Game":["Game","Permainan","ゲーム","游戏","Juego"],"Waktu antar frame":["Frame time","Masa antara bingkai","フレームタイム","帧间隔时间","Tiempo entre fotogramas"],"Crosshair: {s}":["Crosshair: {s}","Crosshair: {s}","クロスヘア: {s}","准星：{s}","Mira: {s}"],"nyala":["on","hidup","オン","开","activada"],"mati":["off","mati","オフ","关","desactivada"],"Sembunyikan":["Hide","Sembunyikan","非表示","隐藏","Ocultar"],"PC terasa berat":["The PC feels sluggish","PC terasa berat","PC の動作が重くなっています","电脑有些卡顿","El PC va lento"],"Pemakaian sistem":["System usage","Penggunaan sistem","システム使用状況","系统占用","Uso del sistema"],"Paling banyak memakai memori":["Using the most memory","Paling banyak menggunakan memori","メモリ使用量が多い順","内存占用最多","Mayor uso de memoria"],"End Task":["End Task","Tamatkan Tugas","タスクを終了","结束任务","Finalizar tarea"],"↓ Unduh":["↓ Download","↓ Muat turun","↓ ダウンロード","↓ 下载","↓ Descarga"],"↑ Unggah":["↑ Upload","↑ Muat naik","↑ アップロード","↑ 上传","↑ Subida"],"Cerah":["Clear","Cerah","晴れ","晴","Despejado"],"Cerah berawan":["Mostly clear","Cerah berawan","晴れ時々曇り","晴间多云","Mayormente despejado"],"Berawan sebagian":["Partly cloudy","Separa mendung","一部曇り","局部多云","Parcialmente nublado"],"Mendung":["Overcast","Mendung","曇り","阴","Nublado"],"Berkabut":["Foggy","Berkabus","霧","有雾","Niebla"],"Kabut beku":["Freezing fog","Kabus beku","着氷性の霧","冻雾","Niebla helada"],"Gerimis ringan":["Light drizzle","Renyai ringan","弱い霧雨","小毛毛雨","Llovizna ligera"],"Gerimis":["Drizzle","Renyai","霧雨","毛毛雨","Llovizna"],"Gerimis lebat":["Heavy drizzle","Renyai lebat","強い霧雨","大毛毛雨","Llovizna intensa"],"Gerimis beku":["Freezing drizzle","Renyai beku","着氷性の霧雨","冻毛毛雨","Llovizna helada"],"Hujan ringan":["Light rain","Hujan ringan","小雨","小雨","Lluvia ligera"],"Hujan":["Rain","Hujan","雨","雨","Lluvia"],"Hujan lebat":["Heavy rain","Hujan lebat","大雨","大雨","Lluvia intensa"],"Hujan beku":["Freezing rain","Hujan beku","着氷性の雨","冻雨","Lluvia helada"],"Salju ringan":["Light snow","Salji ringan","弱い雪","小雪","Nieve ligera"],"Salju":["Snow","Salji","雪","雪","Nieve"],"Salju lebat":["Heavy snow","Salji lebat","大雪","大雪","Nieve intensa"],"Butiran salju":["Snow grains","Butiran salji","雪あられ","米雪","Granos de nieve"],"Hujan sebentar":["Rain showers","Hujan sekejap","にわか雨","阵雨","Chubascos"],"Hujan deras":["Violent rain showers","Hujan lebat mendadak","激しいにわか雨","强阵雨","Chubascos fuertes"],"Salju sebentar":["Snow showers","Salji sekejap","にわか雪","阵雪","Chubascos de nieve"],"Badai petir":["Thunderstorm","Ribut petir","雷雨","雷暴","Tormenta"],"Badai petir + es":["Thunderstorm with hail","Ribut petir dengan hujan batu","雹を伴う雷雨","雷暴伴冰雹","Tormenta con granizo"],"Kota tidak ditemukan":["City not found","Bandar tidak ditemui","都市が見つかりません","找不到该城市","Ciudad no encontrada"],"Lokasi tidak terdeteksi":["Location not detected","Lokasi tidak dikesan","場所を検出できません","无法检测位置","Ubicación no detectada"],"Cuaca belum bisa dimuat":["Weather could not be loaded yet","Cuaca belum dapat dimuatkan","天気をまだ読み込めません","暂时无法加载天气","Aún no se puede cargar el clima"],"Cuaca tidak tersedia":["Weather unavailable","Cuaca tidak tersedia","天気情報がありません","天气不可用","Clima no disponible"],"Terasa {a}° · Lembap {b}%":["Feels like {a}° · Humidity {b}%","Terasa {a}° · Kelembapan {b}%","体感 {a}° · 湿度 {b}%","体感 {a}° · 湿度 {b}%","Sensación {a}° · Humedad {b}%"],"Angin {a} km/j":["Wind {a} km/h","Angin {a} km/j","風 {a} km/h","风速 {a} km/h","Viento {a} km/h"],"Hujan {a}%":["Rain {a}%","Hujan {a}%","降水 {a}%","降雨 {a}%","Lluvia {a}%"],"T {a}° / R {b}°":["H {a}° / L {b}°","T {a}° / R {b}°","最高 {a}° / 最低 {b}°","高 {a}° / 低 {b}°","Máx {a}° / Mín {b}°"],"Lepaskan di sini":["Drop here","Lepaskan di sini","ここにドロップ","放在这里","Suelta aquí"],"Kantong sementara":["Temporary shelf","Rak sementara","一時置き場","临时暂存区","Bandeja temporal"],"Seret file, gambar, atau teks ke sini":["Drag a file, image, or text here","Seret fail, gambar atau teks ke sini","ファイル・画像・テキストをここにドラッグ","将文件、图片或文本拖到这里","Arrastra un archivo, imagen o texto aquí"],"Tarik keluar untuk menempel ke aplikasi lain":["Drag out to paste into another app","Tarik keluar untuk menampal ke aplikasi lain","外にドラッグして別のアプリに貼り付け","拖出即可粘贴到其他应用","Arrastra hacia fuera para pegar en otra aplicación"],"Baterai":["Battery","Bateri","バッテリー","电池","Batería"],"Mengisi daya":["Charging","Mengecas","充電中","正在充电","Cargando"],"Daya dicabut":["Unplugged","Pengecas dicabut","電源を取り外しました","已拔出电源","Desconectado"],"Baterai {n}%":["Battery {n}%","Bateri {n}%","バッテリー {n}%","电量 {n}%","Batería {n}%"],"Baterai penuh":["Battery full","Bateri penuh","バッテリー満充電","电量已满","Batería llena"],"Bisa dicabut dari charger":["You can unplug the charger","Boleh cabut pengecas","充電器を外せます","可以拔掉充电器了","Puedes desconectar el cargador"],"Baterai kritis":["Battery critical","Bateri kritikal","バッテリー残量わずか","电量严重不足","Batería crítica"],"Baterai lemah":["Battery low","Bateri lemah","バッテリー残量低下","电量低","Batería baja"],"{n}% tersisa":["{n}% left","{n}% berbaki","残り {n}%","剩余 {n}%","{n}% restante"],"Buka":["Open","Buka","開く","打开","Abrir"],"Jalan otomatis saat Windows menyala":["Start automatically with Windows","Berjalan automatik semasa Windows dihidupkan","Windows 起動時に自動で実行","Windows 启动时自动运行","Iniciar automáticamente con Windows"],"Animasi buka/tutup jendela":["Window open/close animation","Animasi buka/tutup tetingkap","ウィンドウ開閉アニメーション","窗口打开/关闭动画","Animación al abrir/cerrar ventanas"],"Jangan ganggu (Ctrl+Alt+N)":["Do Not Disturb (Ctrl+Alt+N)","Jangan ganggu (Ctrl+Alt+N)","サイレント（Ctrl+Alt+N）","勿扰（Ctrl+Alt+N）","No molestar (Ctrl+Alt+N)"],"Keluar":["Quit","Keluar","終了","退出","Salir"]};
+          const D = {"Menu Start":["Start menu","Menu Mula","スタートメニュー","开始菜单","Menú Inicio"],"Tampilkan/sembunyikan taskbar":["Show/hide taskbar","Tunjuk/sembunyi bar tugas","タスクバーの表示/非表示","显示/隐藏任务栏","Mostrar/ocultar barra de tareas"],"Simpan di Dock":["Keep in Dock", "Simpan dalam Dock", "Dock に残す", "保留在程序坞", "Mantener en el Dock"],"Hapus dari Dock":["Remove from Dock", "Alih keluar daripada Dock", "Dock から削除", "从程序坞移除", "Quitar del Dock"],"Tutup":["Close", "Tutup", "閉じる", "关闭", "Cerrar"],"Unduhan":["Downloads", "Muat turun", "ダウンロード", "下载", "Descargas"],"Tempat sampah":["Recycle Bin", "Tong kitar semula", "ごみ箱", "回收站", "Papelera de reciclaje"],"Dock macOS":["macOS-style Dock", "Dock gaya macOS", "macOS 風 Dock", "macOS 风格程序坞", "Dock estilo macOS"],"fxdock.exe tidak ditemukan":["fxdock.exe not found", "fxdock.exe tidak ditemui", "fxdock.exe が見つかりません", "找不到 fxdock.exe", "No se encontró fxdock.exe"],"fxhelper.exe tidak ditemukan":["fxhelper.exe not found","fxhelper.exe tidak ditemui","fxhelper.exe が見つかりません","找不到 fxhelper.exe","No se encontró fxhelper.exe"],"fxsys.exe tidak ditemukan":["fxsys.exe not found","fxsys.exe tidak ditemui","fxsys.exe が見つかりません","找不到 fxsys.exe","No se encontró fxsys.exe"],"pembaca berhenti":["reader stopped","pembaca berhenti","リーダーが停止しました","读取器已停止","el lector se detuvo"],"pembantu berhenti":["helper stopped","pembantu berhenti","ヘルパーが停止しました","辅助程序已停止","el ayudante se detuvo"],"PresentMon tidak ada":["PresentMon not found","PresentMon tiada","PresentMon が見つかりません","未找到 PresentMon","PresentMon no encontrado"],"Database notifikasi Windows tidak ditemukan":["Windows notification database not found","Pangkalan data pemberitahuan Windows tidak ditemui","Windows の通知データベースが見つかりません","未找到 Windows 通知数据库","No se encontró la base de datos de notificaciones de Windows"],"Jangan ganggu aktif":["Do Not Disturb on","Jangan ganggu aktif","サイレントモード オン","勿扰已开启","No molestar activado"],"Notifikasi tidak ditampilkan di island":["Notifications are not shown in the island","Pemberitahuan tidak dipaparkan di island","通知はアイランドに表示されません","通知不会显示在岛上","Las notificaciones no se muestran en la isla"],"Jangan ganggu mati":["Do Not Disturb off","Jangan ganggu dimatikan","サイレントモード オフ","勿扰已关闭","No molestar desactivado"],"Notifikasi tampil lagi":["Notifications show again","Pemberitahuan dipaparkan semula","通知が再び表示されます","通知将再次显示","Las notificaciones vuelven a mostrarse"],"Aplikasi dibuka":["App opened","Aplikasi dibuka","アプリを開きました","应用已打开","Aplicación abierta"],"baru saja":["just now","baru sahaja","たった今","刚刚","ahora mismo"],"tadi":["earlier","tadi","先ほど","刚才","antes"],"sekarang":["now","sekarang","今","现在","ahora"],"Notifikasi":["Notification","Pemberitahuan","通知","通知","Notificación"],"Disalin":["Copied","Disalin","コピーしました","已复制","Copiado"],"Gambar disalin":["Image copied","Imej disalin","画像をコピーしました","图片已复制","Imagen copiada"],"Papan klip":["Clipboard","Papan keratan","クリップボード","剪贴板","Portapapeles"],"Ketuk: tempel":["Tap: paste","Ketik: tampal","タップで貼り付け","点按粘贴","Toca: pegar"],"Merekam layar / audio":["Recording screen / audio","Merakam skrin / audio","画面 / 音声を録画中","正在录制屏幕 / 音频","Grabando pantalla / audio"],"Mikrofon dipakai":["Microphone in use","Mikrofon digunakan","マイクを使用中","麦克风使用中","Micrófono en uso"],"Kamera dipakai":["Camera in use","Kamera digunakan","カメラを使用中","摄像头使用中","Cámara en uso"],"Sedang aktif":["Currently active","Sedang aktif","現在アクティブ","当前活动","Activo ahora"],"Privasi":["Privacy","Privasi","プライバシー","隐私","Privacidad"],"Audio sedang diputar":["Audio is playing","Audio sedang dimainkan","オーディオを再生中","正在播放音频","Reproduciendo audio"],"Suara dari PC":["Sound from the PC","Bunyi dari PC","PC からの音","来自电脑的声音","Sonido del PC"],"Audio":["Audio","Audio","オーディオ","音频","Audio"],"Selesai":["Done","Selesai","完了","完成","Listo"],"{n} · proses rampung":["{n} · process finished","{n} · proses selesai","{n} · 処理が完了しました","{n} · 处理完成","{n} · proceso terminado"],"Progres":["Progress","Kemajuan","進捗","进度","Progreso"],"Sedang berjalan":["In progress","Sedang berjalan","実行中","进行中","En curso"],"FPS akurat butuh izin":["Accurate FPS needs permission","FPS tepat perlukan kebenaran","正確な FPS には権限が必要です","精确 FPS 需要授权","Los FPS precisos necesitan permiso"],"Buka pengaturan lalu tekan \"Beri izin FPS\" (sekali saja)":["Open settings and press \"Grant FPS permission\" (only once)","Buka tetapan kemudian tekan \"Beri kebenaran FPS\" (sekali sahaja)","設定を開いて「FPS の権限を付与」を押してください（一度だけ）","打开设置并点击“授予 FPS 权限”（仅一次）","Abre los ajustes y pulsa \"Conceder permiso de FPS\" (solo una vez)"],"Izin diminta":["Permission requested","Kebenaran diminta","権限をリクエストしました","已请求授权","Permiso solicitado"],"Setujui jendela admin (Yes). Hasilnya aku cek otomatis.":["Approve the admin window (Yes). I will check the result automatically.","Luluskan tetingkap admin (Yes). Hasilnya saya semak secara automatik.","管理者ウィンドウで「はい」を選んでください。結果は自動で確認します。","请在管理员窗口中点击“是”。结果会自动检查。","Aprueba la ventana de administrador (Sí). Comprobaré el resultado automáticamente."],"Izin belum masuk":["Permission not granted","Kebenaran belum diberi","権限が付与されていません","尚未获得授权","Permiso no concedido"],"Jendela admin tadi ditolak atau ditutup. Tekan Beri izin FPS lagi lalu pilih Yes.":["The admin window was declined or closed. Press Grant FPS permission again and choose Yes.","Tetingkap admin tadi ditolak atau ditutup. Tekan Beri kebenaran FPS sekali lagi dan pilih Yes.","管理者ウィンドウが拒否されたか閉じられました。もう一度「FPS の権限を付与」を押し、「はい」を選んでください。","管理员窗口被拒绝或已关闭。请再次点击“授予 FPS 权限”并选择“是”。","La ventana de administrador se rechazó o se cerró. Pulsa Conceder permiso de FPS de nuevo y elige Sí."],"Izin FPS aktif":["FPS permission active","Kebenaran FPS aktif","FPS の権限が有効です","FPS 权限已生效","Permiso de FPS activo"],"Sudah berlaku di sesi ini. Buka game, lalu tandai sebagai game di pengaturan bila belum muncul.":["Already in effect for this session. Open a game, then mark it as a game in settings if it does not appear.","Sudah berkuat kuasa dalam sesi ini. Buka permainan, kemudian tandakan sebagai permainan dalam tetapan jika belum muncul.","このセッションですでに有効です。ゲームを開き、表示されない場合は設定でゲームとして登録してください。","此会话中已生效。打开游戏后，如果没有出现，请在设置中将其标记为游戏。","Ya está activo en esta sesión. Abre un juego y, si no aparece, márcalo como juego en los ajustes."],"Izin terpasang":["Permission installed","Kebenaran dipasang","権限を設定しました","权限已安装","Permiso instalado"],"Tinggal keluar-masuk (sign out) Windows sekali supaya berlaku.":["Just sign out of Windows and back in once to make it take effect.","Tinggal log keluar dan masuk semula Windows sekali supaya berkuat kuasa.","あとは Windows からサインアウトして再度サインインすれば有効になります。","只需注销并重新登录一次 Windows 即可生效。","Solo cierra sesión en Windows y vuelve a entrar una vez para que surta efecto."],"Ditandai sebagai game":["Marked as a game","Ditandai sebagai permainan","ゲームとして登録しました","已标记为游戏","Marcado como juego"],"Bukan game":["Not a game","Bukan permainan","ゲームではありません","不是游戏","No es un juego"],"Game":["Game","Permainan","ゲーム","游戏","Juego"],"Waktu antar frame":["Frame time","Masa antara bingkai","フレームタイム","帧间隔时间","Tiempo entre fotogramas"],"Crosshair: {s}":["Crosshair: {s}","Crosshair: {s}","クロスヘア: {s}","准星：{s}","Mira: {s}"],"nyala":["on","hidup","オン","开","activada"],"mati":["off","mati","オフ","关","desactivada"],"Sembunyikan":["Hide","Sembunyikan","非表示","隐藏","Ocultar"],"PC terasa berat":["The PC feels sluggish","PC terasa berat","PC の動作が重くなっています","电脑有些卡顿","El PC va lento"],"Pemakaian sistem":["System usage","Penggunaan sistem","システム使用状況","系统占用","Uso del sistema"],"Paling banyak memakai memori":["Using the most memory","Paling banyak menggunakan memori","メモリ使用量が多い順","内存占用最多","Mayor uso de memoria"],"End Task":["End Task","Tamatkan Tugas","タスクを終了","结束任务","Finalizar tarea"],"↓ Unduh":["↓ Download","↓ Muat turun","↓ ダウンロード","↓ 下载","↓ Descarga"],"↑ Unggah":["↑ Upload","↑ Muat naik","↑ アップロード","↑ 上传","↑ Subida"],"Cerah":["Clear","Cerah","晴れ","晴","Despejado"],"Cerah berawan":["Mostly clear","Cerah berawan","晴れ時々曇り","晴间多云","Mayormente despejado"],"Berawan sebagian":["Partly cloudy","Separa mendung","一部曇り","局部多云","Parcialmente nublado"],"Mendung":["Overcast","Mendung","曇り","阴","Nublado"],"Berkabut":["Foggy","Berkabus","霧","有雾","Niebla"],"Kabut beku":["Freezing fog","Kabus beku","着氷性の霧","冻雾","Niebla helada"],"Gerimis ringan":["Light drizzle","Renyai ringan","弱い霧雨","小毛毛雨","Llovizna ligera"],"Gerimis":["Drizzle","Renyai","霧雨","毛毛雨","Llovizna"],"Gerimis lebat":["Heavy drizzle","Renyai lebat","強い霧雨","大毛毛雨","Llovizna intensa"],"Gerimis beku":["Freezing drizzle","Renyai beku","着氷性の霧雨","冻毛毛雨","Llovizna helada"],"Hujan ringan":["Light rain","Hujan ringan","小雨","小雨","Lluvia ligera"],"Hujan":["Rain","Hujan","雨","雨","Lluvia"],"Hujan lebat":["Heavy rain","Hujan lebat","大雨","大雨","Lluvia intensa"],"Hujan beku":["Freezing rain","Hujan beku","着氷性の雨","冻雨","Lluvia helada"],"Salju ringan":["Light snow","Salji ringan","弱い雪","小雪","Nieve ligera"],"Salju":["Snow","Salji","雪","雪","Nieve"],"Salju lebat":["Heavy snow","Salji lebat","大雪","大雪","Nieve intensa"],"Butiran salju":["Snow grains","Butiran salji","雪あられ","米雪","Granos de nieve"],"Hujan sebentar":["Rain showers","Hujan sekejap","にわか雨","阵雨","Chubascos"],"Hujan deras":["Violent rain showers","Hujan lebat mendadak","激しいにわか雨","强阵雨","Chubascos fuertes"],"Salju sebentar":["Snow showers","Salji sekejap","にわか雪","阵雪","Chubascos de nieve"],"Badai petir":["Thunderstorm","Ribut petir","雷雨","雷暴","Tormenta"],"Badai petir + es":["Thunderstorm with hail","Ribut petir dengan hujan batu","雹を伴う雷雨","雷暴伴冰雹","Tormenta con granizo"],"Kota tidak ditemukan":["City not found","Bandar tidak ditemui","都市が見つかりません","找不到该城市","Ciudad no encontrada"],"Lokasi tidak terdeteksi":["Location not detected","Lokasi tidak dikesan","場所を検出できません","无法检测位置","Ubicación no detectada"],"Cuaca belum bisa dimuat":["Weather could not be loaded yet","Cuaca belum dapat dimuatkan","天気をまだ読み込めません","暂时无法加载天气","Aún no se puede cargar el clima"],"Cuaca tidak tersedia":["Weather unavailable","Cuaca tidak tersedia","天気情報がありません","天气不可用","Clima no disponible"],"Terasa {a}° · Lembap {b}%":["Feels like {a}° · Humidity {b}%","Terasa {a}° · Kelembapan {b}%","体感 {a}° · 湿度 {b}%","体感 {a}° · 湿度 {b}%","Sensación {a}° · Humedad {b}%"],"Angin {a} km/j":["Wind {a} km/h","Angin {a} km/j","風 {a} km/h","风速 {a} km/h","Viento {a} km/h"],"Hujan {a}%":["Rain {a}%","Hujan {a}%","降水 {a}%","降雨 {a}%","Lluvia {a}%"],"T {a}° / R {b}°":["H {a}° / L {b}°","T {a}° / R {b}°","最高 {a}° / 最低 {b}°","高 {a}° / 低 {b}°","Máx {a}° / Mín {b}°"],"Lepaskan di sini":["Drop here","Lepaskan di sini","ここにドロップ","放在这里","Suelta aquí"],"Kantong sementara":["Temporary shelf","Rak sementara","一時置き場","临时暂存区","Bandeja temporal"],"Seret file, gambar, atau teks ke sini":["Drag a file, image, or text here","Seret fail, gambar atau teks ke sini","ファイル・画像・テキストをここにドラッグ","将文件、图片或文本拖到这里","Arrastra un archivo, imagen o texto aquí"],"Tarik keluar untuk menempel ke aplikasi lain":["Drag out to paste into another app","Tarik keluar untuk menampal ke aplikasi lain","外にドラッグして別のアプリに貼り付け","拖出即可粘贴到其他应用","Arrastra hacia fuera para pegar en otra aplicación"],"Baterai":["Battery","Bateri","バッテリー","电池","Batería"],"Mengisi daya":["Charging","Mengecas","充電中","正在充电","Cargando"],"Daya dicabut":["Unplugged","Pengecas dicabut","電源を取り外しました","已拔出电源","Desconectado"],"Baterai {n}%":["Battery {n}%","Bateri {n}%","バッテリー {n}%","电量 {n}%","Batería {n}%"],"Baterai penuh":["Battery full","Bateri penuh","バッテリー満充電","电量已满","Batería llena"],"Bisa dicabut dari charger":["You can unplug the charger","Boleh cabut pengecas","充電器を外せます","可以拔掉充电器了","Puedes desconectar el cargador"],"Baterai kritis":["Battery critical","Bateri kritikal","バッテリー残量わずか","电量严重不足","Batería crítica"],"Baterai lemah":["Battery low","Bateri lemah","バッテリー残量低下","电量低","Batería baja"],"{n}% tersisa":["{n}% left","{n}% berbaki","残り {n}%","剩余 {n}%","{n}% restante"],"Buka":["Open","Buka","開く","打开","Abrir"],"Jalan otomatis saat Windows menyala":["Start automatically with Windows","Berjalan automatik semasa Windows dihidupkan","Windows 起動時に自動で実行","Windows 启动时自动运行","Iniciar automáticamente con Windows"],"Animasi buka/tutup jendela":["Window open/close animation","Animasi buka/tutup tetingkap","ウィンドウ開閉アニメーション","窗口打开/关闭动画","Animación al abrir/cerrar ventanas"],"Jangan ganggu (Ctrl+Alt+N)":["Do Not Disturb (Ctrl+Alt+N)","Jangan ganggu (Ctrl+Alt+N)","サイレント（Ctrl+Alt+N）","勿扰（Ctrl+Alt+N）","No molestar (Ctrl+Alt+N)"],"Ikon desktop":["Desktop icons","Ikon desktop","デスクトップアイコン","桌面图标","Iconos del escritorio"],"Keluar":["Quit","Keluar","終了","退出","Salir"]};
           const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
           const ok = l => LANGS.indexOf(l) >= 0;
           function t(lang, k, v) {
@@ -2010,7 +2010,7 @@ jobs:
             appnotif: true, live: true, media: true, mtoast: true, devs: true, net: true, rmon: 1, prog: true, hub: true, game: true,
             curs: false, cstyle: "ring", ccolor: "#ffffff", csize: 36,
             auto: true, fpsreal: true, gamelist: [], nogame: [], xh: false, xhgame: false, xhstyle: "cross", xhcolor: "#00ff66", xhsize: 14, xhthick: 2, xhgap: 4, xhop: 90, cal: true, city: "", lang: "id",
-            dock: false, dsize: 48, dzoom: 150, dtheme: "dark", dhide: false, dtb: true, dmargin: 6, drun: true, dpins: [], dseed: false
+            dock: false, dicons: true, dv: 2, dsize: 64, dzoom: 150, dtheme: "dark", dhide: false, dtb: true, dmargin: 6, drun: true, dpins: [], dseed: false
           };
 
           let ctx = null, S = Object.assign({}, DEF), started = false, quitting = false;
@@ -2028,7 +2028,7 @@ jobs:
           const storeFile = () => path.join(app.getPath("userData"), "island.json");
           function load() {
             let had = false;
-            try { const j = JSON.parse(fs.readFileSync(storeFile(), "utf8")); S = Object.assign({}, DEF, j); had = true; } catch (_) { S = Object.assign({}, DEF); }
+            try { const j = JSON.parse(fs.readFileSync(storeFile(), "utf8")); S = Object.assign({}, DEF, j); had = true; if ((j.dv | 0) < 2) { S.dsize = 64; S.dv = 2; } } catch (_) { S = Object.assign({}, DEF); }
             // mode URL tidak punya halaman pengaturan: nyalakan langsung
             if (!had && ctx && ctx.cfg && ctx.cfg.url) { S.enabled = true; S.anim = true; }
             if (!Array.isArray(S.fapps)) S.fapps = [];
@@ -2595,7 +2595,7 @@ jobs:
             else sysCmd("cursor off");
           }
           const DOCKOPTS = ["dhide", "dsize", "dzoom", "dtheme", "dmargin", "drun"];
-          const BOOLOPT = ["auto", "fpsreal", "appnotif", "live", "media", "mtoast", "devs", "net", "prog", "hub", "game", "curs", "xh", "xhgame", "cal", "dock", "dhide", "dtb", "drun"];
+          const BOOLOPT = ["auto", "fpsreal", "appnotif", "live", "media", "mtoast", "devs", "net", "prog", "hub", "game", "curs", "xh", "xhgame", "cal", "dock", "dhide", "dtb", "drun", "dicons"];
           function setOpt(key, val) {
             if (BOOLOPT.indexOf(key) >= 0) S[key] = !!val;
             else if (key === "rmon") S.rmon = Math.round(clamp(val, 0, 2));
@@ -2626,6 +2626,7 @@ jobs:
             save();
             if (key === "appnotif") applyAnim();
             if (key === "dock" || key === "dtb") applyDock();
+            else if (key === "dicons") { icSync(); dockPush(true); }
             else if (DOCKOPTS.indexOf(key) >= 0) { dockSend("cfg", dockCfg()); if (key === "drun") dockPush(true); }
             if (key === "auto") applyAuto();
             if (!S.live) Object.keys(L).forEach(k => delete L[k]);
@@ -3189,7 +3190,7 @@ jobs:
           function dockCfg() {
             return {
               size: S.dsize, zoom: S.dzoom, theme: S.dtheme === "light" ? "light" : "dark", hide: !!S.dhide, margin: S.dmargin,
-              L: { open: T("Buka"), close: T("Tutup"), keep: T("Simpan di Dock"), remove: T("Hapus dari Dock"), dl: T("Unduhan"), bin: T("Tempat sampah"), tb: T("Tampilkan/sembunyikan taskbar"), st: T("Menu Start") }
+              L: { open: T("Buka"), close: T("Tutup"), keep: T("Simpan di Dock"), remove: T("Hapus dari Dock"), dl: T("Unduhan"), bin: T("Tempat sampah"), tb: T("Tampilkan/sembunyikan taskbar"), ic: T("Ikon desktop"), st: T("Menu Start") }
             };
           }
           function dockSend(ch, d) {
@@ -3275,6 +3276,7 @@ jobs:
             items.push({ k: "dl", t: "dl", name: "" });
             items.push({ k: "bin", t: "bin", name: "" });
             if (S.dtb) items.push({ k: "tb", t: "tb", name: "" });
+            items.push({ k: "ic", t: "ic", name: "", hid: !!S.dicons });
             return { items: items, map: map };
           }
           function dockPush(force) {
@@ -3304,6 +3306,11 @@ jobs:
           /* ----- pembantu fxdock.exe ----- */
           function dockCmd(l) { if (!dockProc) return; try { dockProc.stdin.write(l + "\n"); } catch (_) {} }
           function onDockMsg(m) {
+            if (m && m.t === "shown") {
+              clearTimeout(dockPendT); const id = dockPendId; dockPendId = "";
+              if (id && !m.ok) openApp(id);
+              return;
+            }
             if (!m || m.t !== "wins") return;
             dockRestarts = 0; dockErr = "";
             dockWins = Array.isArray(m.l) ? m.l.filter(w => w && Number.isInteger(w.h) && typeof w.x === "string") : [];
@@ -3316,7 +3323,7 @@ jobs:
             if (dockProc) return;
             if (!dockExists()) { dockErr = "fxdock.exe tidak ditemukan"; return; }
             dockErr = "";
-            dockProc = runHelper(["watch", String(process.pid), tbFlag()], onDockMsg, () => {
+            dockProc = runHelper(["watch", String(process.pid), tbFlag(), icFlag()], onDockMsg, () => {
               dockProc = null; dockWins = [];
               if (S.dock && !quitting) {
                 dockPush(false);
@@ -3366,8 +3373,30 @@ jobs:
             tbShown = false;
           }
           function tbKeys(on) {
-            try { globalShortcut.unregister("CommandOrControl+Alt+T"); } catch (_) {}
-            if (on) { try { globalShortcut.register("CommandOrControl+Alt+T", () => tbToggle()); } catch (_) {} }
+            try { globalShortcut.unregister("CommandOrControl+Alt+T"); globalShortcut.unregister("CommandOrControl+Alt+D"); } catch (_) {}
+            if (on) { try { globalShortcut.register("CommandOrControl+Alt+T", () => tbToggle()); } catch (_) {} try { globalShortcut.register("CommandOrControl+Alt+D", () => setOpt("dicons", !S.dicons)); } catch (_) {} }
+          }
+
+          /* ----- ikon desktop (halaman utama) ----- */
+          const icFlag = () => path.join(app.getPath("userData"), "dock-icons.json");
+          let icHidden = false;
+          function icRestore() {
+            if (!icHidden && !fs.existsSync(icFlag())) return;
+            tbRun(["icons", "set", "1"]);
+            try { fs.unlinkSync(icFlag()); } catch (_) {}
+            icHidden = false;
+          }
+          // Dock nyala + opsi aktif = ikon desktop disembunyikan; selain itu dimunculkan lagi. Ikon yang memang sudah disembunyikan pengguna tidak disentuh.
+          function icSync() {
+            if (!dockExists()) return;
+            if (S.dock && S.dicons) {
+              if (icHidden) return;
+              const cur = tbRun(["icons", "get"]);
+              if (cur === "1") {
+                try { fs.writeFileSync(icFlag(), "1"); } catch (_) {}      // dicatat dulu: kalau aplikasi mati mendadak, start berikutnya memunculkannya lagi
+                tbRun(["icons", "set", "0"]); icHidden = true;
+              } else if (cur === "0" && fs.existsSync(icFlag())) icHidden = true;   // sisa sesi sebelumnya
+            } else icRestore();
           }
 
           /* ----- klik-tembus & kursor ----- */
@@ -3455,21 +3484,37 @@ jobs:
             const t = a[i]; a[i] = a[j]; a[j] = t;
             dockSavePins();
           }
+          // Tidak ada jendela di daftar (mis. baru diminimize dan terlewat): coba tampilkan jendela exe-nya dulu, baru buka aplikasinya.
+          let dockPendId = "", dockPendT = null;
+          function exeBaseOf(id) {
+            id = String(id || "");
+            if (/\.lnk$/i.test(id) && isDrivePath(id)) id = lnkTarget(id) || "";
+            return /\.exe$/i.test(id) ? baseOf(id) : "";
+          }
+          function dockShowOrOpen(it) {
+            const eb = exeBaseOf(it.id);
+            if (!eb || !dockProc || !/^[\w .()-]{1,80}\.exe$/i.test(eb)) { openApp(it.id); return; }
+            dockPendId = String(it.id);
+            clearTimeout(dockPendT);
+            dockPendT = setTimeout(() => { const id = dockPendId; dockPendId = ""; if (id) openApp(id); }, 1500);   // pembantu lama / tidak menjawab
+            dockCmd("show " + eb);
+          }
           function dockClick(it) {
             const ws = it.ws;
-            if (!ws.length) { openApp(it.id); return; }
-            const fi = ws.findIndex(w => w.h === dockFg);
+            if (!ws.length) { dockShowOrOpen(it); return; }
+            const fi = ws.findIndex(w => w.h === dockFg && !w.m);                          // aktif dan tidak sedang diminimize
             if (fi >= 0) {
-              if (ws.length === 1) dockCmd((ws[0].m ? "focus " : "min ") + ws[0].h);          // aplikasi aktif: klik = minimize (seperti taskbar Windows)
-              else dockCmd("focus " + ws[(fi + 1) % ws.length].h);                              // banyak jendela: berpindah ke jendela berikutnya
+              if (ws.length === 1) dockCmd("min " + ws[0].h);                              // aplikasi aktif: klik = minimize (seperti taskbar Windows)
+              else dockCmd("focus " + ws[(fi + 1) % ws.length].h);                          // banyak jendela: berpindah ke jendela berikutnya
             } else {
-              const t = ws.find(w => !w.m) || ws[0];
+              const t = ws.find(w => !w.m) || ws[0];                                       // yang diminimize dipulihkan
               dockCmd("focus " + t.h);
             }
           }
           function dockAct(p) {
             if (!p || typeof p.a !== "string" || typeof p.k !== "string") return;
             if (p.k === "tb") { tbToggle(); return; }
+            if (p.k === "ic") { setOpt("dicons", !S.dicons); return; }
             if (p.k === "st") { dockCmd("start"); return; }
             if (p.k === "dl") { try { shell.openPath(app.getPath("downloads")); } catch (_) {} return; }
             if (p.k === "bin") { try { spawn("explorer.exe", ["shell:RecycleBinFolder"], { detached: true, stdio: "ignore", windowsHide: true }).unref(); } catch (_) {} return; }
@@ -3490,6 +3535,7 @@ jobs:
               if (!dockT) dockTick();
               if (S.dtb) { if (!tbShown) tbHide(); } else tbRestore();
               tbKeys(!!S.dtb);
+            icSync();
               startDockProc();
               dockVis();
             } else stopDock();
@@ -3501,7 +3547,7 @@ jobs:
             stopDockProc();
             if (dockWin && !dockWin.isDestroyed()) { try { dockWin.destroy(); } catch (_) {} }
             dockWin = null; dockReady = false; dockSig = "";
-            try { tbRestore(); } catch (_) {}
+            try { tbRestore(); } catch (_) {} try { icRestore(); } catch (_) {}
           }
 
           /* ---------- penerapan pengaturan ---------- */
@@ -3536,7 +3582,7 @@ jobs:
                 appnotif: !!S.appnotif, live: !!S.live, media: !!S.media, mtoast: S.mtoast !== false, devs: !!S.devs, net: !!S.net, rmon: S.rmon | 0, prog: !!S.prog, hub: !!S.hub, game: !!S.game,
                 curs: !!S.curs, cstyle: S.cstyle, ccolor: S.ccolor, csize: S.csize,
                 auto: !!S.auto, fpsreal: !!S.fpsreal, xh: !!S.xh, xhgame: !!S.xhgame, xhstyle: S.xhstyle, xhcolor: S.xhcolor, xhsize: S.xhsize, xhthick: S.xhthick, xhgap: S.xhgap, xhop: S.xhop, cal: !!S.cal, city: S.city || "",
-                dock: !!S.dock, dsize: S.dsize, dzoom: S.dzoom, dtheme: S.dtheme, dhide: !!S.dhide, dtb: !!S.dtb, drun: S.drun !== false, dmargin: S.dmargin
+                dock: !!S.dock, dicons: !!S.dicons, dsize: S.dsize, dzoom: S.dzoom, dtheme: S.dtheme, dhide: !!S.dhide, dtb: !!S.dtb, drun: S.drun !== false, dmargin: S.dmargin
             });
           }
 
@@ -3551,7 +3597,7 @@ jobs:
             getFilter: () => filterJson(),
             getSounds: () => JSON.stringify([{ t: "Bawaan Windows", u: "" }].concat(soundList())),
             getHistory: () => JSON.stringify(hist),
-            getDock: () => JSON.stringify({ helper: dockExists(), on: !!S.dock, running: !!dockProc, err: dockErr ? T(dockErr) : "", pins: S.dpins || [] }),
+            getDock: () => JSON.stringify({ helper: dockExists(), on: !!S.dock, running: !!dockProc, err: dockErr ? T(dockErr) : "", pins: S.dpins || [], dicons: !!S.dicons }),
             getGameApps: () => { sysCmd("wins"); return JSON.stringify({ wins: winsList, games: S.gamelist || [], nogame: S.nogame || [], exe: gameState.exe || "", full: !!gameState.full }); }
           };
 
@@ -3687,8 +3733,9 @@ jobs:
             refreshApps();
             // taskbar yang masih disembunyikan oleh sesi sebelumnya (aplikasi mati mendadak) dikembalikan dulu
             try { if (tbOrig() >= 0 && !(S.dock && S.dtb)) tbRestore(); } catch (_) {}
+            try { if (!S.dock || !S.dicons) icRestore(); } catch (_) {}
             app.on("will-quit", () => { try { stopDock(); } catch (_) {} });
-            process.on("exit", () => { try { tbRestore(); } catch (_) {} });
+            process.on("exit", () => { try { tbRestore(); } catch (_) {} try { icRestore(); } catch (_) {} });
             applyEnabled();
             applyDock();
             applyAnim();
@@ -4735,6 +4782,9 @@ jobs:
               [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, uint flags, StringBuilder sb, ref int size);
               [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern int GetApplicationUserModelId(IntPtr h, ref int len, StringBuilder sb);
               [DllImport("shell32.dll")] static extern UIntPtr SHAppBarMessage(uint msg, ref APPBARDATA d);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string title);
+              [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
+              [DllImport("user32.dll")] static extern void SwitchToThisWindow(IntPtr h, bool alt);
 
               static readonly string[] skipCls = new string[] { "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Windows.UI.Core.CoreWindow", "XamlExplorerHostIslandWindow" };
               static readonly string[] skipExe = new string[] { "textinputhost.exe", "searchhost.exe", "searchapp.exe", "startmenuexperiencehost.exe", "shellexperiencehost.exe", "lockapp.exe", "applicationframehost.exe", "widgets.exe", "widgetservice.exe" };
@@ -4829,7 +4879,7 @@ jobs:
                   if (!IsWindowVisible(h)) return false;
                   int ck = 0;
                   try { DwmGetWindowAttribute(h, 14, out ck, 4); } catch (Exception) { ck = 0; }
-                  if (ck != 0) return false;
+                  if (ck != 0 && !IsIconic(h)) return false;
                   int ex = GetWindowLong(h, -20);
                   bool appw = (ex & 0x40000) != 0;          // WS_EX_APPWINDOW
                   if ((ex & 0x80) != 0 && !appw) return false;        // WS_EX_TOOLWINDOW
@@ -4949,6 +4999,47 @@ jobs:
                   }
               }
 
+              // Pulihkan (kalau diminimize) lalu bawa ke depan. SwitchToThisWindow menembus kunci latar depan Windows.
+              static void Activate(IntPtr h)
+              {
+                  if (h == IntPtr.Zero || !IsWindow(h)) return;
+                  if (IsIconic(h)) PostMessage(h, 0x0112, new IntPtr(0xF120), IntPtr.Zero); // WM_SYSCOMMAND SC_RESTORE
+                  Focus(h);
+                  try { SwitchToThisWindow(h, true); } catch (Exception) { }
+              }
+
+              // Cari jendela milik exe tertentu sampai ke yang tidak masuk daftar Dock (diminimize / cloaked), lalu tampilkan.
+              static void ShowExe(string name)
+              {
+                  string want = name.ToLowerInvariant();
+                  IntPtr best = IntPtr.Zero;
+                  int bestScore = -1;
+                  EnumWindows(delegate (IntPtr h, IntPtr l)
+                  {
+                      try
+                      {
+                          if (!IsWindowVisible(h)) return true;
+                          if (GetWindow(h, 4) != IntPtr.Zero) return true;
+                          if (GetWindowTextLength(h) <= 0) return true;
+                          if (Array.IndexOf(skipCls, ClassOf(h)) >= 0) return true;
+                          int ex = GetWindowLong(h, -20);
+                          if ((ex & 0x80) != 0 && (ex & 0x40000) == 0) return true;
+                          uint pid;
+                          GetWindowThreadProcessId(h, out pid);
+                          if (pid == 0) return true;
+                          string pth = ProcPath(RealPid(h, pid)).ToLowerInvariant();
+                          string b = pth.Length > 0 ? pth.Substring(pth.LastIndexOf('\\') + 1) : "";
+                          if (b != want) return true;
+                          int score = IsIconic(h) ? 2 : 1;
+                          if (score > bestScore) { bestScore = score; best = h; }
+                      }
+                      catch (Exception) { }
+                      return true;
+                  }, IntPtr.Zero);
+                  if (best != IntPtr.Zero) Activate(best);
+                  Emit("{\"t\":\"shown\",\"x\":" + J(name) + ",\"ok\":" + (best != IntPtr.Zero ? 1 : 0) + "}");
+              }
+
               static void Cmd(string line)
               {
                   if (string.IsNullOrEmpty(line)) return;
@@ -4958,6 +5049,11 @@ jobs:
                       keybd_event(0x5B, 0, 2, UIntPtr.Zero);
                       return;
                   }
+                  if (line.StartsWith("show "))
+                  {
+                      try { ShowExe(line.Substring(5).Trim()); } catch (Exception) { Emit("{\"t\":\"shown\",\"ok\":0}"); }
+                      return;
+                  }
                   string[] p = line.Split(' ');
                   if (p.Length < 2) return;
                   long hv;
@@ -4965,7 +5061,7 @@ jobs:
                   IntPtr h = new IntPtr(hv);
                   try
                   {
-                      if (p[0] == "focus") Focus(h);
+                      if (p[0] == "focus") Activate(h);
                       else if (p[0] == "min") { if (IsWindow(h)) ShowWindow(h, 6); }       // SW_MINIMIZE
                       else if (p[0] == "close") { if (IsWindow(h)) PostMessage(h, 0x0010, IntPtr.Zero, IntPtr.Zero); } // WM_CLOSE
                   }
@@ -5008,6 +5104,59 @@ jobs:
                       if (ClassOf(w) == "Shell_SecondaryTrayWnd") ShowWindow(w, cmd);
                       return true;
                   }, IntPtr.Zero);
+              }
+
+              // ----- ikon desktop (halaman utama): sama seperti klik kanan desktop > Tampilan > Tampilkan ikon desktop
+              static IntPtr DeskDefView()
+              {
+                  IntPtr defv = IntPtr.Zero;
+                  IntPtr prog = FindWindow("Progman", null);
+                  if (prog != IntPtr.Zero) defv = FindWindowEx(prog, IntPtr.Zero, "SHELLDLL_DefView", null);
+                  if (defv == IntPtr.Zero)
+                  {
+                      IntPtr found = IntPtr.Zero;
+                      EnumWindows(delegate (IntPtr w, IntPtr l)
+                      {
+                          if (ClassOf(w) == "WorkerW")
+                          {
+                              IntPtr d = FindWindowEx(w, IntPtr.Zero, "SHELLDLL_DefView", null);
+                              if (d != IntPtr.Zero) { found = d; return false; }
+                          }
+                          return true;
+                      }, IntPtr.Zero);
+                      defv = found;
+                  }
+                  return defv;
+              }
+
+              static bool IconsVisible()
+              {
+                  IntPtr defv = DeskDefView();
+                  if (defv == IntPtr.Zero) return true;
+                  IntPtr lv = FindWindowEx(defv, IntPtr.Zero, "SysListView32", null);
+                  if (lv == IntPtr.Zero) return true;
+                  return IsWindowVisible(lv);
+              }
+
+              static void IconsSet(bool show)
+              {
+                  if (IconsVisible() == show) return;
+                  IntPtr defv = DeskDefView();
+                  if (defv == IntPtr.Zero) return;
+                  SendMessage(defv, 0x0111, new IntPtr(0x7402), IntPtr.Zero); // WM_COMMAND 0x7402 = bolak-balik tampil/sembunyi ikon desktop
+              }
+
+              // Kalau aplikasi induk mati, ikon desktop yang kita sembunyikan dimunculkan lagi (file catatan ada = kita yang menyembunyikan).
+              static string iconFlag = "";
+              static void RestoreIcons()
+              {
+                  try
+                  {
+                      if (iconFlag.Length == 0 || !System.IO.File.Exists(iconFlag)) return;
+                      IconsSet(true);
+                      System.IO.File.Delete(iconFlag);
+                  }
+                  catch (Exception) { }
               }
 
               // Kalau aplikasi induk mati, taskbar yang kita sembunyikan dikembalikan (file catatan berisi status aslinya).
@@ -5069,11 +5218,28 @@ jobs:
                       catch (Exception) { return 2; }
                   }
 
+                  if (a[0] == "icons")
+                  {
+                      try
+                      {
+                          if (a.Length >= 3 && a[1] == "set")
+                          {
+                              IconsSet(a[2] == "1");
+                              Thread.Sleep(250);
+                          }
+                          Console.Out.WriteLine(IconsVisible() ? "1" : "0");
+                          Console.Out.Flush();
+                          return 0;
+                      }
+                      catch (Exception) { return 2; }
+                  }
+
                   if (a[0] == "watch")
                   {
                       int parent = 0;
                       if (a.Length >= 2) int.TryParse(a[1], out parent);
                       if (a.Length >= 3) flagFile = a[2];
+                      if (a.Length >= 4) iconFlag = a[3];
 
                       Thread rd = new Thread(delegate ()
                       {
@@ -5083,7 +5249,7 @@ jobs:
                               while ((l = Console.In.ReadLine()) != null) Cmd(l.Trim());
                           }
                           catch (Exception) { }
-                          RestoreTb();
+                          RestoreTb(); RestoreIcons();
                           Environment.Exit(0); // stdin tertutup = aplikasi induk sudah mati
                       });
                       rd.IsBackground = true;
@@ -5104,7 +5270,7 @@ jobs:
                           if (parent > 0 && tick % 6 == 0)
                           {
                               try { Process.GetProcessById(parent); }
-                              catch (Exception) { RestoreTb(); return 0; }
+                              catch (Exception) { RestoreTb(); RestoreIcons(); return 0; }
                           }
                       }
                   }
@@ -5127,10 +5293,10 @@ jobs:
             #wrap { position:absolute; left:50%; bottom:6px; width:100px; height:64px; transform:translate(-50%,0);
                     transition:transform .3s cubic-bezier(.2,.8,.2,1); }
             #wrap.gone { transform:translate(-50%,calc(100% + 40px)); }
-            #pill { position:absolute; left:0; top:0; right:0; bottom:0; border-radius:22px; background:var(--bg); border:1px solid var(--bd);
+            #pill { position:absolute; left:0; top:0; right:0; bottom:0; border-radius:28px; background:var(--bg); border:1px solid var(--bd);
                     box-shadow:var(--sh), inset 0 1px 0 var(--hi); }
-            #row { position:absolute; left:8px; bottom:8px; display:flex; align-items:flex-end; }
-            .it { position:relative; flex:none; margin:0 3px; cursor:pointer; width:48px; height:48px; }
+            #row { position:absolute; left:50%; bottom:12px; transform:translateX(-50%); display:flex; align-items:flex-end; }
+            .it { position:relative; flex:none; margin:0 6px; cursor:pointer; width:48px; height:48px; }
             .it .ic { position:absolute; left:0; top:0; right:0; bottom:0; }
             .it .ic img, .it .ic svg, .it .fb { position:absolute; left:0; top:0; width:100%; height:100%; display:block; pointer-events:none; -webkit-user-drag:none; }
             .fb { border-radius:22%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; box-shadow:0 2px 8px rgba(0,0,0,.25); }
@@ -5157,8 +5323,8 @@ jobs:
             "use strict";
             var B = window.fxd || { on: function () {}, send: function () {} };
             var $ = function (i) { return document.getElementById(i); };
-            var PAD = 8;
-            var cfg = { size: 48, zoom: 150, theme: "dark", hide: false, margin: 6, L: { open: "Open", close: "Quit", keep: "Keep in Dock", remove: "Remove from Dock", dl: "Downloads", bin: "Recycle Bin", tb: "Taskbar", st: "Start" } };
+            var PAD = 12;
+            var cfg = { size: 48, zoom: 150, theme: "dark", hide: false, margin: 6, L: { open: "Open", close: "Quit", keep: "Keep in Dock", remove: "Remove from Dock", dl: "Downloads", bin: "Recycle Bin", tb: "Taskbar", ic: "Desktop icons", st: "Start" } };
             var items = [], st = new Map(), icons = {};
             var cur = { x: -1, y: -1, edge: false };
             var shown = true, hideT = null, menuK = null, menuT = null, raf = 0, lastRects = "", bounce = {};
@@ -5179,6 +5345,13 @@ jobs:
               '<g fill="#4a7cf0"><rect x="14" y="14" width="10" height="10" rx="3"/><rect x="27" y="14" width="10" height="10" rx="3" fill="#e5484d"/><rect x="40" y="14" width="10" height="10" rx="3" fill="#2fb36b"/>' +
               '<rect x="14" y="27" width="10" height="10" rx="3" fill="#f0a000"/><rect x="27" y="27" width="10" height="10" rx="3"/><rect x="40" y="27" width="10" height="10" rx="3" fill="#8a5cf0"/>' +
               '<rect x="14" y="40" width="10" height="10" rx="3" fill="#2fb36b"/><rect x="27" y="40" width="10" height="10" rx="3" fill="#e5484d"/><rect x="40" y="40" width="10" height="10" rx="3"/></g></svg>';
+            var SVG_IC0 = '<svg viewBox="0 0 64 64"><defs><linearGradient id="gi0" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b6478"/><stop offset="1" stop-color="#2f3646"/></linearGradient></defs>' +
+              '<rect x="5" y="8" width="54" height="40" rx="8" fill="url(#gi0)"/><rect x="24" y="50" width="16" height="4" rx="2" fill="#9aa6c2"/><rect x="16" y="54" width="32" height="3" rx="1.5" fill="#9aa6c2"/>' +
+              '<g fill="#e9edf5"><rect x="13" y="15" width="9" height="9" rx="2.5"/><rect x="13" y="29" width="9" height="9" rx="2.5"/><rect x="27" y="15" width="9" height="9" rx="2.5"/></g></svg>';
+            var SVG_IC1 = '<svg viewBox="0 0 64 64"><defs><linearGradient id="gi1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b6478"/><stop offset="1" stop-color="#2f3646"/></linearGradient></defs>' +
+              '<rect x="5" y="8" width="54" height="40" rx="8" fill="url(#gi1)"/><rect x="24" y="50" width="16" height="4" rx="2" fill="#9aa6c2"/><rect x="16" y="54" width="32" height="3" rx="1.5" fill="#9aa6c2"/>' +
+              '<g fill="#e9edf5" opacity=".28"><rect x="13" y="15" width="9" height="9" rx="2.5"/><rect x="13" y="29" width="9" height="9" rx="2.5"/><rect x="27" y="15" width="9" height="9" rx="2.5"/></g>' +
+              '<path d="M10 50L54 6" stroke="#ff453a" stroke-width="5" stroke-linecap="round"/></svg>';
             function hue(s) { var h = 0; s = String(s || ""); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
             function kick() { if (!raf) raf = requestAnimationFrame(frame); }
 
@@ -5202,6 +5375,7 @@ jobs:
               var ic = s.el.firstChild, it = s.it;
               if (it.t === "dl") { if (s.img !== "dl") { ic.innerHTML = SVG_DL; s.img = "dl"; } return; }
               if (it.t === "st") { if (s.img !== "st") { ic.innerHTML = SVG_ST; s.img = "st"; } return; }
+              if (it.t === "ic") { var ik = it.hid ? "ic1" : "ic0"; if (s.img !== ik) { ic.innerHTML = it.hid ? SVG_IC1 : SVG_IC0; s.img = ik; } return; }
               if (it.t === "tb") { if (s.img !== "tb") { ic.innerHTML = SVG_TB; s.img = "tb"; } return; }
               if (it.t === "bin") { if (s.img !== "bin") { ic.innerHTML = SVG_BIN; s.img = "bin"; } return; }
               var u = icons[it.ic];
@@ -5306,13 +5480,14 @@ jobs:
                 el.classList.toggle("bnc", !!(bounce[k] && bounce[k] > Date.now()));
                 if (cur.x >= rc[i].left && cur.x <= rc[i].right && cur.y >= rc[i].top - 4) hov = i;
               }
-              $("wrap").style.width = (row.offsetWidth + PAD * 2) + "px";
+              var minW = Math.min(window.innerWidth - 40, Math.max(560, cfg.size * 9));
+              $("wrap").style.width = Math.max(row.offsetWidth + PAD * 2 + 24, minW) + "px";
 
               // tooltip
               var tip = $("tip");
               if (inside && hov >= 0 && !menuK && shown) {
                 var he = els[hov], hk = he.getAttribute("data-k"), hs = st.get(hk), r = he.getBoundingClientRect();
-                var label = hs ? (hs.it.t === "dl" ? cfg.L.dl : hs.it.t === "bin" ? cfg.L.bin : hs.it.t === "tb" ? cfg.L.tb : hs.it.t === "st" ? cfg.L.st : (hs.it.name || "")) : "";
+                var label = hs ? (hs.it.t === "dl" ? cfg.L.dl : hs.it.t === "bin" ? cfg.L.bin : hs.it.t === "tb" ? cfg.L.tb : hs.it.t === "ic" ? cfg.L.ic : hs.it.t === "st" ? cfg.L.st : (hs.it.name || "")) : "";
                 if (label) {
                   tip.textContent = label; tip.style.opacity = "1";
                   var tw = tip.offsetWidth, lx = Math.max(tw / 2 + 6, Math.min(window.innerWidth - tw / 2 - 6, r.left + r.width / 2));
