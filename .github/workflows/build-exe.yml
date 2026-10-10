@@ -1973,7 +1973,7 @@ jobs:
           const LANGS = ["id", "en", "ms", "ja", "zh", "es"];
           const IDX = { en: 0, ms: 1, ja: 2, zh: 3, es: 4 };
           const LOC = { id: "id-ID", en: "en-US", ms: "ms-MY", ja: "ja-JP", zh: "zh-CN", es: "es-ES" };
-          const D = {"fxhelper.exe tidak ditemukan":["fxhelper.exe not found","fxhelper.exe tidak ditemui","fxhelper.exe が見つかりません","找不到 fxhelper.exe","No se encontró fxhelper.exe"],"fxsys.exe tidak ditemukan":["fxsys.exe not found","fxsys.exe tidak ditemui","fxsys.exe が見つかりません","找不到 fxsys.exe","No se encontró fxsys.exe"],"pembaca berhenti":["reader stopped","pembaca berhenti","リーダーが停止しました","读取器已停止","el lector se detuvo"],"pembantu berhenti":["helper stopped","pembantu berhenti","ヘルパーが停止しました","辅助程序已停止","el ayudante se detuvo"],"PresentMon tidak ada":["PresentMon not found","PresentMon tiada","PresentMon が見つかりません","未找到 PresentMon","PresentMon no encontrado"],"Database notifikasi Windows tidak ditemukan":["Windows notification database not found","Pangkalan data pemberitahuan Windows tidak ditemui","Windows の通知データベースが見つかりません","未找到 Windows 通知数据库","No se encontró la base de datos de notificaciones de Windows"],"Jangan ganggu aktif":["Do Not Disturb on","Jangan ganggu aktif","サイレントモード オン","勿扰已开启","No molestar activado"],"Notifikasi tidak ditampilkan di island":["Notifications are not shown in the island","Pemberitahuan tidak dipaparkan di island","通知はアイランドに表示されません","通知不会显示在岛上","Las notificaciones no se muestran en la isla"],"Jangan ganggu mati":["Do Not Disturb off","Jangan ganggu dimatikan","サイレントモード オフ","勿扰已关闭","No molestar desactivado"],"Notifikasi tampil lagi":["Notifications show again","Pemberitahuan dipaparkan semula","通知が再び表示されます","通知将再次显示","Las notificaciones vuelven a mostrarse"],"Aplikasi dibuka":["App opened","Aplikasi dibuka","アプリを開きました","应用已打开","Aplicación abierta"],"baru saja":["just now","baru sahaja","たった今","刚刚","ahora mismo"],"tadi":["earlier","tadi","先ほど","刚才","antes"],"sekarang":["now","sekarang","今","现在","ahora"],"Notifikasi":["Notification","Pemberitahuan","通知","通知","Notificación"],"Disalin":["Copied","Disalin","コピーしました","已复制","Copiado"],"Gambar disalin":["Image copied","Imej disalin","画像をコピーしました","图片已复制","Imagen copiada"],"Papan klip":["Clipboard","Papan keratan","クリップボード","剪贴板","Portapapeles"],"Ketuk: tempel":["Tap: paste","Ketik: tampal","タップで貼り付け","点按粘贴","Toca: pegar"],"Merekam layar / audio":["Recording screen / audio","Merakam skrin / audio","画面 / 音声を録画中","正在录制屏幕 / 音频","Grabando pantalla / audio"],"Mikrofon dipakai":["Microphone in use","Mikrofon digunakan","マイクを使用中","麦克风使用中","Micrófono en uso"],"Kamera dipakai":["Camera in use","Kamera digunakan","カメラを使用中","摄像头使用中","Cámara en uso"],"Sedang aktif":["Currently active","Sedang aktif","現在アクティブ","当前活动","Activo ahora"],"Privasi":["Privacy","Privasi","プライバシー","隐私","Privacidad"],"Audio sedang diputar":["Audio is playing","Audio sedang dimainkan","オーディオを再生中","正在播放音频","Reproduciendo audio"],"Suara dari PC":["Sound from the PC","Bunyi dari PC","PC からの音","来自电脑的声音","Sonido del PC"],"Audio":["Audio","Audio","オーディオ","音频","Audio"],"Selesai":["Done","Selesai","完了","完成","Listo"],"{n} · proses rampung":["{n} · process finished","{n} · proses selesai","{n} · 処理が完了しました","{n} · 处理完成","{n} · proceso terminado"],"Progres":["Progress","Kemajuan","進捗","进度","Progreso"],"Sedang berjalan":["In progress","Sedang berjalan","実行中","进行中","En curso"],"FPS akurat butuh izin":["Accurate FPS needs permission","FPS tepat perlukan kebenaran","正確な FPS には権限が必要です","精确 FPS 需要授权","Los FPS precisos necesitan permiso"],"Buka pengaturan lalu tekan \"Beri izin FPS\" (sekali saja)":["Open settings and press \"Grant FPS permission\" (only once)","Buka tetapan kemudian tekan \"Beri kebenaran FPS\" (sekali sahaja)","設定を開いて「FPS の権限を付与」を押してください（一度だけ）","打开设置并点击“授予 FPS 权限”（仅一次）","Abre los ajustes y pulsa \"Conceder permiso de FPS\" (solo una vez)"],"Izin diminta":["Permission requested","Kebenaran diminta","権限をリクエストしました","已请求授权","Permiso solicitado"],"Setujui jendela admin (Yes). Hasilnya aku cek otomatis.":["Approve the admin window (Yes). I will check the result automatically.","Luluskan tetingkap admin (Yes). Hasilnya saya semak secara automatik.","管理者ウィンドウで「はい」を選んでください。結果は自動で確認します。","请在管理员窗口中点击“是”。结果会自动检查。","Aprueba la ventana de administrador (Sí). Comprobaré el resultado automáticamente."],"Izin belum masuk":["Permission not granted","Kebenaran belum diberi","権限が付与されていません","尚未获得授权","Permiso no concedido"],"Jendela admin tadi ditolak atau ditutup. Tekan Beri izin FPS lagi lalu pilih Yes.":["The admin window was declined or closed. Press Grant FPS permission again and choose Yes.","Tetingkap admin tadi ditolak atau ditutup. Tekan Beri kebenaran FPS sekali lagi dan pilih Yes.","管理者ウィンドウが拒否されたか閉じられました。もう一度「FPS の権限を付与」を押し、「はい」を選んでください。","管理员窗口被拒绝或已关闭。请再次点击“授予 FPS 权限”并选择“是”。","La ventana de administrador se rechazó o se cerró. Pulsa Conceder permiso de FPS de nuevo y elige Sí."],"Izin FPS aktif":["FPS permission active","Kebenaran FPS aktif","FPS の権限が有効です","FPS 权限已生效","Permiso de FPS activo"],"Sudah berlaku di sesi ini. Buka game, lalu tandai sebagai game di pengaturan bila belum muncul.":["Already in effect for this session. Open a game, then mark it as a game in settings if it does not appear.","Sudah berkuat kuasa dalam sesi ini. Buka permainan, kemudian tandakan sebagai permainan dalam tetapan jika belum muncul.","このセッションですでに有効です。ゲームを開き、表示されない場合は設定でゲームとして登録してください。","此会话中已生效。打开游戏后，如果没有出现，请在设置中将其标记为游戏。","Ya está activo en esta sesión. Abre un juego y, si no aparece, márcalo como juego en los ajustes."],"Izin terpasang":["Permission installed","Kebenaran dipasang","権限を設定しました","权限已安装","Permiso instalado"],"Tinggal keluar-masuk (sign out) Windows sekali supaya berlaku.":["Just sign out of Windows and back in once to make it take effect.","Tinggal log keluar dan masuk semula Windows sekali supaya berkuat kuasa.","あとは Windows からサインアウトして再度サインインすれば有効になります。","只需注销并重新登录一次 Windows 即可生效。","Solo cierra sesión en Windows y vuelve a entrar una vez para que surta efecto."],"Ditandai sebagai game":["Marked as a game","Ditandai sebagai permainan","ゲームとして登録しました","已标记为游戏","Marcado como juego"],"Bukan game":["Not a game","Bukan permainan","ゲームではありません","不是游戏","No es un juego"],"Game":["Game","Permainan","ゲーム","游戏","Juego"],"Waktu antar frame":["Frame time","Masa antara bingkai","フレームタイム","帧间隔时间","Tiempo entre fotogramas"],"Crosshair: {s}":["Crosshair: {s}","Crosshair: {s}","クロスヘア: {s}","准星：{s}","Mira: {s}"],"nyala":["on","hidup","オン","开","activada"],"mati":["off","mati","オフ","关","desactivada"],"Sembunyikan":["Hide","Sembunyikan","非表示","隐藏","Ocultar"],"PC terasa berat":["The PC feels sluggish","PC terasa berat","PC の動作が重くなっています","电脑有些卡顿","El PC va lento"],"Pemakaian sistem":["System usage","Penggunaan sistem","システム使用状況","系统占用","Uso del sistema"],"Paling banyak memakai memori":["Using the most memory","Paling banyak menggunakan memori","メモリ使用量が多い順","内存占用最多","Mayor uso de memoria"],"End Task":["End Task","Tamatkan Tugas","タスクを終了","结束任务","Finalizar tarea"],"↓ Unduh":["↓ Download","↓ Muat turun","↓ ダウンロード","↓ 下载","↓ Descarga"],"↑ Unggah":["↑ Upload","↑ Muat naik","↑ アップロード","↑ 上传","↑ Subida"],"Cerah":["Clear","Cerah","晴れ","晴","Despejado"],"Cerah berawan":["Mostly clear","Cerah berawan","晴れ時々曇り","晴间多云","Mayormente despejado"],"Berawan sebagian":["Partly cloudy","Separa mendung","一部曇り","局部多云","Parcialmente nublado"],"Mendung":["Overcast","Mendung","曇り","阴","Nublado"],"Berkabut":["Foggy","Berkabus","霧","有雾","Niebla"],"Kabut beku":["Freezing fog","Kabus beku","着氷性の霧","冻雾","Niebla helada"],"Gerimis ringan":["Light drizzle","Renyai ringan","弱い霧雨","小毛毛雨","Llovizna ligera"],"Gerimis":["Drizzle","Renyai","霧雨","毛毛雨","Llovizna"],"Gerimis lebat":["Heavy drizzle","Renyai lebat","強い霧雨","大毛毛雨","Llovizna intensa"],"Gerimis beku":["Freezing drizzle","Renyai beku","着氷性の霧雨","冻毛毛雨","Llovizna helada"],"Hujan ringan":["Light rain","Hujan ringan","小雨","小雨","Lluvia ligera"],"Hujan":["Rain","Hujan","雨","雨","Lluvia"],"Hujan lebat":["Heavy rain","Hujan lebat","大雨","大雨","Lluvia intensa"],"Hujan beku":["Freezing rain","Hujan beku","着氷性の雨","冻雨","Lluvia helada"],"Salju ringan":["Light snow","Salji ringan","弱い雪","小雪","Nieve ligera"],"Salju":["Snow","Salji","雪","雪","Nieve"],"Salju lebat":["Heavy snow","Salji lebat","大雪","大雪","Nieve intensa"],"Butiran salju":["Snow grains","Butiran salji","雪あられ","米雪","Granos de nieve"],"Hujan sebentar":["Rain showers","Hujan sekejap","にわか雨","阵雨","Chubascos"],"Hujan deras":["Violent rain showers","Hujan lebat mendadak","激しいにわか雨","强阵雨","Chubascos fuertes"],"Salju sebentar":["Snow showers","Salji sekejap","にわか雪","阵雪","Chubascos de nieve"],"Badai petir":["Thunderstorm","Ribut petir","雷雨","雷暴","Tormenta"],"Badai petir + es":["Thunderstorm with hail","Ribut petir dengan hujan batu","雹を伴う雷雨","雷暴伴冰雹","Tormenta con granizo"],"Kota tidak ditemukan":["City not found","Bandar tidak ditemui","都市が見つかりません","找不到该城市","Ciudad no encontrada"],"Lokasi tidak terdeteksi":["Location not detected","Lokasi tidak dikesan","場所を検出できません","无法检测位置","Ubicación no detectada"],"Cuaca belum bisa dimuat":["Weather could not be loaded yet","Cuaca belum dapat dimuatkan","天気をまだ読み込めません","暂时无法加载天气","Aún no se puede cargar el clima"],"Cuaca tidak tersedia":["Weather unavailable","Cuaca tidak tersedia","天気情報がありません","天气不可用","Clima no disponible"],"Terasa {a}° · Lembap {b}%":["Feels like {a}° · Humidity {b}%","Terasa {a}° · Kelembapan {b}%","体感 {a}° · 湿度 {b}%","体感 {a}° · 湿度 {b}%","Sensación {a}° · Humedad {b}%"],"Angin {a} km/j":["Wind {a} km/h","Angin {a} km/j","風 {a} km/h","风速 {a} km/h","Viento {a} km/h"],"Hujan {a}%":["Rain {a}%","Hujan {a}%","降水 {a}%","降雨 {a}%","Lluvia {a}%"],"T {a}° / R {b}°":["H {a}° / L {b}°","T {a}° / R {b}°","最高 {a}° / 最低 {b}°","高 {a}° / 低 {b}°","Máx {a}° / Mín {b}°"],"Lepaskan di sini":["Drop here","Lepaskan di sini","ここにドロップ","放在这里","Suelta aquí"],"Kantong sementara":["Temporary shelf","Rak sementara","一時置き場","临时暂存区","Bandeja temporal"],"Seret file, gambar, atau teks ke sini":["Drag a file, image, or text here","Seret fail, gambar atau teks ke sini","ファイル・画像・テキストをここにドラッグ","将文件、图片或文本拖到这里","Arrastra un archivo, imagen o texto aquí"],"Tarik keluar untuk menempel ke aplikasi lain":["Drag out to paste into another app","Tarik keluar untuk menampal ke aplikasi lain","外にドラッグして別のアプリに貼り付け","拖出即可粘贴到其他应用","Arrastra hacia fuera para pegar en otra aplicación"],"Baterai":["Battery","Bateri","バッテリー","电池","Batería"],"Mengisi daya":["Charging","Mengecas","充電中","正在充电","Cargando"],"Daya dicabut":["Unplugged","Pengecas dicabut","電源を取り外しました","已拔出电源","Desconectado"],"Baterai {n}%":["Battery {n}%","Bateri {n}%","バッテリー {n}%","电量 {n}%","Batería {n}%"],"Baterai penuh":["Battery full","Bateri penuh","バッテリー満充電","电量已满","Batería llena"],"Bisa dicabut dari charger":["You can unplug the charger","Boleh cabut pengecas","充電器を外せます","可以拔掉充电器了","Puedes desconectar el cargador"],"Baterai kritis":["Battery critical","Bateri kritikal","バッテリー残量わずか","电量严重不足","Batería crítica"],"Baterai lemah":["Battery low","Bateri lemah","バッテリー残量低下","电量低","Batería baja"],"{n}% tersisa":["{n}% left","{n}% berbaki","残り {n}%","剩余 {n}%","{n}% restante"],"Buka":["Open","Buka","開く","打开","Abrir"],"Jalan otomatis saat Windows menyala":["Start automatically with Windows","Berjalan automatik semasa Windows dihidupkan","Windows 起動時に自動で実行","Windows 启动时自动运行","Iniciar automáticamente con Windows"],"Animasi buka/tutup jendela":["Window open/close animation","Animasi buka/tutup tetingkap","ウィンドウ開閉アニメーション","窗口打开/关闭动画","Animación al abrir/cerrar ventanas"],"Jangan ganggu (Ctrl+Alt+N)":["Do Not Disturb (Ctrl+Alt+N)","Jangan ganggu (Ctrl+Alt+N)","サイレント（Ctrl+Alt+N）","勿扰（Ctrl+Alt+N）","No molestar (Ctrl+Alt+N)"],"Keluar":["Quit","Keluar","終了","退出","Salir"]};
+          const D = {"Menu Start":["Start menu","Menu Mula","スタートメニュー","开始菜单","Menú Inicio"],"Tampilkan/sembunyikan taskbar":["Show/hide taskbar","Tunjuk/sembunyi bar tugas","タスクバーの表示/非表示","显示/隐藏任务栏","Mostrar/ocultar barra de tareas"],"Simpan di Dock":["Keep in Dock", "Simpan dalam Dock", "Dock に残す", "保留在程序坞", "Mantener en el Dock"],"Hapus dari Dock":["Remove from Dock", "Alih keluar daripada Dock", "Dock から削除", "从程序坞移除", "Quitar del Dock"],"Tutup":["Close", "Tutup", "閉じる", "关闭", "Cerrar"],"Unduhan":["Downloads", "Muat turun", "ダウンロード", "下载", "Descargas"],"Tempat sampah":["Recycle Bin", "Tong kitar semula", "ごみ箱", "回收站", "Papelera de reciclaje"],"Dock macOS":["macOS-style Dock", "Dock gaya macOS", "macOS 風 Dock", "macOS 风格程序坞", "Dock estilo macOS"],"fxdock.exe tidak ditemukan":["fxdock.exe not found", "fxdock.exe tidak ditemui", "fxdock.exe が見つかりません", "找不到 fxdock.exe", "No se encontró fxdock.exe"],"fxhelper.exe tidak ditemukan":["fxhelper.exe not found","fxhelper.exe tidak ditemui","fxhelper.exe が見つかりません","找不到 fxhelper.exe","No se encontró fxhelper.exe"],"fxsys.exe tidak ditemukan":["fxsys.exe not found","fxsys.exe tidak ditemui","fxsys.exe が見つかりません","找不到 fxsys.exe","No se encontró fxsys.exe"],"pembaca berhenti":["reader stopped","pembaca berhenti","リーダーが停止しました","读取器已停止","el lector se detuvo"],"pembantu berhenti":["helper stopped","pembantu berhenti","ヘルパーが停止しました","辅助程序已停止","el ayudante se detuvo"],"PresentMon tidak ada":["PresentMon not found","PresentMon tiada","PresentMon が見つかりません","未找到 PresentMon","PresentMon no encontrado"],"Database notifikasi Windows tidak ditemukan":["Windows notification database not found","Pangkalan data pemberitahuan Windows tidak ditemui","Windows の通知データベースが見つかりません","未找到 Windows 通知数据库","No se encontró la base de datos de notificaciones de Windows"],"Jangan ganggu aktif":["Do Not Disturb on","Jangan ganggu aktif","サイレントモード オン","勿扰已开启","No molestar activado"],"Notifikasi tidak ditampilkan di island":["Notifications are not shown in the island","Pemberitahuan tidak dipaparkan di island","通知はアイランドに表示されません","通知不会显示在岛上","Las notificaciones no se muestran en la isla"],"Jangan ganggu mati":["Do Not Disturb off","Jangan ganggu dimatikan","サイレントモード オフ","勿扰已关闭","No molestar desactivado"],"Notifikasi tampil lagi":["Notifications show again","Pemberitahuan dipaparkan semula","通知が再び表示されます","通知将再次显示","Las notificaciones vuelven a mostrarse"],"Aplikasi dibuka":["App opened","Aplikasi dibuka","アプリを開きました","应用已打开","Aplicación abierta"],"baru saja":["just now","baru sahaja","たった今","刚刚","ahora mismo"],"tadi":["earlier","tadi","先ほど","刚才","antes"],"sekarang":["now","sekarang","今","现在","ahora"],"Notifikasi":["Notification","Pemberitahuan","通知","通知","Notificación"],"Disalin":["Copied","Disalin","コピーしました","已复制","Copiado"],"Gambar disalin":["Image copied","Imej disalin","画像をコピーしました","图片已复制","Imagen copiada"],"Papan klip":["Clipboard","Papan keratan","クリップボード","剪贴板","Portapapeles"],"Ketuk: tempel":["Tap: paste","Ketik: tampal","タップで貼り付け","点按粘贴","Toca: pegar"],"Merekam layar / audio":["Recording screen / audio","Merakam skrin / audio","画面 / 音声を録画中","正在录制屏幕 / 音频","Grabando pantalla / audio"],"Mikrofon dipakai":["Microphone in use","Mikrofon digunakan","マイクを使用中","麦克风使用中","Micrófono en uso"],"Kamera dipakai":["Camera in use","Kamera digunakan","カメラを使用中","摄像头使用中","Cámara en uso"],"Sedang aktif":["Currently active","Sedang aktif","現在アクティブ","当前活动","Activo ahora"],"Privasi":["Privacy","Privasi","プライバシー","隐私","Privacidad"],"Audio sedang diputar":["Audio is playing","Audio sedang dimainkan","オーディオを再生中","正在播放音频","Reproduciendo audio"],"Suara dari PC":["Sound from the PC","Bunyi dari PC","PC からの音","来自电脑的声音","Sonido del PC"],"Audio":["Audio","Audio","オーディオ","音频","Audio"],"Selesai":["Done","Selesai","完了","完成","Listo"],"{n} · proses rampung":["{n} · process finished","{n} · proses selesai","{n} · 処理が完了しました","{n} · 处理完成","{n} · proceso terminado"],"Progres":["Progress","Kemajuan","進捗","进度","Progreso"],"Sedang berjalan":["In progress","Sedang berjalan","実行中","进行中","En curso"],"FPS akurat butuh izin":["Accurate FPS needs permission","FPS tepat perlukan kebenaran","正確な FPS には権限が必要です","精确 FPS 需要授权","Los FPS precisos necesitan permiso"],"Buka pengaturan lalu tekan \"Beri izin FPS\" (sekali saja)":["Open settings and press \"Grant FPS permission\" (only once)","Buka tetapan kemudian tekan \"Beri kebenaran FPS\" (sekali sahaja)","設定を開いて「FPS の権限を付与」を押してください（一度だけ）","打开设置并点击“授予 FPS 权限”（仅一次）","Abre los ajustes y pulsa \"Conceder permiso de FPS\" (solo una vez)"],"Izin diminta":["Permission requested","Kebenaran diminta","権限をリクエストしました","已请求授权","Permiso solicitado"],"Setujui jendela admin (Yes). Hasilnya aku cek otomatis.":["Approve the admin window (Yes). I will check the result automatically.","Luluskan tetingkap admin (Yes). Hasilnya saya semak secara automatik.","管理者ウィンドウで「はい」を選んでください。結果は自動で確認します。","请在管理员窗口中点击“是”。结果会自动检查。","Aprueba la ventana de administrador (Sí). Comprobaré el resultado automáticamente."],"Izin belum masuk":["Permission not granted","Kebenaran belum diberi","権限が付与されていません","尚未获得授权","Permiso no concedido"],"Jendela admin tadi ditolak atau ditutup. Tekan Beri izin FPS lagi lalu pilih Yes.":["The admin window was declined or closed. Press Grant FPS permission again and choose Yes.","Tetingkap admin tadi ditolak atau ditutup. Tekan Beri kebenaran FPS sekali lagi dan pilih Yes.","管理者ウィンドウが拒否されたか閉じられました。もう一度「FPS の権限を付与」を押し、「はい」を選んでください。","管理员窗口被拒绝或已关闭。请再次点击“授予 FPS 权限”并选择“是”。","La ventana de administrador se rechazó o se cerró. Pulsa Conceder permiso de FPS de nuevo y elige Sí."],"Izin FPS aktif":["FPS permission active","Kebenaran FPS aktif","FPS の権限が有効です","FPS 权限已生效","Permiso de FPS activo"],"Sudah berlaku di sesi ini. Buka game, lalu tandai sebagai game di pengaturan bila belum muncul.":["Already in effect for this session. Open a game, then mark it as a game in settings if it does not appear.","Sudah berkuat kuasa dalam sesi ini. Buka permainan, kemudian tandakan sebagai permainan dalam tetapan jika belum muncul.","このセッションですでに有効です。ゲームを開き、表示されない場合は設定でゲームとして登録してください。","此会话中已生效。打开游戏后，如果没有出现，请在设置中将其标记为游戏。","Ya está activo en esta sesión. Abre un juego y, si no aparece, márcalo como juego en los ajustes."],"Izin terpasang":["Permission installed","Kebenaran dipasang","権限を設定しました","权限已安装","Permiso instalado"],"Tinggal keluar-masuk (sign out) Windows sekali supaya berlaku.":["Just sign out of Windows and back in once to make it take effect.","Tinggal log keluar dan masuk semula Windows sekali supaya berkuat kuasa.","あとは Windows からサインアウトして再度サインインすれば有効になります。","只需注销并重新登录一次 Windows 即可生效。","Solo cierra sesión en Windows y vuelve a entrar una vez para que surta efecto."],"Ditandai sebagai game":["Marked as a game","Ditandai sebagai permainan","ゲームとして登録しました","已标记为游戏","Marcado como juego"],"Bukan game":["Not a game","Bukan permainan","ゲームではありません","不是游戏","No es un juego"],"Game":["Game","Permainan","ゲーム","游戏","Juego"],"Waktu antar frame":["Frame time","Masa antara bingkai","フレームタイム","帧间隔时间","Tiempo entre fotogramas"],"Crosshair: {s}":["Crosshair: {s}","Crosshair: {s}","クロスヘア: {s}","准星：{s}","Mira: {s}"],"nyala":["on","hidup","オン","开","activada"],"mati":["off","mati","オフ","关","desactivada"],"Sembunyikan":["Hide","Sembunyikan","非表示","隐藏","Ocultar"],"PC terasa berat":["The PC feels sluggish","PC terasa berat","PC の動作が重くなっています","电脑有些卡顿","El PC va lento"],"Pemakaian sistem":["System usage","Penggunaan sistem","システム使用状況","系统占用","Uso del sistema"],"Paling banyak memakai memori":["Using the most memory","Paling banyak menggunakan memori","メモリ使用量が多い順","内存占用最多","Mayor uso de memoria"],"End Task":["End Task","Tamatkan Tugas","タスクを終了","结束任务","Finalizar tarea"],"↓ Unduh":["↓ Download","↓ Muat turun","↓ ダウンロード","↓ 下载","↓ Descarga"],"↑ Unggah":["↑ Upload","↑ Muat naik","↑ アップロード","↑ 上传","↑ Subida"],"Cerah":["Clear","Cerah","晴れ","晴","Despejado"],"Cerah berawan":["Mostly clear","Cerah berawan","晴れ時々曇り","晴间多云","Mayormente despejado"],"Berawan sebagian":["Partly cloudy","Separa mendung","一部曇り","局部多云","Parcialmente nublado"],"Mendung":["Overcast","Mendung","曇り","阴","Nublado"],"Berkabut":["Foggy","Berkabus","霧","有雾","Niebla"],"Kabut beku":["Freezing fog","Kabus beku","着氷性の霧","冻雾","Niebla helada"],"Gerimis ringan":["Light drizzle","Renyai ringan","弱い霧雨","小毛毛雨","Llovizna ligera"],"Gerimis":["Drizzle","Renyai","霧雨","毛毛雨","Llovizna"],"Gerimis lebat":["Heavy drizzle","Renyai lebat","強い霧雨","大毛毛雨","Llovizna intensa"],"Gerimis beku":["Freezing drizzle","Renyai beku","着氷性の霧雨","冻毛毛雨","Llovizna helada"],"Hujan ringan":["Light rain","Hujan ringan","小雨","小雨","Lluvia ligera"],"Hujan":["Rain","Hujan","雨","雨","Lluvia"],"Hujan lebat":["Heavy rain","Hujan lebat","大雨","大雨","Lluvia intensa"],"Hujan beku":["Freezing rain","Hujan beku","着氷性の雨","冻雨","Lluvia helada"],"Salju ringan":["Light snow","Salji ringan","弱い雪","小雪","Nieve ligera"],"Salju":["Snow","Salji","雪","雪","Nieve"],"Salju lebat":["Heavy snow","Salji lebat","大雪","大雪","Nieve intensa"],"Butiran salju":["Snow grains","Butiran salji","雪あられ","米雪","Granos de nieve"],"Hujan sebentar":["Rain showers","Hujan sekejap","にわか雨","阵雨","Chubascos"],"Hujan deras":["Violent rain showers","Hujan lebat mendadak","激しいにわか雨","强阵雨","Chubascos fuertes"],"Salju sebentar":["Snow showers","Salji sekejap","にわか雪","阵雪","Chubascos de nieve"],"Badai petir":["Thunderstorm","Ribut petir","雷雨","雷暴","Tormenta"],"Badai petir + es":["Thunderstorm with hail","Ribut petir dengan hujan batu","雹を伴う雷雨","雷暴伴冰雹","Tormenta con granizo"],"Kota tidak ditemukan":["City not found","Bandar tidak ditemui","都市が見つかりません","找不到该城市","Ciudad no encontrada"],"Lokasi tidak terdeteksi":["Location not detected","Lokasi tidak dikesan","場所を検出できません","无法检测位置","Ubicación no detectada"],"Cuaca belum bisa dimuat":["Weather could not be loaded yet","Cuaca belum dapat dimuatkan","天気をまだ読み込めません","暂时无法加载天气","Aún no se puede cargar el clima"],"Cuaca tidak tersedia":["Weather unavailable","Cuaca tidak tersedia","天気情報がありません","天气不可用","Clima no disponible"],"Terasa {a}° · Lembap {b}%":["Feels like {a}° · Humidity {b}%","Terasa {a}° · Kelembapan {b}%","体感 {a}° · 湿度 {b}%","体感 {a}° · 湿度 {b}%","Sensación {a}° · Humedad {b}%"],"Angin {a} km/j":["Wind {a} km/h","Angin {a} km/j","風 {a} km/h","风速 {a} km/h","Viento {a} km/h"],"Hujan {a}%":["Rain {a}%","Hujan {a}%","降水 {a}%","降雨 {a}%","Lluvia {a}%"],"T {a}° / R {b}°":["H {a}° / L {b}°","T {a}° / R {b}°","最高 {a}° / 最低 {b}°","高 {a}° / 低 {b}°","Máx {a}° / Mín {b}°"],"Lepaskan di sini":["Drop here","Lepaskan di sini","ここにドロップ","放在这里","Suelta aquí"],"Kantong sementara":["Temporary shelf","Rak sementara","一時置き場","临时暂存区","Bandeja temporal"],"Seret file, gambar, atau teks ke sini":["Drag a file, image, or text here","Seret fail, gambar atau teks ke sini","ファイル・画像・テキストをここにドラッグ","将文件、图片或文本拖到这里","Arrastra un archivo, imagen o texto aquí"],"Tarik keluar untuk menempel ke aplikasi lain":["Drag out to paste into another app","Tarik keluar untuk menampal ke aplikasi lain","外にドラッグして別のアプリに貼り付け","拖出即可粘贴到其他应用","Arrastra hacia fuera para pegar en otra aplicación"],"Baterai":["Battery","Bateri","バッテリー","电池","Batería"],"Mengisi daya":["Charging","Mengecas","充電中","正在充电","Cargando"],"Daya dicabut":["Unplugged","Pengecas dicabut","電源を取り外しました","已拔出电源","Desconectado"],"Baterai {n}%":["Battery {n}%","Bateri {n}%","バッテリー {n}%","电量 {n}%","Batería {n}%"],"Baterai penuh":["Battery full","Bateri penuh","バッテリー満充電","电量已满","Batería llena"],"Bisa dicabut dari charger":["You can unplug the charger","Boleh cabut pengecas","充電器を外せます","可以拔掉充电器了","Puedes desconectar el cargador"],"Baterai kritis":["Battery critical","Bateri kritikal","バッテリー残量わずか","电量严重不足","Batería crítica"],"Baterai lemah":["Battery low","Bateri lemah","バッテリー残量低下","电量低","Batería baja"],"{n}% tersisa":["{n}% left","{n}% berbaki","残り {n}%","剩余 {n}%","{n}% restante"],"Buka":["Open","Buka","開く","打开","Abrir"],"Jalan otomatis saat Windows menyala":["Start automatically with Windows","Berjalan automatik semasa Windows dihidupkan","Windows 起動時に自動で実行","Windows 启动时自动运行","Iniciar automáticamente con Windows"],"Animasi buka/tutup jendela":["Window open/close animation","Animasi buka/tutup tetingkap","ウィンドウ開閉アニメーション","窗口打开/关闭动画","Animación al abrir/cerrar ventanas"],"Jangan ganggu (Ctrl+Alt+N)":["Do Not Disturb (Ctrl+Alt+N)","Jangan ganggu (Ctrl+Alt+N)","サイレント（Ctrl+Alt+N）","勿扰（Ctrl+Alt+N）","No molestar (Ctrl+Alt+N)"],"Keluar":["Quit","Keluar","終了","退出","Salir"]};
           const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
           const ok = l => LANGS.indexOf(l) >= 0;
           function t(lang, k, v) {
@@ -2009,7 +2009,8 @@ jobs:
             edge: "top", bat: true, clip: false, glow: true, dnd: false, qon: false, qfrom: "22:00", qto: "07:00", hot: true, mon: "primary", hist: true,
             appnotif: true, live: true, media: true, mtoast: true, devs: true, net: true, rmon: 1, prog: true, hub: true, game: true,
             curs: false, cstyle: "ring", ccolor: "#ffffff", csize: 36,
-            auto: true, fpsreal: true, gamelist: [], nogame: [], xh: false, xhgame: false, xhstyle: "cross", xhcolor: "#00ff66", xhsize: 14, xhthick: 2, xhgap: 4, xhop: 90, cal: true, city: "", lang: "id"
+            auto: true, fpsreal: true, gamelist: [], nogame: [], xh: false, xhgame: false, xhstyle: "cross", xhcolor: "#00ff66", xhsize: 14, xhthick: 2, xhgap: 4, xhop: 90, cal: true, city: "", lang: "id",
+            dock: false, dsize: 48, dzoom: 150, dtheme: "dark", dhide: false, dtb: true, dmargin: 6, drun: true, dpins: [], dseed: false
           };
 
           let ctx = null, S = Object.assign({}, DEF), started = false, quitting = false;
@@ -2032,6 +2033,8 @@ jobs:
             if (!had && ctx && ctx.cfg && ctx.cfg.url) { S.enabled = true; S.anim = true; }
             if (!Array.isArray(S.fapps)) S.fapps = [];
             if (!S.seen || typeof S.seen !== "object") S.seen = {};
+            S.dtb = !!S.dock;                                  // satu tombol: Dock nyala = taskbar Windows tersembunyi total
+            S.dpins = Array.isArray(S.dpins) ? S.dpins.filter(p => p && typeof p.id === "string" && p.id).slice(0, 30).map(p => ({ id: String(p.id).slice(0, 400), name: String(p.name || "").slice(0, 60) })) : [];
             if (!I18N.ok(S.lang)) S.lang = "id";
           }
           function save() {
@@ -2591,7 +2594,8 @@ jobs:
             if (S.curs) sysCmd("cursor " + S.cstyle + " " + String(S.ccolor).replace("#", "") + " " + (S.csize | 0));
             else sysCmd("cursor off");
           }
-          const BOOLOPT = ["auto", "fpsreal", "appnotif", "live", "media", "mtoast", "devs", "net", "prog", "hub", "game", "curs", "xh", "xhgame", "cal"];
+          const DOCKOPTS = ["dhide", "dsize", "dzoom", "dtheme", "dmargin", "drun"];
+          const BOOLOPT = ["auto", "fpsreal", "appnotif", "live", "media", "mtoast", "devs", "net", "prog", "hub", "game", "curs", "xh", "xhgame", "cal", "dock", "dhide", "dtb", "drun"];
           function setOpt(key, val) {
             if (BOOLOPT.indexOf(key) >= 0) S[key] = !!val;
             else if (key === "rmon") S.rmon = Math.round(clamp(val, 0, 2));
@@ -2604,17 +2608,25 @@ jobs:
             else if (key === "xhthick") S.xhthick = Math.round(clamp(val, 1, 8));
             else if (key === "xhgap") S.xhgap = Math.round(clamp(val, 0, 30));
             else if (key === "xhop") S.xhop = Math.round(clamp(val, 20, 100));
+            else if (key === "dsize") S.dsize = Math.round(clamp(val, 32, 96));
+            else if (key === "dzoom") S.dzoom = Math.round(clamp(val, 100, 220));
+            else if (key === "dmargin") S.dmargin = Math.round(clamp(val, 0, 40));
+            else if (key === "dtheme") S.dtheme = val === "light" ? "light" : "dark";
             else if (key === "lang") {
               const v = String(val || "");
               if (S.lang === v || !I18N.ok(v)) return;
               S.lang = v; wxCache = null; wxGeo = null;
+              dockSend("cfg", dockCfg());
               if (isl && !isl.isDestroyed() && islReady) { try { isl.webContents.send("fx:cfg", islCfg()); } catch (_) {} }
               try { langCb(); } catch (_) {}
             }
             else if (key === "city") { S.city = String(val || "").replace(/[^\p{L}\p{N} ,.'-]/gu, "").slice(0, 60); wxCache = null; wxGeo = null; }
             else return;
+            if (key === "dock" && S.dock) S.dtb = true;      // menyalakan Dock = mode macOS penuh: taskbar Windows ikut hilang
             save();
             if (key === "appnotif") applyAnim();
+            if (key === "dock" || key === "dtb") applyDock();
+            else if (DOCKOPTS.indexOf(key) >= 0) { dockSend("cfg", dockCfg()); if (key === "drun") dockPush(true); }
             if (key === "auto") applyAuto();
             if (!S.live) Object.keys(L).forEach(k => delete L[k]);
             else {
@@ -3151,6 +3163,347 @@ jobs:
             toIsl("panel", { spec: { id: "cal", type: "cal", w: w, err: w ? "" : err }, sticky: true });
           }
 
+          /* ---------- Dock ala macOS ---------- */
+          // Jendela overlay transparan selebar area kerja, di bawah. Hanya bagian Dock yang bisa diklik: posisi kursor dibaca langsung
+          // dari sistem (tiap 16 md saat kursor di dekat Dock), lalu klik-tembus dimatikan hanya saat kursor berada di atas Dock.
+          // Daftar jendela aplikasi, fokus/minimize/tutup, dan auto-hide taskbar dikerjakan oleh fxdock.exe.
+          const dockExe = () => app.isPackaged ? path.join(process.resourcesPath, "fxdock.exe") : path.join(__dirname, "bin", "fxdock.exe");
+          function dockExists() { try { return fs.statSync(dockExe()).size > 2000; } catch (_) { return false; } }
+          const DOCK_H = 340;
+          let dockWin = null, dockReady = false, dockProc = null, dockWins = [], dockFg = 0, dockFs = false;
+          let dockRects = [], dockIgn = true, dockT = null, dockTopT = null, dockCurKey = "", dockSig = "", dockErr = "", dockRestarts = 0;
+          let dockMap = new Map();
+          const dockIconData = new Map(), dockIconBusy = new Set(), dockIconFail = new Map(), lnkCache = new Map();
+
+          function dockBounds() {
+            const w = screen.getPrimaryDisplay().workArea, h = Math.min(DOCK_H, Math.max(120, w.height));
+            return { x: w.x, y: w.y + w.height - h, width: w.width, height: h };
+          }
+          function placeDock() {
+            if (!dockWin || dockWin.isDestroyed()) return;
+            try {
+              const b = dockBounds(), c = dockWin.getBounds();
+              if (b.x !== c.x || b.y !== c.y || b.width !== c.width || b.height !== c.height) dockWin.setBounds(b);
+            } catch (_) {}
+          }
+          function dockCfg() {
+            return {
+              size: S.dsize, zoom: S.dzoom, theme: S.dtheme === "light" ? "light" : "dark", hide: !!S.dhide, margin: S.dmargin,
+              L: { open: T("Buka"), close: T("Tutup"), keep: T("Simpan di Dock"), remove: T("Hapus dari Dock"), dl: T("Unduhan"), bin: T("Tempat sampah"), tb: T("Tampilkan/sembunyikan taskbar"), st: T("Menu Start") }
+            };
+          }
+          function dockSend(ch, d) {
+            if (dockWin && !dockWin.isDestroyed() && dockReady) { try { dockWin.webContents.send("dock:" + ch, d); } catch (_) {} }
+          }
+          const fromDock = e => !!(dockWin && !dockWin.isDestroyed() && e.sender === dockWin.webContents);
+
+          function ensureDock() {
+            if (dockWin && !dockWin.isDestroyed()) return dockWin;
+            const o = overlayOpts(dockBounds());
+            o.webPreferences = { preload: path.join(__dirname, "dock-preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false };
+            dockWin = new BrowserWindow(o);
+            dockReady = false; dockIgn = true; dockRects = []; dockSig = ""; dockCurKey = "";
+            try { dockWin.setAlwaysOnTop(true, "screen-saver"); dockWin.setIgnoreMouseEvents(true, { forward: true }); } catch (_) {}
+            dockWin.on("closed", () => { dockWin = null; dockReady = false; });
+            dockWin.loadFile(path.join(__dirname, "dock.html"));
+            return dockWin;
+          }
+          function dockVis() {
+            if (!dockWin || dockWin.isDestroyed() || !dockReady) return;
+            const want = !!S.dock && !dockFs;
+            try {
+              if (want && !dockWin.isVisible()) { placeDock(); dockWin.setAlwaysOnTop(true, "screen-saver"); dockWin.showInactive(); }
+              else if (!want && dockWin.isVisible()) dockWin.hide();
+            } catch (_) {}
+          }
+
+          /* ----- daftar item ----- */
+          const baseOf = p => String(p || "").replace(/^.*[\\\/]/, "").toLowerCase();
+          const isDrivePath = s => /^[a-z]:[\\\/]/i.test(String(s || ""));
+          function lnkTarget(p) {
+            if (lnkCache.has(p)) return lnkCache.get(p);
+            let t = "";
+            try { t = String(shell.readShortcutLink(p).target || ""); } catch (_) {}
+            lnkCache.set(p, t);
+            return t;
+          }
+          function pinMatches(pin, w) {
+            const id = String(pin.id || "").toLowerCase();
+            if (!id) return false;
+            const x = String(w.x || "").toLowerCase(), a = String(w.a || "").toLowerCase();
+            if (a && id === a) return true;
+            if (x && id === x) return true;
+            if (/\.lnk$/.test(id) && x) { const t = lnkTarget(pin.id).toLowerCase(); if (t && t === x) return true; }
+            if (!isDrivePath(id) && /\.exe$/.test(id) && x && baseOf(id) === baseOf(x)) return true;   // AppID gaya "{GUID}\...\app.exe"
+            return false;
+          }
+          function dockNameFor(x, a) {
+            if (a) return prettyApp(a);
+            const b = baseOf(x);
+            return b ? niceName(b) : "App";
+          }
+          function dockBuild() {
+            const groups = new Map();
+            dockWins.forEach(w => {
+              const k = w.a ? "a:" + String(w.a).toLowerCase() : "x:" + String(w.x || "").toLowerCase();
+              let g = groups.get(k);
+              if (!g) { g = { k: k, ws: [], x: w.x, a: w.a }; groups.set(k, g); }
+              g.ws.push(w);
+            });
+            const used = new Set(), map = new Map(), pins = [], runs = [];
+            (Array.isArray(S.dpins) ? S.dpins : []).forEach(p => {
+              let ws = [];
+              groups.forEach((g, k) => { if (!used.has(k) && g.ws.some(w => pinMatches(p, w))) { used.add(k); ws = ws.concat(g.ws); } });
+              const it = { k: "p:" + String(p.id).toLowerCase(), t: "app", name: String(p.name || prettyApp(p.id)), run: ws.length, act: ws.some(w => w.h === dockFg), pin: true, ic: String(p.id) };
+              map.set(it.k, { id: p.id, name: it.name, ws: ws, pin: true });
+              pins.push(it);
+            });
+            if (S.drun !== false) {
+              groups.forEach((g, k) => {
+                if (used.has(k)) return;
+                const id = g.a || g.x;
+                if (!id) return;
+                const it = { k: "r:" + k, t: "app", name: dockNameFor(g.x, g.a), run: g.ws.length, act: g.ws.some(w => w.h === dockFg), pin: false, ic: String(id) };
+                map.set(it.k, { id: id, name: it.name, ws: g.ws, pin: false });
+                runs.push(it);
+              });
+            }
+            const items = [{ k: "st", t: "st", name: "" }].concat(pins);
+            if (pins.length && runs.length) items.push({ k: "s1", t: "sep" });
+            runs.forEach(r => items.push(r));
+            items.push({ k: "s2", t: "sep" });
+            items.push({ k: "dl", t: "dl", name: "" });
+            items.push({ k: "bin", t: "bin", name: "" });
+            if (S.dtb) items.push({ k: "tb", t: "tb", name: "" });
+            return { items: items, map: map };
+          }
+          function dockPush(force) {
+            if (!dockReady) return;
+            const b = dockBuild();
+            dockMap = b.map;
+            const sig = JSON.stringify(b.items);
+            if (!force && sig === dockSig) return;
+            dockSig = sig;
+            dockSend("items", b.items);
+            b.items.forEach(it => { if (it.ic) dockIcon(it.ic); });
+          }
+          function dockIcon(key) {
+            if (dockIconData.has(key) || dockIconBusy.has(key)) return;
+            if (Date.now() - (dockIconFail.get(key) || 0) < 60000) return;
+            dockIconBusy.add(key);
+            appIcon(key, 128)
+              .then(v => v || (isDrivePath(key) && !/\.lnk$/i.test(key) ? exeIcon(key) : ""))
+              .then(v => {
+                dockIconBusy.delete(key);
+                if (v) { dockIconData.set(key, v); const o = {}; o[key] = v; dockSend("icons", o); }
+                else dockIconFail.set(key, Date.now());
+              })
+              .catch(() => { dockIconBusy.delete(key); dockIconFail.set(key, Date.now()); });
+          }
+
+          /* ----- pembantu fxdock.exe ----- */
+          function dockCmd(l) { if (!dockProc) return; try { dockProc.stdin.write(l + "\n"); } catch (_) {} }
+          function onDockMsg(m) {
+            if (!m || m.t !== "wins") return;
+            dockRestarts = 0; dockErr = "";
+            dockWins = Array.isArray(m.l) ? m.l.filter(w => w && Number.isInteger(w.h) && typeof w.x === "string") : [];
+            dockFg = Number(m.fg) || 0;
+            const fsNow = !!m.fs;
+            if (fsNow !== dockFs) { dockFs = fsNow; dockVis(); }
+            dockPush(false);
+          }
+          function startDockProc() {
+            if (dockProc) return;
+            if (!dockExists()) { dockErr = "fxdock.exe tidak ditemukan"; return; }
+            dockErr = "";
+            dockProc = runHelper(["watch", String(process.pid), tbFlag()], onDockMsg, () => {
+              dockProc = null; dockWins = [];
+              if (S.dock && !quitting) {
+                dockPush(false);
+                if (dockRestarts < 6) { dockRestarts++; setTimeout(() => { if (S.dock && !quitting) startDockProc(); }, 1500); }
+                else dockErr = "pembantu berhenti";
+              }
+            }, dockExe());
+          }
+          function stopDockProc() { const p = dockProc; dockProc = null; killHelper(p); dockWins = []; }
+
+          /* ----- taskbar Windows (auto-hide) ----- */
+          const tbFlag = () => path.join(app.getPath("userData"), "dock-taskbar.json");
+          function tbRun(args) {
+            try { return String(require("child_process").execFileSync(dockExe(), args, { windowsHide: true, timeout: 5000, encoding: "utf8" })).trim(); } catch (_) { return ""; }
+          }
+          function tbOrig() {
+            try { const j = JSON.parse(fs.readFileSync(tbFlag(), "utf8")); return j && (j.orig === 0 || j.orig === 1) ? j.orig : -1; } catch (_) { return -1; }
+          }
+          let tbShown = false;
+          function tbHide() {
+            if (!dockExists()) return;
+            let orig = tbOrig();
+            if (orig < 0) {
+              const cur = tbRun(["tb", "get"]);
+              if (cur !== "0" && cur !== "1") return;
+              orig = Number(cur);
+              try { fs.writeFileSync(tbFlag(), JSON.stringify({ orig: orig })); } catch (_) {}   // dicatat dulu: kalau aplikasi mati mendadak, start berikutnya mengembalikannya
+            }
+            tbRun(["tb", "set", "1"]);       // bebaskan ruang kerja
+            tbRun(["tb", "vis", "0"]);       // lalu sembunyikan total: tidak muncul lagi walau kursor ke tepi bawah
+            tbShown = false;
+          }
+          // Tombol "munculkan taskbar": bolak-balik antara tampil penuh dan tersembunyi total.
+          function tbToggle() {
+            if (!S.dock || !S.dtb || tbOrig() < 0) return;
+            if (tbShown) { tbHide(); return; }
+            tbRun(["tb", "vis", "1"]);
+            tbRun(["tb", "set", String(tbOrig())]);
+            tbShown = true;
+          }
+          function tbRestore() {
+            const orig = tbOrig();
+            if (orig < 0) return;
+            tbRun(["tb", "vis", "1"]);
+            tbRun(["tb", "set", String(orig)]);
+            try { fs.unlinkSync(tbFlag()); } catch (_) {}
+            tbShown = false;
+          }
+          function tbKeys(on) {
+            try { globalShortcut.unregister("CommandOrControl+Alt+T"); } catch (_) {}
+            if (on) { try { globalShortcut.register("CommandOrControl+Alt+T", () => tbToggle()); } catch (_) {} }
+          }
+
+          /* ----- klik-tembus & kursor ----- */
+          function dockTick() {
+            dockT = null;
+            if (!S.dock || !dockWin || dockWin.isDestroyed()) return;
+            let next = 140;
+            try {
+              if (dockReady && dockWin.isVisible()) {
+                const pt = screen.getCursorScreenPoint(), b = dockWin.getBounds(), d = screen.getPrimaryDisplay().bounds;
+                const x = pt.x - b.x, y = pt.y - b.y;
+                const inb = x >= 0 && y >= 0 && x < b.width && y < b.height;
+                const edge = !!S.dhide && pt.y >= d.y + d.height - 6 && pt.y < d.y + d.height && pt.x >= b.x && pt.x < b.x + b.width;
+                let hit = false;
+                if (inb) hit = dockRects.some(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+                if (hit === dockIgn) { dockIgn = !hit; dockWin.setIgnoreMouseEvents(!hit, { forward: true }); }
+                const key = (inb ? x + "," + y : "-") + (edge ? "e" : "");
+                if (key !== dockCurKey) { dockCurKey = key; dockSend("cur", inb ? { x: x, y: y, edge: edge } : { x: -1, y: -1, edge: edge }); }
+                next = (inb || edge) ? 16 : 120;
+              }
+            } catch (_) {}
+            dockT = setTimeout(dockTick, next);
+          }
+          function keepDockTop() {
+            if (dockTopT) return;
+            dockTopT = setInterval(() => {
+              if (!S.dock || !dockWin || dockWin.isDestroyed() || !dockReady) return;
+              try {
+                placeDock();
+                if (dockFs) return;
+                dockWin.setAlwaysOnTop(true, "screen-saver");
+                if (dockWin.isVisible()) dockWin.moveTop(); else dockVis();
+              } catch (_) {}
+            }, 1500);
+          }
+
+          /* ----- aksi ----- */
+          function dockSeed() {
+            const env = process.env, out = [];
+            const add = (p, n) => { try { if (p && fs.existsSync(p)) { out.push({ id: p, name: n }); return true; } } catch (_) {} return false; };
+            add(path.join(env.WINDIR || "C:\\Windows", "explorer.exe"), "File Explorer");
+            add(path.join(env["ProgramFiles(x86)"] || "C:\\Program Files (x86)", "Microsoft", "Edge", "Application", "msedge.exe"), "Microsoft Edge");
+            [path.join(env.ProgramFiles || "C:\\Program Files", "Google", "Chrome", "Application", "chrome.exe"),
+             path.join(env["ProgramFiles(x86)"] || "C:\\Program Files (x86)", "Google", "Chrome", "Application", "chrome.exe"),
+             path.join(env.LOCALAPPDATA || "", "Google", "Chrome", "Application", "chrome.exe")].some(p => add(p, "Google Chrome"));
+            add(path.join(env.ProgramFiles || "C:\\Program Files", "Mozilla Firefox", "firefox.exe"), "Firefox");
+            return out;
+          }
+          // Ubah id dari daftar Start Menu menjadi id yang bisa dicocokkan dengan jendela yang berjalan.
+          function resolvePinId(id, name) {
+            id = String(id || "");
+            if (isDrivePath(id)) {
+              if (/\.lnk$/i.test(id)) { const t = lnkTarget(id); if (t && /\.exe$/i.test(t) && fs.existsSync(t)) return t; }
+              return id;
+            }
+            if (id.indexOf("!") > 0 || /\.exe$/i.test(id)) return id;      // aplikasi Store (cocok lewat AUMID) atau "{GUID}\...\app.exe" (cocok lewat nama exe)
+            try {                                                         // AppID klasik, mis. "Chrome": cari pintasan Start Menu bernama sama
+              const list = [];
+              scanStartMenu(list, new Set());
+              const n = String(name || appNames.get(id) || "").toLowerCase();
+              const f = n && list.find(a => a.n.toLowerCase() === n);
+              if (f) { const t = lnkTarget(f.p); if (t && /\.exe$/i.test(t) && fs.existsSync(t)) return t; }
+            } catch (_) {}
+            return id;
+          }
+          function dockSavePins() { save(); dockPush(true); }
+          function dockPinAdd(id, name) {
+            id = String(id || "").slice(0, 400);
+            if (!id) return;
+            const rid = resolvePinId(id, name);
+            if (!Array.isArray(S.dpins)) S.dpins = [];
+            if (S.dpins.length >= 30 || S.dpins.some(p => String(p.id).toLowerCase() === rid.toLowerCase())) return;
+            S.dpins.push({ id: rid, name: String(name || prettyApp(rid)).slice(0, 60) });
+            dockSavePins();
+          }
+          function dockPinRemove(id) {
+            id = String(id || "").toLowerCase();
+            S.dpins = (S.dpins || []).filter(p => String(p.id).toLowerCase() !== id);
+            dockSavePins();
+          }
+          function dockPinMove(id, dir) {
+            id = String(id || "").toLowerCase();
+            const a = S.dpins || [], i = a.findIndex(p => String(p.id).toLowerCase() === id), j = i + (Number(dir) < 0 ? -1 : 1);
+            if (i < 0 || j < 0 || j >= a.length) return;
+            const t = a[i]; a[i] = a[j]; a[j] = t;
+            dockSavePins();
+          }
+          function dockClick(it) {
+            const ws = it.ws;
+            if (!ws.length) { openApp(it.id); return; }
+            const fi = ws.findIndex(w => w.h === dockFg);
+            if (fi >= 0) {
+              if (ws.length === 1) dockCmd((ws[0].m ? "focus " : "min ") + ws[0].h);          // aplikasi aktif: klik = minimize (seperti taskbar Windows)
+              else dockCmd("focus " + ws[(fi + 1) % ws.length].h);                              // banyak jendela: berpindah ke jendela berikutnya
+            } else {
+              const t = ws.find(w => !w.m) || ws[0];
+              dockCmd("focus " + t.h);
+            }
+          }
+          function dockAct(p) {
+            if (!p || typeof p.a !== "string" || typeof p.k !== "string") return;
+            if (p.k === "tb") { tbToggle(); return; }
+            if (p.k === "st") { dockCmd("start"); return; }
+            if (p.k === "dl") { try { shell.openPath(app.getPath("downloads")); } catch (_) {} return; }
+            if (p.k === "bin") { try { spawn("explorer.exe", ["shell:RecycleBinFolder"], { detached: true, stdio: "ignore", windowsHide: true }).unref(); } catch (_) {} return; }
+            const it = dockMap.get(p.k);
+            if (!it) return;
+            if (p.a === "click") dockClick(it);
+            else if (p.a === "launch") openApp(it.id);
+            else if (p.a === "quit") it.ws.forEach(w => dockCmd("close " + w.h));
+            else if (p.a === "pin") { if (!it.pin) dockPinAdd(it.id, it.name); }
+            else if (p.a === "unpin") { if (it.pin) dockPinRemove(it.id); }
+          }
+
+          /* ----- hidup / mati ----- */
+          function applyDock() {
+            if (S.dock) {
+              if (!S.dseed) { S.dseed = true; if (!S.dpins.length) S.dpins = dockSeed(); save(); }
+              ensureDock(); keepDockTop();
+              if (!dockT) dockTick();
+              if (S.dtb) { if (!tbShown) tbHide(); } else tbRestore();
+              tbKeys(!!S.dtb);
+              startDockProc();
+              dockVis();
+            } else stopDock();
+          }
+          function stopDock() {
+            if (dockT) { clearTimeout(dockT); dockT = null; }
+            if (dockTopT) { clearInterval(dockTopT); dockTopT = null; }
+            tbKeys(false);
+            stopDockProc();
+            if (dockWin && !dockWin.isDestroyed()) { try { dockWin.destroy(); } catch (_) {} }
+            dockWin = null; dockReady = false; dockSig = "";
+            try { tbRestore(); } catch (_) {}
+          }
+
           /* ---------- penerapan pengaturan ---------- */
           function applyEnabled() {
             if (S.enabled) {
@@ -3182,7 +3535,8 @@ jobs:
               edge: S.edge, bat: !!S.bat, clip: !!S.clip, glow: !!S.glow, dnd: !!S.dnd, qon: !!S.qon, qfrom: S.qfrom, qto: S.qto, hot: !!S.hot, mon: S.mon, hist: !!S.hist,
                 appnotif: !!S.appnotif, live: !!S.live, media: !!S.media, mtoast: S.mtoast !== false, devs: !!S.devs, net: !!S.net, rmon: S.rmon | 0, prog: !!S.prog, hub: !!S.hub, game: !!S.game,
                 curs: !!S.curs, cstyle: S.cstyle, ccolor: S.ccolor, csize: S.csize,
-                auto: !!S.auto, fpsreal: !!S.fpsreal, xh: !!S.xh, xhgame: !!S.xhgame, xhstyle: S.xhstyle, xhcolor: S.xhcolor, xhsize: S.xhsize, xhthick: S.xhthick, xhgap: S.xhgap, xhop: S.xhop, cal: !!S.cal, city: S.city || ""
+                auto: !!S.auto, fpsreal: !!S.fpsreal, xh: !!S.xh, xhgame: !!S.xhgame, xhstyle: S.xhstyle, xhcolor: S.xhcolor, xhsize: S.xhsize, xhthick: S.xhthick, xhgap: S.xhgap, xhop: S.xhop, cal: !!S.cal, city: S.city || "",
+                dock: !!S.dock, dsize: S.dsize, dzoom: S.dzoom, dtheme: S.dtheme, dhide: !!S.dhide, dtb: !!S.dtb, drun: S.drun !== false, dmargin: S.dmargin
             });
           }
 
@@ -3197,6 +3551,7 @@ jobs:
             getFilter: () => filterJson(),
             getSounds: () => JSON.stringify([{ t: "Bawaan Windows", u: "" }].concat(soundList())),
             getHistory: () => JSON.stringify(hist),
+            getDock: () => JSON.stringify({ helper: dockExists(), on: !!S.dock, running: !!dockProc, err: dockErr ? T(dockErr) : "", pins: S.dpins || [] }),
             getGameApps: () => { sysCmd("wins"); return JSON.stringify({ wins: winsList, games: S.gamelist || [], nogame: S.nogame || [], exe: gameState.exe || "", full: !!gameState.full }); }
           };
 
@@ -3238,6 +3593,9 @@ jobs:
             setHistOn(on) { S.hist = !!on; save(); },
             clearHistory() { hist = []; saveHist(); },
             setOpt(key, val) { setOpt(key, val); },
+            dockPinAdd(id, name) { dockPinAdd(id, name); },
+            dockPinRemove(id) { dockPinRemove(id); },
+            dockPinMove(id, dir) { dockPinMove(id, dir); },
             openCal() { openCal(); },
             grantFps() { grantFps(); },
             setGameMark(name, mode) { setGameMark(name, mode); },
@@ -3278,6 +3636,19 @@ jobs:
             ipcMain.on("fx:pill", e => { if (fromIsl(e)) openCal(); });
             ipcMain.on("fx:act", (e, p) => { if (fromIsl(e) && p) onAct(String(p.a || ""), p.arg); });
             ipcMain.on("fx:dragout", (e, id) => { if (fromIsl(e)) hubDragOut(String(id || "")); });
+            ipcMain.on("dock:ready", e => {
+              if (!fromDock(e)) return;
+              dockReady = true;
+              dockSend("cfg", dockCfg());
+              const ic = {}; dockIconData.forEach((v, k) => { ic[k] = v; });
+              if (dockIconData.size) dockSend("icons", ic);
+              dockPush(true); dockVis(); placeDock();
+            });
+            ipcMain.on("dock:rect", (e, r) => {
+              if (!fromDock(e)) return;
+              dockRects = (Array.isArray(r) ? r : []).slice(0, 4).map(o => ({ x: Number(o && o.x), y: Number(o && o.y), w: Number(o && o.w), h: Number(o && o.h) })).filter(o => isFinite(o.x) && isFinite(o.y) && isFinite(o.w) && isFinite(o.h));
+            });
+            ipcMain.on("dock:act", (e, p) => { if (fromDock(e)) dockAct(p); });
             ipcMain.on("fx:hubenter", e => { if (fromIsl(e)) hubEnter(); });
             ipcMain.on("fx:drop", (e, d) => { if (fromIsl(e) && d) hubDrop(d); });
             ipcMain.on("fx:idle", e => {
@@ -3292,6 +3663,7 @@ jobs:
           function stop() {
             quitting = true;
             stopNotif(); stopWin(); stopSys(); xhStop(); destroyIsland(); stopClip(); stopKeys(); stopTop();
+            try { stopDock(); } catch (_) {}
             anims.forEach(o => { try { if (!o.win.isDestroyed()) o.win.destroy(); } catch (_) {} });
             anims.clear();
           }
@@ -3307,13 +3679,18 @@ jobs:
             bindIpc();
             c.win.on("closed", stop);
             app.on("before-quit", () => { quitting = true; });
-            const redo = () => { placeIsland(); };
+            const redo = () => { placeIsland(); placeDock(); };
             screen.on("display-metrics-changed", redo);
             screen.on("display-added", redo);
             screen.on("display-removed", () => { anims.forEach((o, id) => { if (!screen.getAllDisplays().some(d => d.id === id)) { try { o.win.destroy(); } catch (_) {} anims.delete(id); } }); redo(); });
             loadHist();
             refreshApps();
+            // taskbar yang masih disembunyikan oleh sesi sebelumnya (aplikasi mati mendadak) dikembalikan dulu
+            try { if (tbOrig() >= 0 && !(S.dock && S.dtb)) tbRestore(); } catch (_) {}
+            app.on("will-quit", () => { try { stopDock(); } catch (_) {} });
+            process.on("exit", () => { try { tbRestore(); } catch (_) {} });
             applyEnabled();
+            applyDock();
             applyAnim();
             applyAuto();
           }
@@ -3321,6 +3698,7 @@ jobs:
           function trayItems() {
             return [
               { label: "Dynamic Island", type: "checkbox", checked: !!S.enabled, click: it => { S.enabled = it.checked; save(); applyEnabled(); } },
+              { label: T("Dock macOS"), type: "checkbox", checked: !!S.dock, click: it => { setOpt("dock", it.checked); } },
               { label: T("Animasi buka/tutup jendela"), type: "checkbox", checked: !!S.anim, click: it => { S.anim = it.checked; save(); applyAnim(); } },
               { label: T("Jangan ganggu (Ctrl+Alt+N)"), type: "checkbox", checked: !!S.dnd, click: it => { S.dnd = it.checked; save(); } }
             ];
@@ -3334,11 +3712,11 @@ jobs:
           // Nama dan bentuknya sama dengan jembatan Android (window.AndroidIsland), jadi halaman yang sama bisa dipakai di keduanya.
           const { contextBridge, ipcRenderer } = require("electron");
           if (location.protocol === "file:") {
-            const SYNC = ["getState", "getInfo", "getApps", "getIcon", "getFilter", "getSounds", "getHistory", "getGameApps"];
+            const SYNC = ["getState", "getInfo", "getApps", "getIcon", "getFilter", "getSounds", "getHistory", "getGameApps", "getDock"];
             const CAST = ["openOverlay", "openListener", "requestNotif", "start", "stop", "test", "setStyle", "reload", "setFilter",
               "setTapOpen", "setAnim", "setAnimMin", "setPillAlways", "openAccessibility", "setHideNotif", "setDuration", "setSound",
               "previewSound", "setSoundUri", "setSoundVol", "demoAnim", "openWinSettings",
-              "setEdge", "setBat", "setGlow", "setClip", "setDnd", "setQuiet", "setHotkeys", "setMonitor", "setHistOn", "clearHistory", "reshow", "setOpt", "openCal", "grantFps", "setGameMark"];
+              "setEdge", "setBat", "setGlow", "setClip", "setDnd", "setQuiet", "setHotkeys", "setMonitor", "setHistOn", "clearHistory", "reshow", "setOpt", "openCal", "grantFps", "setGameMark", "dockPinAdd", "dockPinRemove", "dockPinMove"];
             const api = {};
             SYNC.forEach(n => { api[n] = function () { return ipcRenderer.sendSync("fx:call", n, Array.prototype.slice.call(arguments)); }; });
             CAST.forEach(n => { api[n] = function () { ipcRenderer.send("fx:cast", n, Array.prototype.slice.call(arguments)); }; });
@@ -4260,6 +4638,758 @@ jobs:
           </script>
           </body></html>
           FX_EOS
+          cat > fx/fxdock.cs <<'FX_EOS'
+          // fxdock.exe - pembantu Dock macOS untuk Windows (dikompilasi dengan csc.exe bawaan Windows, C# 5).
+          // JANGAN pakai sintaks baru (?., $"", out var, dll).
+          //   fxdock.exe watch <pidInduk> [fileCatatan] -> pantau jendela aplikasi (satu JSON per baris), terima perintah lewat stdin:
+          //                                   focus <hwnd> | min <hwnd> | close <hwnd>
+          //   fxdock.exe tb get            -> cetak 1 kalau taskbar auto-hide, 0 kalau tidak
+          //   fxdock.exe tb set <0|1>      -> atur auto-hide taskbar, lalu cetak status terbaru
+          //   fxdock.exe tb vis <0|1>      -> sembunyikan (0) / tampilkan (1) jendela taskbar sepenuhnya
+          using System;
+          using System.Collections.Generic;
+          using System.Diagnostics;
+          using System.Runtime.InteropServices;
+          using System.Text;
+          using System.Threading;
+
+          static class Program
+          {
+              static readonly object O = new object();
+
+              static void Emit(string s)
+              {
+                  lock (O)
+                  {
+                      Console.Out.WriteLine(s);
+                      Console.Out.Flush();
+                  }
+              }
+
+              // JSON string; karakter non-ASCII di-escape supaya aman dari masalah encoding stdout.
+              static string J(string s)
+              {
+                  if (s == null) return "\"\"";
+                  StringBuilder sb = new StringBuilder();
+                  sb.Append('"');
+                  foreach (char c in s)
+                  {
+                      if (c == '"') sb.Append("\\\"");
+                      else if (c == '\\') sb.Append("\\\\");
+                      else if (c == '\n') sb.Append("\\n");
+                      else if (c == '\r') sb.Append("\\r");
+                      else if (c == '\t') sb.Append("\\t");
+                      else if (c < 32 || c > 126) sb.Append("\\u").Append(((int)c).ToString("x4"));
+                      else sb.Append(c);
+                  }
+                  sb.Append('"');
+                  return sb.ToString();
+              }
+
+              delegate bool EnumProc(IntPtr h, IntPtr l);
+
+              [StructLayout(LayoutKind.Sequential)]
+              struct RECT { public int L; public int T; public int R; public int B; }
+
+              [StructLayout(LayoutKind.Sequential)]
+              struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public uint dwFlags; }
+
+              [StructLayout(LayoutKind.Sequential)]
+              struct APPBARDATA
+              {
+                  public uint cbSize;
+                  public IntPtr hWnd;
+                  public uint uCallbackMessage;
+                  public uint uEdge;
+                  public RECT rc;
+                  public IntPtr lParam;
+              }
+
+              [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+              [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr ctx);
+              [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc p, IntPtr l);
+              [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr h, EnumProc p, IntPtr l);
+              [DllImport("user32.dll")] static extern bool IsWindow(IntPtr h);
+              [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+              [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+              [DllImport("user32.dll", EntryPoint = "GetWindowLongW")] static extern int GetWindowLong(IntPtr h, int idx);
+              [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
+              [DllImport("user32.dll")] static extern int GetWindowTextLength(IntPtr h);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder sb, int n);
+              [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+              [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
+              [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+              [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+              [DllImport("user32.dll")] static extern bool BringWindowToTop(IntPtr h);
+              [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
+              [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint msg, IntPtr w, IntPtr l);
+              [DllImport("user32.dll")] static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+              [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+              [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr h, uint flags);
+              [DllImport("user32.dll")] static extern bool GetMonitorInfo(IntPtr mon, ref MONITORINFO mi);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr FindWindow(string cls, string title);
+              [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out int val, int size);
+              [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+              [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, uint pid);
+              [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+              [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, uint flags, StringBuilder sb, ref int size);
+              [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern int GetApplicationUserModelId(IntPtr h, ref int len, StringBuilder sb);
+              [DllImport("shell32.dll")] static extern UIntPtr SHAppBarMessage(uint msg, ref APPBARDATA d);
+
+              static readonly string[] skipCls = new string[] { "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Windows.UI.Core.CoreWindow", "XamlExplorerHostIslandWindow" };
+              static readonly string[] skipExe = new string[] { "textinputhost.exe", "searchhost.exe", "searchapp.exe", "startmenuexperiencehost.exe", "shellexperiencehost.exe", "lockapp.exe", "applicationframehost.exe", "widgets.exe", "widgetservice.exe" };
+
+              class Win
+              {
+                  public long H;
+                  public uint Pid;
+                  public string Exe = "";
+                  public string Aumid = "";
+                  public bool Min;
+              }
+
+              static readonly Dictionary<uint, string> pathCache = new Dictionary<uint, string>();
+              static readonly Dictionary<uint, string> aumidCache = new Dictionary<uint, string>();
+
+              static string ClassOf(IntPtr h)
+              {
+                  StringBuilder sb = new StringBuilder(160);
+                  GetClassName(h, sb, 160);
+                  return sb.ToString();
+              }
+
+              static string ProcPath(uint pid)
+              {
+                  string v;
+                  if (pathCache.TryGetValue(pid, out v)) return v;
+                  v = "";
+                  IntPtr hp = IntPtr.Zero;
+                  try
+                  {
+                      hp = OpenProcess(0x1000, false, pid); // PROCESS_QUERY_LIMITED_INFORMATION
+                      if (hp != IntPtr.Zero)
+                      {
+                          StringBuilder sb = new StringBuilder(1024);
+                          int n = sb.Capacity;
+                          if (QueryFullProcessImageName(hp, 0, sb, ref n)) v = sb.ToString();
+                      }
+                  }
+                  catch (Exception) { }
+                  finally { if (hp != IntPtr.Zero) CloseHandle(hp); }
+                  pathCache[pid] = v;
+                  return v;
+              }
+
+              // AUMID hanya dipakai untuk aplikasi Store (path berisi \WindowsApps\), supaya ikon dan pin cocok.
+              static string AumidOf(uint pid, string path)
+              {
+                  if (path.IndexOf("\\WindowsApps\\", StringComparison.OrdinalIgnoreCase) < 0) return "";
+                  string v;
+                  if (aumidCache.TryGetValue(pid, out v)) return v;
+                  v = "";
+                  IntPtr hp = IntPtr.Zero;
+                  try
+                  {
+                      hp = OpenProcess(0x1000, false, pid);
+                      if (hp != IntPtr.Zero)
+                      {
+                          int n = 300;
+                          StringBuilder sb = new StringBuilder(n);
+                          int rc = GetApplicationUserModelId(hp, ref n, sb);
+                          if (rc == 0) v = sb.ToString();
+                      }
+                  }
+                  catch (Exception) { }
+                  finally { if (hp != IntPtr.Zero) CloseHandle(hp); }
+                  aumidCache[pid] = v;
+                  return v;
+              }
+
+              // Jendela aplikasi Store dibungkus ApplicationFrameHost; proses sebenarnya ada di jendela anak CoreWindow.
+              static uint RealPid(IntPtr h, uint pid)
+              {
+                  string p = ProcPath(pid);
+                  if (p.ToLowerInvariant().EndsWith("applicationframehost.exe"))
+                  {
+                      uint found = 0;
+                      EnumChildWindows(h, delegate (IntPtr c, IntPtr l)
+                      {
+                          uint cp;
+                          GetWindowThreadProcessId(c, out cp);
+                          if (cp != pid && cp != 0) { found = cp; return false; }
+                          return true;
+                      }, IntPtr.Zero);
+                      if (found != 0) return found;
+                  }
+                  return pid;
+              }
+
+              static bool Eligible(IntPtr h)
+              {
+                  if (!IsWindowVisible(h)) return false;
+                  int ck = 0;
+                  try { DwmGetWindowAttribute(h, 14, out ck, 4); } catch (Exception) { ck = 0; }
+                  if (ck != 0) return false;
+                  int ex = GetWindowLong(h, -20);
+                  bool appw = (ex & 0x40000) != 0;          // WS_EX_APPWINDOW
+                  if ((ex & 0x80) != 0 && !appw) return false;        // WS_EX_TOOLWINDOW
+                  if ((ex & 0x08000000) != 0 && !appw) return false;  // WS_EX_NOACTIVATE (jendela overlay kita sendiri)
+                  if (GetWindow(h, 4) != IntPtr.Zero && !appw) return false; // punya owner = dialog
+                  if (GetWindowTextLength(h) <= 0) return false;
+                  string cls = ClassOf(h);
+                  if (Array.IndexOf(skipCls, cls) >= 0) return false;
+                  if (!IsIconic(h))
+                  {
+                      RECT r;
+                      if (GetWindowRect(h, out r))
+                      {
+                          if (r.R - r.L < 80 || r.B - r.T < 40) return false;
+                      }
+                  }
+                  return true;
+              }
+
+              // true kalau jendela aktif menutupi seluruh monitornya (game / video layar penuh)
+              static bool IsFullscreen(IntPtr h)
+              {
+                  if (h == IntPtr.Zero || !IsWindowVisible(h) || IsIconic(h)) return false;
+                  string cls = ClassOf(h);
+                  if (Array.IndexOf(skipCls, cls) >= 0) return false;
+                  RECT r;
+                  if (!GetWindowRect(h, out r)) return false;
+                  IntPtr mon = MonitorFromWindow(h, 2);
+                  if (mon == IntPtr.Zero) return false;
+                  MONITORINFO mi = new MONITORINFO();
+                  mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+                  if (!GetMonitorInfo(mon, ref mi)) return false;
+                  return r.L <= mi.rcMonitor.L + 1 && r.T <= mi.rcMonitor.T + 1 && r.R >= mi.rcMonitor.R - 1 && r.B >= mi.rcMonitor.B - 1;
+              }
+
+              static string Snapshot()
+              {
+                  List<Win> list = new List<Win>();
+                  EnumWindows(delegate (IntPtr h, IntPtr l)
+                  {
+                      try
+                      {
+                          if (!Eligible(h)) return true;
+                          uint pid;
+                          GetWindowThreadProcessId(h, out pid);
+                          if (pid == 0) return true;
+                          uint rp = RealPid(h, pid);
+                          string path = ProcPath(rp);
+                          string exeName = path.Length > 0 ? path.Substring(path.LastIndexOf('\\') + 1).ToLowerInvariant() : "";
+                          if (exeName.Length == 0)
+                          {
+                              // proses lebih tinggi (admin): path tidak terbaca, pakai nama proses saja
+                              try { exeName = Process.GetProcessById((int)rp).ProcessName.ToLowerInvariant() + ".exe"; } catch (Exception) { exeName = ""; }
+                          }
+                          if (exeName.Length == 0) return true;
+                          if (Array.IndexOf(skipExe, exeName) >= 0) return true;
+                          Win w = new Win();
+                          w.H = h.ToInt64();
+                          w.Pid = rp;
+                          w.Exe = path.Length > 0 ? path : exeName;
+                          w.Aumid = AumidOf(rp, path);
+                          w.Min = IsIconic(h);
+                          list.Add(w);
+                      }
+                      catch (Exception) { }
+                      return true;
+                  }, IntPtr.Zero);
+
+                  // buang cache proses yang sudah tidak ada
+                  if (pathCache.Count > 300 || aumidCache.Count > 300)
+                  {
+                      pathCache.Clear();
+                      aumidCache.Clear();
+                  }
+
+                  IntPtr fg = GetForegroundWindow();
+                  bool fs = false;
+                  try { fs = IsFullscreen(fg); } catch (Exception) { fs = false; }
+
+                  StringBuilder sb = new StringBuilder();
+                  sb.Append("{\"t\":\"wins\",\"fg\":").Append(fg.ToInt64()).Append(",\"fs\":").Append(fs ? 1 : 0).Append(",\"l\":[");
+                  for (int i = 0; i < list.Count; i++)
+                  {
+                      Win w = list[i];
+                      if (i > 0) sb.Append(',');
+                      sb.Append("{\"h\":").Append(w.H)
+                        .Append(",\"p\":").Append(w.Pid)
+                        .Append(",\"x\":").Append(J(w.Exe))
+                        .Append(",\"a\":").Append(J(w.Aumid))
+                        .Append(",\"m\":").Append(w.Min ? 1 : 0).Append('}');
+                  }
+                  sb.Append("]}");
+                  return sb.ToString();
+              }
+
+              static void Focus(IntPtr h)
+              {
+                  if (h == IntPtr.Zero || !IsWindow(h)) return;
+                  if (IsIconic(h)) ShowWindow(h, 9); // SW_RESTORE
+                  uint me = GetCurrentThreadId();
+                  IntPtr fg = GetForegroundWindow();
+                  uint fpid;
+                  uint fgT = fg == IntPtr.Zero ? 0 : GetWindowThreadProcessId(fg, out fpid);
+                  bool att = false;
+                  if (fgT != 0 && fgT != me) att = AttachThreadInput(me, fgT, true);
+                  BringWindowToTop(h);
+                  ShowWindow(h, 5); // SW_SHOW
+                  SetForegroundWindow(h);
+                  if (att) AttachThreadInput(me, fgT, false);
+                  if (GetForegroundWindow() != h)
+                  {
+                      // cadangan: ketukan tombol Alt melepas kunci latar depan Windows
+                      keybd_event(0x12, 0, 0, UIntPtr.Zero);
+                      keybd_event(0x12, 0, 2, UIntPtr.Zero);
+                      BringWindowToTop(h);
+                      SetForegroundWindow(h);
+                  }
+              }
+
+              static void Cmd(string line)
+              {
+                  if (string.IsNullOrEmpty(line)) return;
+                  if (line == "start")
+                  {
+                      keybd_event(0x5B, 0, 0, UIntPtr.Zero); // tombol Windows: buka menu Start
+                      keybd_event(0x5B, 0, 2, UIntPtr.Zero);
+                      return;
+                  }
+                  string[] p = line.Split(' ');
+                  if (p.Length < 2) return;
+                  long hv;
+                  if (!long.TryParse(p[1], out hv) || hv == 0) return;
+                  IntPtr h = new IntPtr(hv);
+                  try
+                  {
+                      if (p[0] == "focus") Focus(h);
+                      else if (p[0] == "min") { if (IsWindow(h)) ShowWindow(h, 6); }       // SW_MINIMIZE
+                      else if (p[0] == "close") { if (IsWindow(h)) PostMessage(h, 0x0010, IntPtr.Zero, IntPtr.Zero); } // WM_CLOSE
+                  }
+                  catch (Exception) { }
+              }
+
+              // ----- taskbar auto-hide (ABM_GETSTATE = 4, ABM_SETSTATE = 10, ABS_AUTOHIDE = 1)
+              static APPBARDATA Abd()
+              {
+                  APPBARDATA d = new APPBARDATA();
+                  d.cbSize = (uint)Marshal.SizeOf(typeof(APPBARDATA));
+                  d.hWnd = FindWindow("Shell_TrayWnd", null);
+                  return d;
+              }
+
+              static int TbGet()
+              {
+                  APPBARDATA d = Abd();
+                  long st = (long)SHAppBarMessage(4, ref d).ToUInt64();
+                  return (st & 1) != 0 ? 1 : 0;
+              }
+
+              static void TbSet(int on)
+              {
+                  APPBARDATA d = Abd();
+                  long st = (long)SHAppBarMessage(4, ref d).ToUInt64();
+                  long want = on != 0 ? (st | 1) : (st & ~1L);
+                  d.lParam = new IntPtr(want);
+                  SHAppBarMessage(10, ref d);
+              }
+
+              // Menyembunyikan jendela taskbar sepenuhnya (tidak muncul walau kursor ke tepi layar)
+              static void TbVis(int on)
+              {
+                  int cmd = on != 0 ? 5 : 0; // SW_SHOW / SW_HIDE
+                  IntPtr h = FindWindow("Shell_TrayWnd", null);
+                  if (h != IntPtr.Zero) ShowWindow(h, cmd);
+                  EnumWindows(delegate (IntPtr w, IntPtr l)
+                  {
+                      if (ClassOf(w) == "Shell_SecondaryTrayWnd") ShowWindow(w, cmd);
+                      return true;
+                  }, IntPtr.Zero);
+              }
+
+              // Kalau aplikasi induk mati, taskbar yang kita sembunyikan dikembalikan (file catatan berisi status aslinya).
+              static string flagFile = "";
+              static void RestoreTb()
+              {
+                  try
+                  {
+                      if (flagFile.Length == 0 || !System.IO.File.Exists(flagFile)) return;
+                      string t = System.IO.File.ReadAllText(flagFile);
+                      int i = t.IndexOf("orig", StringComparison.Ordinal);
+                      int orig = -1;
+                      if (i >= 0)
+                      {
+                          int k = t.IndexOf(':', i);
+                          if (k >= 0)
+                          {
+                              for (int j = k + 1; j < t.Length; j++)
+                              {
+                                  if (t[j] == '0') { orig = 0; break; }
+                                  if (t[j] == '1') { orig = 1; break; }
+                              }
+                          }
+                      }
+                      if (orig < 0) return;
+                      TbVis(1);
+                      TbSet(orig);
+                  }
+                  catch (Exception) { }
+              }
+
+              static int Main(string[] a)
+              {
+                  try { SetProcessDpiAwarenessContext(new IntPtr(-4)); }
+                  catch (Exception)
+                  {
+                      try { SetProcessDPIAware(); } catch (Exception) { }
+                  }
+                  if (a.Length < 1) return 1;
+
+                  if (a[0] == "tb")
+                  {
+                      try
+                      {
+                          if (a.Length >= 3 && a[1] == "set")
+                          {
+                              TbSet(a[2] == "1" ? 1 : 0);
+                              Thread.Sleep(250);
+                          }
+                          else if (a.Length >= 3 && a[1] == "vis")
+                          {
+                              TbVis(a[2] == "1" ? 1 : 0);
+                              Thread.Sleep(150);
+                          }
+                          Console.Out.WriteLine(TbGet().ToString());
+                          Console.Out.Flush();
+                          return 0;
+                      }
+                      catch (Exception) { return 2; }
+                  }
+
+                  if (a[0] == "watch")
+                  {
+                      int parent = 0;
+                      if (a.Length >= 2) int.TryParse(a[1], out parent);
+                      if (a.Length >= 3) flagFile = a[2];
+
+                      Thread rd = new Thread(delegate ()
+                      {
+                          try
+                          {
+                              string l;
+                              while ((l = Console.In.ReadLine()) != null) Cmd(l.Trim());
+                          }
+                          catch (Exception) { }
+                          RestoreTb();
+                          Environment.Exit(0); // stdin tertutup = aplikasi induk sudah mati
+                      });
+                      rd.IsBackground = true;
+                      rd.Start();
+
+                      string last = "";
+                      int tick = 0;
+                      while (true)
+                      {
+                          try
+                          {
+                              string s = Snapshot();
+                              if (s != last) { last = s; Emit(s); }
+                          }
+                          catch (Exception) { }
+                          Thread.Sleep(450);
+                          tick++;
+                          if (parent > 0 && tick % 6 == 0)
+                          {
+                              try { Process.GetProcessById(parent); }
+                              catch (Exception) { RestoreTb(); return 0; }
+                          }
+                      }
+                  }
+                  return 1;
+              }
+          }
+          FX_EOS
+          cat > fx/dock.html <<'FX_EOS'
+          <!doctype html>
+          <html>
+          <head>
+          <meta charset="utf-8">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+          <title>Dock</title>
+          <style>
+            :root { --bg:rgba(46,52,68,.6); --bd:rgba(255,255,255,.3); --hi:rgba(255,255,255,.16); --sp:rgba(255,255,255,.3); --dot:rgba(255,255,255,.92); --sh:0 10px 32px rgba(0,0,0,.4); }
+            body.light { --bg:rgba(255,255,255,.55); --bd:rgba(255,255,255,.8); --hi:rgba(255,255,255,.6); --sp:rgba(0,0,0,.22); --dot:rgba(0,0,0,.7); --sh:0 10px 30px rgba(0,0,0,.24); }
+            html, body { margin:0; height:100%; overflow:hidden; background:transparent; user-select:none; -webkit-user-select:none; cursor:default;
+                         font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; }
+            #wrap { position:absolute; left:50%; bottom:6px; width:100px; height:64px; transform:translate(-50%,0);
+                    transition:transform .3s cubic-bezier(.2,.8,.2,1); }
+            #wrap.gone { transform:translate(-50%,calc(100% + 40px)); }
+            #pill { position:absolute; left:0; top:0; right:0; bottom:0; border-radius:22px; background:var(--bg); border:1px solid var(--bd);
+                    box-shadow:var(--sh), inset 0 1px 0 var(--hi); }
+            #row { position:absolute; left:8px; bottom:8px; display:flex; align-items:flex-end; }
+            .it { position:relative; flex:none; margin:0 3px; cursor:pointer; width:48px; height:48px; }
+            .it .ic { position:absolute; left:0; top:0; right:0; bottom:0; }
+            .it .ic img, .it .ic svg, .it .fb { position:absolute; left:0; top:0; width:100%; height:100%; display:block; pointer-events:none; -webkit-user-drag:none; }
+            .fb { border-radius:22%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+            .dot { position:absolute; left:50%; bottom:-6px; width:4px; height:4px; margin-left:-2px; border-radius:50%; background:var(--dot); opacity:0; transition:opacity .2s; }
+            .it.run .dot { opacity:.8; } .it.act .dot { opacity:1; }
+            .sp { flex:none; width:1px; margin:0 6px; background:var(--sp); }
+            @keyframes bnc { 0%,100% { transform:translateY(0); } 38% { transform:translateY(-24px); } 62% { transform:translateY(0); } 78% { transform:translateY(-9px); } }
+            .it.bnc .ic { animation:bnc .95s ease-in-out infinite; }
+            #tip { position:absolute; padding:5px 12px; border-radius:9px; background:rgba(30,30,38,.94); color:#fff; font-size:13px; white-space:nowrap;
+                   border:1px solid rgba(255,255,255,.16); pointer-events:none; opacity:0; transition:opacity .12s; transform:translateX(-50%); box-shadow:0 4px 14px rgba(0,0,0,.35); }
+            #menu { position:absolute; display:none; min-width:176px; max-width:260px; padding:5px; border-radius:12px; background:rgba(34,36,46,.97); color:#f2f2f7;
+                    border:1px solid rgba(255,255,255,.16); box-shadow:0 12px 34px rgba(0,0,0,.5); font-size:13px; }
+            .mh { padding:6px 10px 7px; color:#9d9dab; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-bottom:1px solid rgba(255,255,255,.1); margin-bottom:4px; }
+            .mi { padding:7px 10px; border-radius:7px; cursor:pointer; white-space:nowrap; }
+            .mi:hover { background:rgba(124,92,255,.9); }
+          </style>
+          </head>
+          <body>
+          <div id="wrap"><div id="pill"></div><div id="row"></div></div>
+          <div id="tip"></div>
+          <div id="menu"></div>
+          <script>
+          (function () {
+            "use strict";
+            var B = window.fxd || { on: function () {}, send: function () {} };
+            var $ = function (i) { return document.getElementById(i); };
+            var PAD = 8;
+            var cfg = { size: 48, zoom: 150, theme: "dark", hide: false, margin: 6, L: { open: "Open", close: "Quit", keep: "Keep in Dock", remove: "Remove from Dock", dl: "Downloads", bin: "Recycle Bin", tb: "Taskbar", st: "Start" } };
+            var items = [], st = new Map(), icons = {};
+            var cur = { x: -1, y: -1, edge: false };
+            var shown = true, hideT = null, menuK = null, menuT = null, raf = 0, lastRects = "", bounce = {};
+            var rectList = [];
+
+            var SVG_DL = '<svg viewBox="0 0 64 64"><defs><linearGradient id="gd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34d1c2"/><stop offset="1" stop-color="#16928a"/></linearGradient></defs>' +
+              '<path d="M6 16a5 5 0 0 1 5-5h14l6 6h22a5 5 0 0 1 5 5v28a5 5 0 0 1-5 5H11a5 5 0 0 1-5-5z" fill="url(#gd)"/>' +
+              '<path d="M32 25v18M24 36l8 8 8-8" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            var SVG_BIN = '<svg viewBox="0 0 64 64"><defs><linearGradient id="gb" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8e949f"/><stop offset=".5" stop-color="#c3c8d1"/><stop offset="1" stop-color="#8e949f"/></linearGradient></defs>' +
+              '<path d="M15 19h34l-3 35a4.5 4.5 0 0 1-4.5 4H22.5A4.5 4.5 0 0 1 18 54z" fill="url(#gb)" stroke="#6f7580" stroke-width="1.5"/>' +
+              '<rect x="11" y="12" width="42" height="7" rx="3.5" fill="#a9afba" stroke="#6f7580" stroke-width="1.5"/><rect x="26" y="7" width="12" height="6" rx="3" fill="#a9afba" stroke="#6f7580" stroke-width="1.5"/>' +
+              '<path d="M25 26v26M32 26v26M39 26v26" stroke="#6f7580" stroke-width="2" stroke-linecap="round" opacity=".7"/></svg>';
+
+            var SVG_TB = '<svg viewBox="0 0 64 64"><defs><linearGradient id="gt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b6478"/><stop offset="1" stop-color="#2f3646"/></linearGradient></defs>' +
+              '<rect x="5" y="12" width="54" height="40" rx="8" fill="url(#gt)"/><rect x="5" y="40" width="54" height="12" rx="6" fill="#9aa6c2"/>' +
+              '<rect x="10" y="44" width="7" height="4" rx="2" fill="#2f3646"/><rect x="21" y="44" width="7" height="4" rx="2" fill="#2f3646"/><rect x="32" y="44" width="7" height="4" rx="2" fill="#2f3646"/></svg>';
+            var SVG_ST = '<svg viewBox="0 0 64 64"><defs><linearGradient id="gs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9edf5"/><stop offset="1" stop-color="#aeb7c9"/></linearGradient></defs><rect x="4" y="4" width="56" height="56" rx="14" fill="url(#gs)"/>' +
+              '<g fill="#4a7cf0"><rect x="14" y="14" width="10" height="10" rx="3"/><rect x="27" y="14" width="10" height="10" rx="3" fill="#e5484d"/><rect x="40" y="14" width="10" height="10" rx="3" fill="#2fb36b"/>' +
+              '<rect x="14" y="27" width="10" height="10" rx="3" fill="#f0a000"/><rect x="27" y="27" width="10" height="10" rx="3"/><rect x="40" y="27" width="10" height="10" rx="3" fill="#8a5cf0"/>' +
+              '<rect x="14" y="40" width="10" height="10" rx="3" fill="#2fb36b"/><rect x="27" y="40" width="10" height="10" rx="3" fill="#e5484d"/><rect x="40" y="40" width="10" height="10" rx="3"/></g></svg>';
+            function hue(s) { var h = 0; s = String(s || ""); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
+            function kick() { if (!raf) raf = requestAnimationFrame(frame); }
+
+            function applyCfg() {
+              document.body.classList.toggle("light", cfg.theme === "light");
+              $("wrap").style.height = (cfg.size + PAD * 2) + "px";
+              $("wrap").style.bottom = cfg.margin + "px";
+            }
+
+            function mkEl(it) {
+              var el = document.createElement("div");
+              if (it.t === "sep") { el.className = "sp"; return el; }
+              el.className = "it"; el.setAttribute("data-k", it.k);
+              var ic = document.createElement("div"); ic.className = "ic"; el.appendChild(ic);
+              var d = document.createElement("div"); d.className = "dot"; el.appendChild(d);
+              el.addEventListener("click", function (e) { if (e.button === 0) onClick(el.getAttribute("data-k")); });
+              el.addEventListener("contextmenu", function (e) { e.preventDefault(); openMenu(el.getAttribute("data-k")); });
+              return el;
+            }
+            function fillIcon(s) {
+              var ic = s.el.firstChild, it = s.it;
+              if (it.t === "dl") { if (s.img !== "dl") { ic.innerHTML = SVG_DL; s.img = "dl"; } return; }
+              if (it.t === "st") { if (s.img !== "st") { ic.innerHTML = SVG_ST; s.img = "st"; } return; }
+              if (it.t === "tb") { if (s.img !== "tb") { ic.innerHTML = SVG_TB; s.img = "tb"; } return; }
+              if (it.t === "bin") { if (s.img !== "bin") { ic.innerHTML = SVG_BIN; s.img = "bin"; } return; }
+              var u = icons[it.ic];
+              if (u) {
+                if (s.img !== u) { ic.textContent = ""; var im = new Image(); im.draggable = false; im.src = u; ic.appendChild(im); s.img = u; }
+                return;
+              }
+              if (s.img !== "#") {
+                ic.textContent = "";
+                var f = document.createElement("div"); f.className = "fb"; f.textContent = (it.name || "?").charAt(0).toUpperCase();
+                var h = hue(it.name); f.style.background = "linear-gradient(135deg,hsl(" + h + ",70%,62%),hsl(" + ((h + 28) % 360) + ",60%,44%))";
+                ic.appendChild(f); s.img = "#";
+              }
+            }
+
+            function setItems(list) {
+              if (!Array.isArray(list)) return;
+              items = list;
+              var seen = {}, row = $("row");
+              list.forEach(function (it, i) {
+                if (!it || typeof it.k !== "string") return;
+                seen[it.k] = 1;
+                var s = st.get(it.k);
+                if (!s) { s = { el: mkEl(it), s: it.t === "sep" ? 1 : 0.02, it: it, img: "" }; st.set(it.k, s); }
+                s.it = it;
+                if (it.t !== "sep") {
+                  s.el.classList.toggle("run", !!it.run);
+                  s.el.classList.toggle("act", !!it.act);
+                  if (it.run && bounce[it.k]) delete bounce[it.k];
+                  fillIcon(s);
+                }
+                if (row.children[i] !== s.el) row.insertBefore(s.el, row.children[i] || null);   // hanya pindah kalau urutan berubah
+              });
+              var dead = [];
+              st.forEach(function (s, k) { if (!seen[k]) dead.push(k); });
+              dead.forEach(function (k) { var s = st.get(k); if (s && s.el.parentNode) s.el.parentNode.removeChild(s.el); st.delete(k); if (menuK === k) closeMenu(); });
+              while (row.children.length > list.length) row.removeChild(row.lastChild);
+              kick();
+            }
+
+            function onClick(k) {
+              closeMenu();
+              var s = st.get(k); if (!s) return;
+              if (s.it.t === "app" && !s.it.run) bounce[k] = Date.now() + 8000;
+              B.send("act", { a: "click", k: k });
+              kick();
+            }
+
+            function openMenu(k) {
+              var s = st.get(k); if (!s || s.it.t !== "app") return;
+              menuK = k;
+              var m = $("menu"), it = s.it, L = cfg.L;
+              m.textContent = "";
+              var h = document.createElement("div"); h.className = "mh"; h.textContent = it.name || ""; m.appendChild(h);
+              function row(label, a) {
+                var r = document.createElement("div"); r.className = "mi"; r.textContent = label;
+                r.addEventListener("click", function (e) { e.stopPropagation(); B.send("act", { a: a, k: k }); if (a === "launch" && !it.run) bounce[k] = Date.now() + 8000; closeMenu(); kick(); });
+                m.appendChild(r);
+              }
+              row(L.open, "launch");
+              if (it.run) row(L.close, "quit");
+              row(it.pin ? L.remove : L.keep, it.pin ? "unpin" : "pin");
+              m.style.display = "block";
+              var r = s.el.getBoundingClientRect();
+              var left = Math.max(6, Math.min(window.innerWidth - m.offsetWidth - 6, r.left + r.width / 2 - m.offsetWidth / 2));
+              m.style.left = left + "px";
+              m.style.bottom = (window.innerHeight - r.top + 10) + "px";
+              kick();
+            }
+            function closeMenu() { menuK = null; clearTimeout(menuT); menuT = null; $("menu").style.display = "none"; kick(); }
+            document.addEventListener("click", function (e) { if (menuK && !(e.target && e.target.closest && e.target.closest("#menu"))) closeMenu(); });
+
+            function inRects(x, y) {
+              if (x < 0 || y < 0) return false;
+              for (var i = 0; i < rectList.length; i++) { var r = rectList[i]; if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return true; }
+              return false;
+            }
+
+            function frame() {
+              raf = 0;
+              var size = cfg.size, Z = Math.max(1, cfg.zoom / 100);
+              var inside = inRects(cur.x, cur.y);
+              var row = $("row"), els = row.children, n = els.length, i, rc = [];
+              for (i = 0; i < n; i++) rc[i] = els[i].getBoundingClientRect();
+              var busy = false, hov = -1;
+              for (i = 0; i < n; i++) {
+                var el = els[i], k = el.getAttribute("data-k");
+                if (!k) { el.style.height = Math.round(size * 0.72) + "px"; el.style.marginBottom = Math.round(size * 0.14) + "px"; continue; }
+                var s = st.get(k); if (!s) continue;
+                var tgt = 1;
+                if (inside && Z > 1 && !menuK) {
+                  var cx = rc[i].left + rc[i].width / 2, d = Math.abs(cur.x - cx), sg = size * 1.15;
+                  tgt = 1 + (Z - 1) * Math.exp(-(d * d) / (2 * sg * sg));
+                }
+                var ns = s.s + (tgt - s.s) * 0.34;
+                if (Math.abs(ns - tgt) < 0.004) ns = tgt;
+                if (ns !== s.s) busy = true;
+                s.s = ns;
+                var w = size * ns;
+                el.style.width = w + "px"; el.style.height = w + "px";
+                var fb = el.querySelector(".fb"); if (fb) fb.style.fontSize = Math.round(w * 0.46) + "px";
+                el.classList.toggle("bnc", !!(bounce[k] && bounce[k] > Date.now()));
+                if (cur.x >= rc[i].left && cur.x <= rc[i].right && cur.y >= rc[i].top - 4) hov = i;
+              }
+              $("wrap").style.width = (row.offsetWidth + PAD * 2) + "px";
+
+              // tooltip
+              var tip = $("tip");
+              if (inside && hov >= 0 && !menuK && shown) {
+                var he = els[hov], hk = he.getAttribute("data-k"), hs = st.get(hk), r = he.getBoundingClientRect();
+                var label = hs ? (hs.it.t === "dl" ? cfg.L.dl : hs.it.t === "bin" ? cfg.L.bin : hs.it.t === "tb" ? cfg.L.tb : hs.it.t === "st" ? cfg.L.st : (hs.it.name || "")) : "";
+                if (label) {
+                  tip.textContent = label; tip.style.opacity = "1";
+                  var tw = tip.offsetWidth, lx = Math.max(tw / 2 + 6, Math.min(window.innerWidth - tw / 2 - 6, r.left + r.width / 2));
+                  tip.style.left = lx + "px"; tip.style.top = Math.max(2, r.top - 36) + "px";
+                } else tip.style.opacity = "0";
+              } else tip.style.opacity = "0";
+
+              // tampil / sembunyi otomatis
+              var vis = !cfg.hide || inside || cur.edge || !!menuK;
+              if (vis) {
+                clearTimeout(hideT); hideT = null;
+                if (!shown) { shown = true; $("wrap").classList.remove("gone"); busy = true; }
+              } else if (shown && !hideT) {
+                hideT = setTimeout(function () { hideT = null; shown = false; $("wrap").classList.add("gone"); closeMenu(); sendRects(); }, 650);
+              }
+              // menu konteks menutup sendiri kalau kursor menjauh
+              if (menuK) {
+                if (inside) { clearTimeout(menuT); menuT = null; }
+                else if (!menuT) menuT = setTimeout(function () { menuT = null; closeMenu(); }, 800);
+              }
+              sendRects();
+              if (busy) kick();
+            }
+
+            function sendRects() {
+              var out = [];
+              if (shown) {
+                var p = $("pill").getBoundingClientRect(), L = p.left, T = p.top, R = p.right, Bm = p.bottom, els = $("row").children;
+                for (var i = 0; i < els.length; i++) {
+                  if (!els[i].getAttribute("data-k")) continue;
+                  var r = els[i].getBoundingClientRect();
+                  if (r.left < L) L = r.left; if (r.top < T) T = r.top; if (r.right > R) R = r.right; if (r.bottom > Bm) Bm = r.bottom;
+                }
+                out.push({ x: Math.floor(L) - 2, y: Math.floor(T) - 2, w: Math.ceil(R - L) + 4, h: Math.ceil(Bm - T) + 4 });
+                if (menuK) { var m = $("menu").getBoundingClientRect(); out.push({ x: Math.floor(m.left) - 2, y: Math.floor(m.top) - 2, w: Math.ceil(m.width) + 4, h: Math.ceil(m.height) + 14 }); }
+              }
+              rectList = out;
+              var key = JSON.stringify(out);
+              if (key !== lastRects) { lastRects = key; B.send("rect", out); }
+            }
+
+            B.on("cfg", function (c) {
+              if (!c) return;
+              ["size", "zoom", "margin"].forEach(function (k) { if (typeof c[k] === "number") cfg[k] = c[k]; });
+              if (c.theme) cfg.theme = c.theme;
+              if (typeof c.hide === "boolean") cfg.hide = c.hide;
+              if (c.L && typeof c.L === "object") for (var k in c.L) cfg.L[k] = String(c.L[k]);
+              applyCfg(); kick();
+            });
+            B.on("items", setItems);
+            B.on("icons", function (m) {
+              if (!m || typeof m !== "object") return;
+              for (var k in m) if (typeof m[k] === "string" && m[k].indexOf("data:image/") === 0) icons[k] = m[k];
+              st.forEach(function (s) { if (s.it.t === "app") fillIcon(s); });
+            });
+            B.on("cur", function (c) { if (c) { cur = { x: +c.x, y: +c.y, edge: !!c.edge }; kick(); } });
+
+            applyCfg();
+            window.addEventListener("resize", kick);
+            $("wrap").addEventListener("transitionend", kick);
+            B.send("ready", 1);
+            kick();
+          })();
+          </script>
+          </body>
+          </html>
+          FX_EOS
+          cat > fx/dock-preload.js <<'FX_EOS'
+          "use strict";
+          const { contextBridge, ipcRenderer } = require("electron");
+          const IN = ["cfg", "items", "icons", "cur"];
+          const OUT = ["act", "rect", "ready"];
+          contextBridge.exposeInMainWorld("fxd", {
+            on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("dock:" + ch, (_e, d) => cb(d)); },
+            send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("dock:" + ch, d); }
+          });
+          FX_EOS
           pg 38 "Mengompilasi pembantu sistem"
           CSC="$(cygpath -u "${WINDIR:-C:\\Windows}")/Microsoft.NET/Framework64/v4.0.30319/csc.exe"
           test -f "$CSC" || { echo "::error::csc.exe tidak ditemukan di runner"; exit 1; }
@@ -4274,6 +5404,14 @@ jobs:
           else
             echo "::error::fxsys.cs gagal dikompilasi (lihat pesan error csc di atas). Tanpa fxsys.exe, FPS/ping, media, jaringan, game, dll tidak akan muncul."
             exit 1
+          fi
+          # Dock macOS: pembantu jendela aplikasi. Kalau gagal dikompilasi, build TETAP lanjut (Dock saja yang tidak aktif).
+          if (cd fx && "$CSC" -nologo -target:exe -optimize+ -platform:anycpu -warn:0 -out:fxdock.exe fxdock.cs); then
+            mv fx/fxdock.exe fx/bin/fxdock.exe
+            echo "fxdock.exe OK"
+          else
+            echo "::warning::fxdock.cs gagal dikompilasi (lihat pesan csc di atas). Dock macOS tidak akan aktif di EXE ini."
+            head -c 16 /dev/zero > fx/bin/fxdock.exe
           fi
           # PresentMon (Intel, lisensi MIT) untuk FPS akurat. Opsional: kalau gagal diunduh, FPS kembali ke perkiraan DWM.
           if curl -fsSL --retry 3 -o fx/bin/PresentMon.exe "https://github.com/GameTechDev/PresentMon/releases/download/v1.10.0/PresentMon-1.10.0-x64.exe" && [ "$(wc -c < fx/bin/PresentMon.exe)" -gt 100000 ]; then
@@ -4367,7 +5505,7 @@ jobs:
               appId: "com.apkmaker.app", productName: name,
               directories: { output: "dist", buildResources: "build" },
               files: ["main.js", "app-config.json", "icon.png", "www/**/*"].concat(e.FX === "true" ? ["fx/**/*", "!fx/bin", "!fx/**/*.cs"] : []),
-              extraResources: e.FX === "true" ? [{ from: "fx/bin/fxhelper.exe", to: "fxhelper.exe" }, { from: "fx/bin/fxsys.exe", to: "fxsys.exe" }, { from: "fx/bin/PresentMon.exe", to: "PresentMon.exe" }] : undefined,
+              extraResources: e.FX === "true" ? [{ from: "fx/bin/fxhelper.exe", to: "fxhelper.exe" }, { from: "fx/bin/fxsys.exe", to: "fxsys.exe" }, { from: "fx/bin/fxdock.exe", to: "fxdock.exe" }, { from: "fx/bin/PresentMon.exe", to: "PresentMon.exe" }] : undefined,
               win: { target: "nsis", icon: "build/icon.png" },
               nsis: { oneClick: false, perMachine: false, allowToChangeInstallationDirectory: true, runAfterFinish: true, createDesktopShortcut: true, createStartMenuShortcut: true },
               artifactName: "app.${ext}"
