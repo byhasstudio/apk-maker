@@ -362,7 +362,17 @@ var SVG_IC0 = '<svg viewBox="0 0 64 64"><defs><linearGradient id="gi0" x1="0" y1
     kick();
   }
 
+  var lastCK = null, lastCT = 0;
+  function keyAt(x, y) { var e = document.elementFromPoint(x, y); e = e && e.closest ? e.closest("[data-k]") : null; return e ? e.getAttribute("data-k") : null; }
+  var pdK = null, pdT = 0;
+  B.on("pd", function (c) {
+    if (!c) return;
+    if (c.d) { pdK = keyAt(c.x, c.y); pdT = Date.now(); return; }
+    var k = pdK; pdK = null;
+    if (k && Date.now() - pdT < 2500 && keyAt(c.x, c.y) === k) onClick(k);
+  });
   function onClick(k) {
+    var nw = Date.now(); if (k === lastCK && nw - lastCT < 350) return; lastCK = k; lastCT = nw;
     closeMenu();
     var s = st.get(k); if (!s) return;
     if (s.it.t === "app" && !s.it.run) bounce[k] = Date.now() + 8000;
@@ -476,8 +486,14 @@ var SVG_IC0 = '<svg viewBox="0 0 64 64"><defs><linearGradient id="gi0" x1="0" y1
       if (menuK) { var m = $("menu").getBoundingClientRect(); out.push({ x: Math.floor(m.left) - 2, y: Math.floor(m.top) - 2, w: Math.ceil(m.width) + 4, h: Math.ceil(m.height) + 14 }); }
     }
     rectList = out;
-    var key = JSON.stringify(out);
-    if (key !== lastRects) { lastRects = key; B.send("rect", out); }
+    var ia = window.innerWidth / 2, ih = window.innerHeight, sent = [];
+    if (shown) {
+      var pb = $("pill").getBoundingClientRect();
+      sent.push({ x: Math.round(pb.left - ia), y: Math.round(pb.top - ih), w: Math.round(pb.width), h: Math.round(pb.height), k: "p" });
+      for (var q = 0; q < out.length; q++) sent.push({ x: out[q].x - ia, y: out[q].y - ih, w: out[q].w, h: out[q].h, k: q === 0 ? "u" : "m" });
+    }
+    var key = JSON.stringify(sent);
+    if (key !== lastRects) { lastRects = key; B.send("rect", sent); }
   }
 
   B.on("cfg", function (c) {
@@ -1101,7 +1117,7 @@ function pushLive() {
 function setLive(id, a) { if (a) L[id] = a; else if (L[id]) delete L[id]; pushLive(); }
 function syncSysFlags() {
   if (!procs.sys) return;
-  sysCmd("btn " + (S.hub && S.live && S.edge === "top" ? 1 : 0));
+  sysCmd("btn " + ((S.hub && S.live && S.edge === "top") || S.dock ? 1 : 0));
   sysCmd("top " + ((S.rmon > 0 && S.live && lag) ? 1 : 0));
   const gl = a => (Array.isArray(a) ? a : []).filter(x => /^[\w.() -]{1,60}$/.test(String(x))).join(",");
   sysCmd("games " + gl(S.gamelist)); sysCmd("nogames " + gl(S.nogame));
@@ -1579,6 +1595,7 @@ function disarmHub(collapse) {
 function stopDragWatch() { if (dragTimer) { clearInterval(dragTimer); dragTimer = null; } }
 // Hanya tangan yang menarik (tombol kiri ditahan) dari LUAR zona yang dianggap seret-lepas; klik biasa di zona tidak terganggu.
 function onBtn(m) {
+  try { dockBtn(m.l ? 1 : 0); } catch (_) {}
   if (!S.hub || !S.live || !isl || isl.isDestroyed() || S.edge !== "top") return;
   if (m.l) {
     pressInZone = inHubZone(screen.getCursorScreenPoint(), 40);
@@ -1756,9 +1773,25 @@ let dockRects = [], dockIgn = true, dockT = null, dockTopT = null, dockCurKey = 
 let dockMap = new Map(); let dockAssert = 0, dockSeq = 0; const dockOrd = new Map();
 const dockIconData = new Map(), dockIconBusy = new Set(), dockIconFail = new Map(), lnkCache = new Map();
 
+// SISTEM BARU: jendela Dock dibuat PAS seukuran Dock (bukan overlay layar penuh yang klik-tembus), jadi tidak ada lagi
+// pergantian "klik-tembus" yang bisa macet. Saat kursor mendekat jendela melebar/meninggi untuk zoom, tooltip & menu; saat menjauh mengecil lagi.
+let dockActive = false, dockRepd = false, dockHomeW = 520;
+function dockAnchor() { const w = screen.getPrimaryDisplay().workArea; return { wa: w, ax: w.x + w.width / 2, ay: w.y + w.height }; }
+function dockScr(r) { const a = dockAnchor(); return { x: a.ax + r.x, y: a.ay + r.y, w: r.w, h: r.h }; }     // rect dari Dock dilaporkan relatif ke titik tengah-bawah jendela
+function dockPill() { const p = dockRects.find(r => r.k === "p"); return p ? dockScr(p) : null; }
 function dockBounds() {
-  const w = screen.getPrimaryDisplay().workArea, h = Math.min(DOCK_H, Math.max(120, w.height));
-  return { x: w.x, y: w.y + w.height - h, width: w.width, height: h };
+  const a = dockAnchor(), wa = a.wa, full = Math.min(DOCK_H, Math.max(120, wa.height));
+  const p = dockRects.find(r => r.k === "p");
+  let W, H;
+  if (!dockRepd) { W = Math.min(wa.width, 900); H = Math.min(180, full); }       // sebelum Dock melaporkan ukurannya
+  else if (!p) { W = 2; H = 2; }                                                 // Dock sedang disembunyikan: jendela hampir nol
+  else {
+    dockHomeW = Math.max(120, p.w);
+    if (dockActive || dockRects.some(r => r.k === "m")) { W = p.w + 400; H = full; }
+    else { W = p.w + 220; H = Math.min(full, Math.ceil(-p.y) + 48); }
+  }
+  W = Math.min(wa.width, Math.ceil(W / 2) * 2);
+  return { x: Math.round(a.ax - W / 2), y: Math.round(a.ay - H), width: W, height: H };
 }
 function placeDock() {
   if (!dockWin || dockWin.isDestroyed()) return;
@@ -1783,8 +1816,8 @@ function ensureDock() {
   const o = overlayOpts(dockBounds());
   o.webPreferences = { preload: path.join(__dirname, "dock-preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false };
   dockWin = new BrowserWindow(o);
-  dockReady = false; dockIgn = true; dockRects = []; dockSig = ""; dockCurKey = "";
-  try { dockWin.setAlwaysOnTop(true, "screen-saver"); dockWin.setIgnoreMouseEvents(true, { forward: true }); } catch (_) {}
+  dockReady = false; dockIgn = false; dockActive = false; dockRepd = false; dockRects = []; dockSig = ""; dockCurKey = "";
+  try { dockWin.setAlwaysOnTop(true, "screen-saver"); } catch (_) {}
   dockWin.on("closed", () => { dockWin = null; dockReady = false; });
   dockWin.loadFile(path.join(__dirname, "dock.html"));
   return dockWin;
@@ -1964,8 +1997,8 @@ function dockResync() {
     try {
       if (!S.dock || !dockWin || dockWin.isDestroyed() || gmOn) return;
       placeDock(); dockVis();
-      if (dockWin.isVisible() && dockIgn) { dockWin.setAlwaysOnTop(true, "screen-saver"); dockWin.moveTop(); }   // kursor sedang di Dock: jangan ganggu klik
-      dockIgn = true; dockAssert = 0; dockCurKey = ""; dockWin.setIgnoreMouseEvents(true, { forward: true });
+      if (dockWin.isVisible() && !dockActive) { dockWin.setAlwaysOnTop(true, "screen-saver"); dockWin.moveTop(); }   // kursor sedang di Dock: jangan ganggu klik
+      dockCurKey = "";
       clearTimeout(dockT); dockTick();                       // dinilai ulang SEKARANG, tanpa jeda yang membuat klik hilang
     } catch (_) {}
   }, ms));
@@ -2076,26 +2109,54 @@ function dockTick() {
   let next = 140;
   try {
     if (dockReady && dockWin.isVisible()) {
-      const pt = screen.getCursorScreenPoint(), b = dockWin.getBounds(), d = screen.getPrimaryDisplay().bounds;
+      const pt = screen.getCursorScreenPoint(), a = dockAnchor(), d = screen.getPrimaryDisplay().bounds, p = dockPill();
+      const near = !!p && pt.x >= p.x - 110 && pt.x <= p.x + p.w + 110 && pt.y >= p.y - 48 && pt.y <= d.y + d.height;
+      const menu = dockRects.some(r => r.k === "m");
+      let b = dockWin.getBounds();
+      const inWin = pt.x >= b.x && pt.x < b.x + b.width && pt.y >= b.y && pt.y < b.y + b.height;
+      const act = near || (menu && inWin);
+      if (act !== dockActive) {
+        dockActive = act;
+        if (act) { try { dockWin.setAlwaysOnTop(true, "screen-saver"); dockWin.moveTop(); } catch (_) {} }   // kursor masuk Dock: pastikan Dock di paling atas
+        placeDock(); b = dockWin.getBounds();
+        dockCurKey = "";
+      }
+      const edge = !!S.dhide && pt.y >= d.y + d.height - 6 && pt.y < d.y + d.height && Math.abs(pt.x - a.ax) <= dockHomeW / 2 + 110;
       const x = pt.x - b.x, y = pt.y - b.y;
       const inb = x >= 0 && y >= 0 && x < b.width && y < b.height;
-      const edge = !!S.dhide && pt.y >= d.y + d.height - 6 && pt.y < d.y + d.height && pt.x >= b.x && pt.x < b.x + b.width;
-      let hit = false;
-      if (inb) hit = dockRects.some(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
-      if (hit === dockIgn) { dockIgn = !hit; dockAssert = 0; dockWin.setIgnoreMouseEvents(!hit, { forward: true }); }
-      else if (hit && ++dockAssert >= 30) { dockAssert = 0; dockWin.setIgnoreMouseEvents(false); }
       const key = (inb ? x + "," + y : "-") + (edge ? "e" : "");
       if (key !== dockCurKey) { dockCurKey = key; dockSend("cur", inb ? { x: x, y: y, edge: edge } : { x: -1, y: -1, edge: edge }); }
-      next = (inb || edge) ? 16 : 50;
+      next = (inb || edge || near) ? 16 : 50;
     }
   } catch (_) {}
   dockT = setTimeout(dockTick, next);
+}
+let dockPd = false;
+function dockHitNow() {
+  if (!S.dock || !dockWin || dockWin.isDestroyed() || !dockReady || !dockWin.isVisible()) return null;
+  const pt = screen.getCursorScreenPoint(), b = dockWin.getBounds();
+  const hit = dockRects.some(r => { if (r.k === "p") return false; const s = dockScr(r); return pt.x >= s.x - 4 && pt.x <= s.x + s.w + 4 && pt.y >= s.y - 4 && pt.y <= s.y + s.h + 4; });
+  return hit ? { x: pt.x - b.x, y: pt.y - b.y } : null;
+}
+// Jalur klik cadangan: tombol kiri dibaca langsung dari sistem, jadi Dock tetap bisa dipencet walau jendelanya gagal menerima event mouse.
+function dockBtn(l) {
+  if (l) {
+    const h = dockHitNow();
+    dockPd = !!h;
+    if (h) {
+      dockSend("pd", { d: 1, x: h.x, y: h.y });
+    }
+  } else if (dockPd) {
+    dockPd = false;
+    const pt = screen.getCursorScreenPoint(), b = dockWin && !dockWin.isDestroyed() ? dockWin.getBounds() : null;
+    if (b) dockSend("pd", { d: 0, x: pt.x - b.x, y: pt.y - b.y });
+  }
 }
 function keepDockTop() {
   if (dockTopT) return;
   dockTopT = setInterval(() => {
     if (gmOn || !S.dock || !dockWin || dockWin.isDestroyed() || !dockReady) return;
-    if (!dockIgn) return;                                    // kursor sedang di Dock: jangan ganggu klik yang berjalan
+    if (dockActive) return;                                  // kursor sedang di Dock: jangan ganggu klik yang berjalan
     try {
       placeDock();
       if (dockFs) return;
@@ -2375,9 +2436,30 @@ function mbVis(force) {
     if (want !== mbShown || moved || force) { mbShown = want; mbReserve(); }
   } catch (_) {}
 }
+// Penjaga klik Bar: jendela island (300 px tinggi) menumpuk di atas Bar. Saat kursor ada di Bar tapi bukan di pill island,
+// island dipaksa klik-tembus dan Bar dinaikkan; kalau kursor di pill island, island yang dinaikkan.
+let barGT = null, barOn = false, islInside = false;
+function startBarGuard() {
+  if (barGT) return;
+  barGT = setInterval(() => {
+    try {
+      if (gmOn || !S.mb || !mbWin || mbWin.isDestroyed() || !mbShown || !mbWin.isVisible()) { barOn = false; return; }
+      const pt = screen.getCursorScreenPoint(), b = mbBounds();
+      const on = pt.x >= b.x && pt.x < b.x + b.width && pt.y >= b.y && pt.y < b.y + b.height;
+      if (!on) { barOn = false; return; }
+      const islUp = !!(isl && !isl.isDestroyed() && isl.isVisible());
+      if (islUp && !islInside && !hubArmed) { try { isl.setIgnoreMouseEvents(true, { forward: true }); } catch (_) {} }
+      if (!barOn) {
+        barOn = true;
+        try { if (islUp && islInside) isl.moveTop(); else { mbWin.setAlwaysOnTop(true, "screen-saver"); mbWin.moveTop(); } } catch (_) {}
+      }
+    } catch (_) {}
+  }, 30);
+  if (barGT.unref) barGT.unref();
+}
 function applyMenubar() {
   if (!S.mb) { stopMenubar(); return; }
-  ensureMb(); ensureMbPop(); startSys();
+  ensureMb(); ensureMbPop(); startSys(); startBarGuard();
   try { globalShortcut.register("CommandOrControl+Alt+M", () => setOpt("mbhide", !S.mbhide)); } catch (_) {}
   if (!mbWifiT) { mbPollWifi(); mbWifiT = setInterval(mbPollWifi, 15000); }
   if (!mbTopT) mbTopT = setInterval(() => { if (gmOn) return; mbVis(); if (mbPopOn) return; if (mbWin && !mbWin.isDestroyed() && mbWin.isVisible() && !mbCursorOn()) { try { mbWin.setAlwaysOnTop(true, "screen-saver"); } catch (_) {} } }, 2000);
@@ -3183,6 +3265,7 @@ function bindIpc() {
   ipcMain.handle("fx:icon", (e, id) => (trusted(e) ? appIcon(String(id || "").slice(0, 400), 64) : ""));
   // dari jendela overlay
   ipcMain.on("fx:mouse", (e, inside) => {
+    if (isl && !isl.isDestroyed() && e.sender === isl.webContents) islInside = !!inside;
     if (hubArmed) return;
     if (isl && !isl.isDestroyed() && e.sender === isl.webContents) { try { isl.setIgnoreMouseEvents(!inside, { forward: true }); } catch (_) {} }
   });
@@ -3212,7 +3295,9 @@ function bindIpc() {
   });
   ipcMain.on("dock:rect", (e, r) => {
     if (!fromDock(e)) return;
-    dockRects = (Array.isArray(r) ? r : []).slice(0, 4).map(o => ({ x: Number(o && o.x), y: Number(o && o.y), w: Number(o && o.w), h: Number(o && o.h) })).filter(o => isFinite(o.x) && isFinite(o.y) && isFinite(o.w) && isFinite(o.h));
+    dockRepd = true;
+    dockRects = (Array.isArray(r) ? r : []).slice(0, 4).map(o => ({ x: Number(o && o.x), y: Number(o && o.y), w: Number(o && o.w), h: Number(o && o.h), k: String((o && o.k) || "u").slice(0, 1) })).filter(o => isFinite(o.x) && isFinite(o.y) && isFinite(o.w) && isFinite(o.h));
+    placeDock();
   });
   ipcMain.on("dock:act", (e, p) => { if (fromDock(e)) dockAct(p); });
   ipcMain.on("dock:hov", (e, h) => { if (!fromDock(e) || !h) return; try { if (dockIgn && dockWin && !dockWin.isDestroyed()) { dockIgn = false; dockAssert = 0; dockWin.setIgnoreMouseEvents(false); } } catch (_) {} });
@@ -3283,6 +3368,10 @@ function start(c) {
   applySpot();
   applyMc();
   if (S.gmode || S.curs) startSys();
+  if (!global.__curPm) {   // Windows bisa mengembalikan kursor ke bawaan setelah layar dikunci/tidur: pasang lagi sekali, bukan terus-menerus
+    global.__curPm = true;
+    try { const pm = require("electron").powerMonitor; ["unlock-screen", "resume"].forEach(ev => pm.on(ev, () => setTimeout(() => { try { applyCursor(); } catch (_) {} }, 1500))); } catch (_) {}
+  }
   startHot();
   applyAnim();
   applyAuto();
