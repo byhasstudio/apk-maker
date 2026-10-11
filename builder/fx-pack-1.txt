@@ -1071,12 +1071,12 @@ function niceName(n) {
 
 /* ----- pengelolaan proses ----- */
 function startSys() {
-  if (procs.sys || !(S.enabled || S.mb || S.gmode) || quitting) return;
+  if (procs.sys || !(S.enabled || S.mb || S.gmode || S.curs) || quitting) return;
   if (!sysExists()) { sysState = { ok: false, err: "fxsys.exe tidak ditemukan" }; return; }
   procs.sys = runHelper([], onSys, () => {
     procs.sys = null; sysState = { ok: false, err: sysState.err || "pembantu berhenti" };
     clearSysLive();
-    if ((S.enabled || S.mb || S.gmode) && !quitting && sysTries++ < 5) setTimeout(startSys, 3000);
+    if ((S.enabled || S.mb || S.gmode || S.curs) && !quitting && sysTries++ < 5) setTimeout(startSys, 3000);
   }, sysExe());
 }
 function stopSys() {
@@ -1149,7 +1149,7 @@ function setOpt(key, val) {
   if (key === "appnotif") applyAnim();
   if (key === "mb" || key === "mbres") { applyMenubar(); if (key === "mbres") mbVis(true); }
   else if (key === "mbhide") mbVis(true);
-            if (key === "gmode") { if (S.gmode) startSys(); gmApply(); if (!S.gmode && !S.enabled && !S.mb) stopSys(); }
+            if (key === "gmode") { if (S.gmode) startSys(); gmApply(); if (!S.gmode && !S.enabled && !S.mb && !S.curs) stopSys(); }
             if (key === "spot") applySpot();
             if (key === "lp") dockPush(true);
             if (key === "cc") mbSend("cfg", mbCfg());
@@ -1170,6 +1170,7 @@ function setOpt(key, val) {
     if (!S.rmon && !lag) delete L.mon;
   }
   refreshHub();
+  if (key === "curs") { if (S.curs) startSys(); else if (!S.enabled && !S.mb && !S.gmode) { applyCursor(); stopSys(); } }
   syncSysFlags(); applyCursor(); pushLive(); xhUpdate(); pmSync();
 }
 
@@ -2393,7 +2394,7 @@ function stopMenubar() {
   mbPop = null; mbPopReady = false;
   if (mbWin && !mbWin.isDestroyed()) { try { mbWin.destroy(); } catch (_) {} }
   mbWin = null; mbReady = false; mbShown = false;
-  if (!S.enabled && !S.gmode) stopSys();
+  if (!S.enabled && !S.gmode && !S.curs) stopSys();
 }
 /* ---------- Menu ala macOS di menu bar: menu Apple/aplikasi + File, Edit, View, Window, Help ---------- */
 function mbKeys(keys) {
@@ -3052,7 +3053,7 @@ function applyEnabled() {
   if (S.enabled) {
     ensureIsland(); startNotif(); startClip(); startKeys(); keepTop(); startCur(); startSys(); xhUpdate();
   } else {
-    stopNotif(); if (!S.mb && !S.gmode) stopSys(); xhStop(); destroyIsland(); stopClip(); stopKeys(); stopTop(); stopCur();
+    stopNotif(); if (!S.mb && !S.gmode && !S.curs) stopSys(); xhStop(); destroyIsland(); stopClip(); stopKeys(); stopTop(); stopCur();
   }
 }
 // Jalan otomatis saat Windows menyala (diam-diam, tanpa membuka jendela utama). Island ikut muncul lagi karena status "aktif" tersimpan.
@@ -3281,7 +3282,7 @@ function start(c) {
   applyMenubar();
   applySpot();
   applyMc();
-  if (S.gmode) startSys();
+  if (S.gmode || S.curs) startSys();
   startHot();
   applyAnim();
   applyAuto();
