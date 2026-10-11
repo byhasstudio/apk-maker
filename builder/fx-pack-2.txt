@@ -1,3 +1,19 @@
+=====FXFILE:cc-preload.js=====
+const { contextBridge, ipcRenderer } = require("electron");
+const IN = ["show", "dark", "dnd", "vol", "wifi", "bri", "out"], OUT = ["act", "h"];
+contextBridge.exposeInMainWorld("cc", {
+  on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("cc:" + ch, (_e, d) => cb(d)); },
+  send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("cc:" + ch, d); }
+});
+=====FXFILE:dock-preload.js=====
+"use strict";
+const { contextBridge, ipcRenderer } = require("electron");
+const IN = ["cfg", "items", "icons", "cur"];
+const OUT = ["act", "rect", "ready", "hov"];
+contextBridge.exposeInMainWorld("fxd", {
+  on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("dock:" + ch, (_e, d) => cb(d)); },
+  send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("dock:" + ch, d); }
+});
 =====FXFILE:fxdock.cs=====
 // fxdock.exe - pembantu Dock macOS untuk Windows (dikompilasi dengan csc.exe bawaan Windows, C# 5).
 // JANGAN pakai sintaks baru (?., $"", out var, dll).
@@ -2645,6 +2661,32 @@ static class CursorFx
         SystemParametersInfo(0x0057, 0, IntPtr.Zero, 0);
     }
 }
+=====FXFILE:i18n.js=====
+"use strict";
+// Bahasa untuk island, menu tray, dan pesan dari proses utama. Kunci = teks Indonesia asli.
+const LANGS = ["id", "en", "ms", "ja", "zh", "es"];
+const IDX = { en: 0, ms: 1, ja: 2, zh: 3, es: 4 };
+const LOC = { id: "id-ID", en: "en-US", ms: "ms-MY", ja: "ja-JP", zh: "zh-CN", es: "es-ES" };
+const D = {"Tidak ada jendela terbuka":["No open windows","Tiada tetingkap dibuka","開いているウィンドウはありません","没有打开的窗口","No hay ventanas abiertas"],"Diminimalkan":["Minimized","Diminimumkan","最小化中","已最小化","Minimizada"],"Menu Start":["Start menu","Menu Mula","スタートメニュー","开始菜单","Menú Inicio"],"Tampilkan/sembunyikan taskbar":["Show/hide taskbar","Tunjuk/sembunyi bar tugas","タスクバーの表示/非表示","显示/隐藏任务栏","Mostrar/ocultar barra de tareas"],"Simpan di Dock":["Keep in Dock", "Simpan dalam Dock", "Dock に残す", "保留在程序坞", "Mantener en el Dock"],"Hapus dari Dock":["Remove from Dock", "Alih keluar daripada Dock", "Dock から削除", "从程序坞移除", "Quitar del Dock"],"Tutup":["Close", "Tutup", "閉じる", "关闭", "Cerrar"],"Unduhan":["Downloads", "Muat turun", "ダウンロード", "下载", "Descargas"],"Tempat sampah":["Recycle Bin", "Tong kitar semula", "ごみ箱", "回收站", "Papelera de reciclaje"],"Dock macOS":["macOS-style Dock", "Dock gaya macOS", "macOS 風 Dock", "macOS 风格程序坞", "Dock estilo macOS"],"fxdock.exe tidak ditemukan":["fxdock.exe not found", "fxdock.exe tidak ditemui", "fxdock.exe が見つかりません", "找不到 fxdock.exe", "No se encontró fxdock.exe"],"fxhelper.exe tidak ditemukan":["fxhelper.exe not found","fxhelper.exe tidak ditemui","fxhelper.exe が見つかりません","找不到 fxhelper.exe","No se encontró fxhelper.exe"],"fxsys.exe tidak ditemukan":["fxsys.exe not found","fxsys.exe tidak ditemui","fxsys.exe が見つかりません","找不到 fxsys.exe","No se encontró fxsys.exe"],"pembaca berhenti":["reader stopped","pembaca berhenti","リーダーが停止しました","读取器已停止","el lector se detuvo"],"pembantu berhenti":["helper stopped","pembantu berhenti","ヘルパーが停止しました","辅助程序已停止","el ayudante se detuvo"],"PresentMon tidak ada":["PresentMon not found","PresentMon tiada","PresentMon が見つかりません","未找到 PresentMon","PresentMon no encontrado"],"Database notifikasi Windows tidak ditemukan":["Windows notification database not found","Pangkalan data pemberitahuan Windows tidak ditemui","Windows の通知データベースが見つかりません","未找到 Windows 通知数据库","No se encontró la base de datos de notificaciones de Windows"],"Jangan ganggu aktif":["Do Not Disturb on","Jangan ganggu aktif","サイレントモード オン","勿扰已开启","No molestar activado"],"Notifikasi tidak ditampilkan di island":["Notifications are not shown in the island","Pemberitahuan tidak dipaparkan di island","通知はアイランドに表示されません","通知不会显示在岛上","Las notificaciones no se muestran en la isla"],"Jangan ganggu mati":["Do Not Disturb off","Jangan ganggu dimatikan","サイレントモード オフ","勿扰已关闭","No molestar desactivado"],"Notifikasi tampil lagi":["Notifications show again","Pemberitahuan dipaparkan semula","通知が再び表示されます","通知将再次显示","Las notificaciones vuelven a mostrarse"],"Aplikasi dibuka":["App opened","Aplikasi dibuka","アプリを開きました","应用已打开","Aplicación abierta"],"baru saja":["just now","baru sahaja","たった今","刚刚","ahora mismo"],"tadi":["earlier","tadi","先ほど","刚才","antes"],"sekarang":["now","sekarang","今","现在","ahora"],"Notifikasi":["Notification","Pemberitahuan","通知","通知","Notificación"],"Disalin":["Copied","Disalin","コピーしました","已复制","Copiado"],"Gambar disalin":["Image copied","Imej disalin","画像をコピーしました","图片已复制","Imagen copiada"],"Papan klip":["Clipboard","Papan keratan","クリップボード","剪贴板","Portapapeles"],"Ketuk: tempel":["Tap: paste","Ketik: tampal","タップで貼り付け","点按粘贴","Toca: pegar"],"Merekam layar / audio":["Recording screen / audio","Merakam skrin / audio","画面 / 音声を録画中","正在录制屏幕 / 音频","Grabando pantalla / audio"],"Mikrofon dipakai":["Microphone in use","Mikrofon digunakan","マイクを使用中","麦克风使用中","Micrófono en uso"],"Kamera dipakai":["Camera in use","Kamera digunakan","カメラを使用中","摄像头使用中","Cámara en uso"],"Sedang aktif":["Currently active","Sedang aktif","現在アクティブ","当前活动","Activo ahora"],"Privasi":["Privacy","Privasi","プライバシー","隐私","Privacidad"],"Audio sedang diputar":["Audio is playing","Audio sedang dimainkan","オーディオを再生中","正在播放音频","Reproduciendo audio"],"Suara dari PC":["Sound from the PC","Bunyi dari PC","PC からの音","来自电脑的声音","Sonido del PC"],"Audio":["Audio","Audio","オーディオ","音频","Audio"],"Selesai":["Done","Selesai","完了","完成","Listo"],"{n} · proses rampung":["{n} · process finished","{n} · proses selesai","{n} · 処理が完了しました","{n} · 处理完成","{n} · proceso terminado"],"Progres":["Progress","Kemajuan","進捗","进度","Progreso"],"Sedang berjalan":["In progress","Sedang berjalan","実行中","进行中","En curso"],"FPS akurat butuh izin":["Accurate FPS needs permission","FPS tepat perlukan kebenaran","正確な FPS には権限が必要です","精确 FPS 需要授权","Los FPS precisos necesitan permiso"],"Buka pengaturan lalu tekan \"Beri izin FPS\" (sekali saja)":["Open settings and press \"Grant FPS permission\" (only once)","Buka tetapan kemudian tekan \"Beri kebenaran FPS\" (sekali sahaja)","設定を開いて「FPS の権限を付与」を押してください（一度だけ）","打开设置并点击“授予 FPS 权限”（仅一次）","Abre los ajustes y pulsa \"Conceder permiso de FPS\" (solo una vez)"],"Izin diminta":["Permission requested","Kebenaran diminta","権限をリクエストしました","已请求授权","Permiso solicitado"],"Setujui jendela admin (Yes). Hasilnya aku cek otomatis.":["Approve the admin window (Yes). I will check the result automatically.","Luluskan tetingkap admin (Yes). Hasilnya saya semak secara automatik.","管理者ウィンドウで「はい」を選んでください。結果は自動で確認します。","请在管理员窗口中点击“是”。结果会自动检查。","Aprueba la ventana de administrador (Sí). Comprobaré el resultado automáticamente."],"Izin belum masuk":["Permission not granted","Kebenaran belum diberi","権限が付与されていません","尚未获得授权","Permiso no concedido"],"Jendela admin tadi ditolak atau ditutup. Tekan Beri izin FPS lagi lalu pilih Yes.":["The admin window was declined or closed. Press Grant FPS permission again and choose Yes.","Tetingkap admin tadi ditolak atau ditutup. Tekan Beri kebenaran FPS sekali lagi dan pilih Yes.","管理者ウィンドウが拒否されたか閉じられました。もう一度「FPS の権限を付与」を押し、「はい」を選んでください。","管理员窗口被拒绝或已关闭。请再次点击“授予 FPS 权限”并选择“是”。","La ventana de administrador se rechazó o se cerró. Pulsa Conceder permiso de FPS de nuevo y elige Sí."],"Izin FPS aktif":["FPS permission active","Kebenaran FPS aktif","FPS の権限が有効です","FPS 权限已生效","Permiso de FPS activo"],"Sudah berlaku di sesi ini. Buka game, lalu tandai sebagai game di pengaturan bila belum muncul.":["Already in effect for this session. Open a game, then mark it as a game in settings if it does not appear.","Sudah berkuat kuasa dalam sesi ini. Buka permainan, kemudian tandakan sebagai permainan dalam tetapan jika belum muncul.","このセッションですでに有効です。ゲームを開き、表示されない場合は設定でゲームとして登録してください。","此会话中已生效。打开游戏后，如果没有出现，请在设置中将其标记为游戏。","Ya está activo en esta sesión. Abre un juego y, si no aparece, márcalo como juego en los ajustes."],"Izin terpasang":["Permission installed","Kebenaran dipasang","権限を設定しました","权限已安装","Permiso instalado"],"Tinggal keluar-masuk (sign out) Windows sekali supaya berlaku.":["Just sign out of Windows and back in once to make it take effect.","Tinggal log keluar dan masuk semula Windows sekali supaya berkuat kuasa.","あとは Windows からサインアウトして再度サインインすれば有効になります。","只需注销并重新登录一次 Windows 即可生效。","Solo cierra sesión en Windows y vuelve a entrar una vez para que surta efecto."],"Ditandai sebagai game":["Marked as a game","Ditandai sebagai permainan","ゲームとして登録しました","已标记为游戏","Marcado como juego"],"Bukan game":["Not a game","Bukan permainan","ゲームではありません","不是游戏","No es un juego"],"Game":["Game","Permainan","ゲーム","游戏","Juego"],"Waktu antar frame":["Frame time","Masa antara bingkai","フレームタイム","帧间隔时间","Tiempo entre fotogramas"],"Game mode: {s}":["Game mode: {s}","Mod permainan: {s}","ゲームモード: {s}","游戏模式：{s}","Modo juego: {s}"],"Crosshair: {s}":["Crosshair: {s}","Crosshair: {s}","クロスヘア: {s}","准星：{s}","Mira: {s}"],"nyala":["on","hidup","オン","开","activada"],"mati":["off","mati","オフ","关","desactivada"],"Sembunyikan":["Hide","Sembunyikan","非表示","隐藏","Ocultar"],"PC terasa berat":["The PC feels sluggish","PC terasa berat","PC の動作が重くなっています","电脑有些卡顿","El PC va lento"],"Pemakaian sistem":["System usage","Penggunaan sistem","システム使用状況","系统占用","Uso del sistema"],"Paling banyak memakai memori":["Using the most memory","Paling banyak menggunakan memori","メモリ使用量が多い順","内存占用最多","Mayor uso de memoria"],"End Task":["End Task","Tamatkan Tugas","タスクを終了","结束任务","Finalizar tarea"],"↓ Unduh":["↓ Download","↓ Muat turun","↓ ダウンロード","↓ 下载","↓ Descarga"],"↑ Unggah":["↑ Upload","↑ Muat naik","↑ アップロード","↑ 上传","↑ Subida"],"Cerah":["Clear","Cerah","晴れ","晴","Despejado"],"Cerah berawan":["Mostly clear","Cerah berawan","晴れ時々曇り","晴间多云","Mayormente despejado"],"Berawan sebagian":["Partly cloudy","Separa mendung","一部曇り","局部多云","Parcialmente nublado"],"Mendung":["Overcast","Mendung","曇り","阴","Nublado"],"Berkabut":["Foggy","Berkabus","霧","有雾","Niebla"],"Kabut beku":["Freezing fog","Kabus beku","着氷性の霧","冻雾","Niebla helada"],"Gerimis ringan":["Light drizzle","Renyai ringan","弱い霧雨","小毛毛雨","Llovizna ligera"],"Gerimis":["Drizzle","Renyai","霧雨","毛毛雨","Llovizna"],"Gerimis lebat":["Heavy drizzle","Renyai lebat","強い霧雨","大毛毛雨","Llovizna intensa"],"Gerimis beku":["Freezing drizzle","Renyai beku","着氷性の霧雨","冻毛毛雨","Llovizna helada"],"Hujan ringan":["Light rain","Hujan ringan","小雨","小雨","Lluvia ligera"],"Hujan":["Rain","Hujan","雨","雨","Lluvia"],"Hujan lebat":["Heavy rain","Hujan lebat","大雨","大雨","Lluvia intensa"],"Hujan beku":["Freezing rain","Hujan beku","着氷性の雨","冻雨","Lluvia helada"],"Salju ringan":["Light snow","Salji ringan","弱い雪","小雪","Nieve ligera"],"Salju":["Snow","Salji","雪","雪","Nieve"],"Salju lebat":["Heavy snow","Salji lebat","大雪","大雪","Nieve intensa"],"Butiran salju":["Snow grains","Butiran salji","雪あられ","米雪","Granos de nieve"],"Hujan sebentar":["Rain showers","Hujan sekejap","にわか雨","阵雨","Chubascos"],"Hujan deras":["Violent rain showers","Hujan lebat mendadak","激しいにわか雨","强阵雨","Chubascos fuertes"],"Salju sebentar":["Snow showers","Salji sekejap","にわか雪","阵雪","Chubascos de nieve"],"Badai petir":["Thunderstorm","Ribut petir","雷雨","雷暴","Tormenta"],"Badai petir + es":["Thunderstorm with hail","Ribut petir dengan hujan batu","雹を伴う雷雨","雷暴伴冰雹","Tormenta con granizo"],"Kota tidak ditemukan":["City not found","Bandar tidak ditemui","都市が見つかりません","找不到该城市","Ciudad no encontrada"],"Lokasi tidak terdeteksi":["Location not detected","Lokasi tidak dikesan","場所を検出できません","无法检测位置","Ubicación no detectada"],"Cuaca belum bisa dimuat":["Weather could not be loaded yet","Cuaca belum dapat dimuatkan","天気をまだ読み込めません","暂时无法加载天气","Aún no se puede cargar el clima"],"Cuaca tidak tersedia":["Weather unavailable","Cuaca tidak tersedia","天気情報がありません","天气不可用","Clima no disponible"],"Terasa {a}° · Lembap {b}%":["Feels like {a}° · Humidity {b}%","Terasa {a}° · Kelembapan {b}%","体感 {a}° · 湿度 {b}%","体感 {a}° · 湿度 {b}%","Sensación {a}° · Humedad {b}%"],"Angin {a} km/j":["Wind {a} km/h","Angin {a} km/j","風 {a} km/h","风速 {a} km/h","Viento {a} km/h"],"Hujan {a}%":["Rain {a}%","Hujan {a}%","降水 {a}%","降雨 {a}%","Lluvia {a}%"],"T {a}° / R {b}°":["H {a}° / L {b}°","T {a}° / R {b}°","最高 {a}° / 最低 {b}°","高 {a}° / 低 {b}°","Máx {a}° / Mín {b}°"],"Lepaskan di sini":["Drop here","Lepaskan di sini","ここにドロップ","放在这里","Suelta aquí"],"Kantong sementara":["Temporary shelf","Rak sementara","一時置き場","临时暂存区","Bandeja temporal"],"Seret file, gambar, atau teks ke sini":["Drag a file, image, or text here","Seret fail, gambar atau teks ke sini","ファイル・画像・テキストをここにドラッグ","将文件、图片或文本拖到这里","Arrastra un archivo, imagen o texto aquí"],"Tarik keluar untuk menempel ke aplikasi lain":["Drag out to paste into another app","Tarik keluar untuk menampal ke aplikasi lain","外にドラッグして別のアプリに貼り付け","拖出即可粘贴到其他应用","Arrastra hacia fuera para pegar en otra aplicación"],"Baterai":["Battery","Bateri","バッテリー","电池","Batería"],"Mengisi daya":["Charging","Mengecas","充電中","正在充电","Cargando"],"Daya dicabut":["Unplugged","Pengecas dicabut","電源を取り外しました","已拔出电源","Desconectado"],"Baterai {n}%":["Battery {n}%","Bateri {n}%","バッテリー {n}%","电量 {n}%","Batería {n}%"],"Baterai penuh":["Battery full","Bateri penuh","バッテリー満充電","电量已满","Batería llena"],"Bisa dicabut dari charger":["You can unplug the charger","Boleh cabut pengecas","充電器を外せます","可以拔掉充电器了","Puedes desconectar el cargador"],"Baterai kritis":["Battery critical","Bateri kritikal","バッテリー残量わずか","电量严重不足","Batería crítica"],"Baterai lemah":["Battery low","Bateri lemah","バッテリー残量低下","电量低","Batería baja"],"{n}% tersisa":["{n}% left","{n}% berbaki","残り {n}%","剩余 {n}%","{n}% restante"],"Buka":["Open","Buka","開く","打开","Abrir"],"Jalan otomatis saat Windows menyala":["Start automatically with Windows","Berjalan automatik semasa Windows dihidupkan","Windows 起動時に自動で実行","Windows 启动时自动运行","Iniciar automáticamente con Windows"],"Animasi buka/tutup jendela":["Window open/close animation","Animasi buka/tutup tetingkap","ウィンドウ開閉アニメーション","窗口打开/关闭动画","Animación al abrir/cerrar ventanas"],"Jangan ganggu (Ctrl+Alt+N)":["Do Not Disturb (Ctrl+Alt+N)","Jangan ganggu (Ctrl+Alt+N)","サイレント（Ctrl+Alt+N）","勿扰（Ctrl+Alt+N）","No molestar (Ctrl+Alt+N)"],"Ikon desktop":["Desktop icons","Ikon desktop","デスクトップアイコン","桌面图标","Iconos del escritorio"],"Keluar":["Quit","Keluar","終了","退出","Salir"]};
+Object.assign(D, {"Pengalih Aplikasi":["Application Switcher","Penukar Aplikasi","アプリスイッチャー","应用切换器","Selector de aplicaciones"],"Tidak ada aplikasi terbuka":["No open apps","Tiada aplikasi dibuka","開いているアプリはありません","没有打开的应用","No hay aplicaciones abiertas"],"Paksa Keluar Aplikasi":["Force Quit Applications","Paksa Keluar Aplikasi","アプリを強制終了","强制退出应用程序","Forzar salida de aplicaciones"],"Jika sebuah aplikasi tidak merespons, pilih lalu klik Paksa Keluar.":["If an app is not responding, select it and click Force Quit.","Jika aplikasi tidak bertindak balas, pilih dan klik Paksa Keluar.","アプリが応答しない場合は、選択して「強制終了」をクリックします。","如果应用没有响应，请选择它并点击“强制退出”。","Si una aplicación no responde, selecciónala y haz clic en Forzar salida."],"Paksa Keluar":["Force Quit","Paksa Keluar","強制終了","强制退出","Forzar salida"],"Batal":["Cancel","Batal","キャンセル","取消","Cancelar"],"Tidak merespons":["Not responding","Tidak bertindak balas","応答なし","无响应","No responde"],"Paksa keluar dari {n}? Perubahan yang belum disimpan akan hilang.":["Force quit {n}? Unsaved changes will be lost.","Paksa keluar {n}? Perubahan yang belum disimpan akan hilang.","{n} を強制終了しますか？保存されていない変更は失われます。","要强制退出 {n} 吗？未保存的更改将会丢失。","¿Forzar salida de {n}? Se perderán los cambios sin guardar."],"Tangkapan Layar":["Screenshot","Tangkapan Skrin","スクリーンショット","截屏","Captura de pantalla"],"Tangkapan layar disimpan":["Screenshot saved","Tangkapan skrin disimpan","スクリーンショットを保存しました","截屏已保存","Captura guardada"],"Seluruh layar":["Entire screen","Seluruh skrin","画面全体","整个屏幕","Pantalla completa"],"Area terpilih":["Selected portion","Bahagian dipilih","選択範囲","所选区域","Porción seleccionada"],"Timer":["Timer","Pemasa","タイマー","定时","Temporizador"],"Tanpa timer":["No timer","Tiada pemasa","タイマーなし","无定时","Sin temporizador"],"{n} dtk":["{n} sec","{n} saat","{n}秒","{n} 秒","{n} s"],"Salin ke papan klip":["Copy to clipboard","Salin ke papan keratan","クリップボードにコピー","复制到剪贴板","Copiar al portapapeles"],"Seret untuk memilih area · Esc untuk batal":["Drag to select an area · Esc to cancel","Seret untuk pilih kawasan · Esc untuk batal","ドラッグして範囲を選択 · Esc でキャンセル","拖动选择区域 · 按 Esc 取消","Arrastra para elegir un área · Esc para cancelar"],"Klik untuk membuka":["Click to open","Klik untuk buka","クリックして開く","点击打开","Haz clic para abrir"],"Catatan Cepat":["Quick Note","Nota Pantas","クイックメモ","快速备忘录","Nota rápida"],"Tulis sesuatu…":["Write something…","Tulis sesuatu…","何か書いてください…","写点什么…","Escribe algo…"],"Salin":["Copy","Salin","コピー","复制","Copiar"],"Kosongkan":["Clear","Kosongkan","クリア","清空","Borrar"],"{n} karakter":["{n} characters","{n} aksara","{n} 文字","{n} 个字符","{n} caracteres"],"Night Shift menyala":["Night Shift on","Night Shift hidup","Night Shift オン","夜览已开启","Night Shift activado"],"Night Shift mati":["Night Shift off","Night Shift mati","Night Shift オフ","夜览已关闭","Night Shift desactivado"],"Kunci Layar":["Lock Screen","Kunci Skrin","画面をロック","锁定屏幕","Bloquear pantalla"]});
+Object.assign(D, {"Desktop": ["Desktop", "Desktop", "デスクトップ", "桌面", "Escritorio"], "Lanjut": ["Continue", "Teruskan", "続行", "继续", "Continuar"], "Tentang PC ini": ["About This PC", "Perihal PC Ini", "このPCについて", "关于本机", "Acerca de este PC"], "Pengaturan Sistem…": ["System Settings…", "Tetapan Sistem…", "システム設定…", "系统设置…", "Configuración del sistema…"], "Paksa Keluar…": ["Force Quit…", "Paksa Keluar…", "強制終了…", "强制退出…", "Forzar salida…"], "Tidur": ["Sleep", "Tidur", "スリープ", "睡眠", "Suspender"], "Mulai Ulang…": ["Restart…", "Mulakan Semula…", "再起動…", "重新启动…", "Reiniciar…"], "Mulai ulang PC sekarang?": ["Restart the PC now?", "Mulakan semula PC sekarang?", "今すぐ PC を再起動しますか？", "现在重新启动电脑吗？", "¿Reiniciar el PC ahora?"], "Matikan…": ["Shut Down…", "Matikan…", "シャットダウン…", "关机…", "Apagar…"], "Matikan PC sekarang?": ["Shut down the PC now?", "Matikan PC sekarang?", "今すぐ PC をシャットダウンしますか？", "现在关闭电脑吗？", "¿Apagar el PC ahora?"], "Keluar dari Akun…": ["Sign Out…", "Log Keluar Akaun…", "サインアウト…", "注销账户…", "Cerrar sesión…"], "Keluar dari akun Windows sekarang?": ["Sign out of Windows now?", "Log keluar akaun Windows sekarang?", "今すぐ Windows からサインアウトしますか？", "现在注销 Windows 账户吗？", "¿Cerrar la sesión de Windows ahora?"], "Tutup Jendela": ["Close Window", "Tutup Tetingkap", "ウィンドウを閉じる", "关闭窗口", "Cerrar ventana"], "Paksa keluar dari {a}?": ["Force quit {a}?", "Paksa keluar dari {a}?", "{a} を強制終了しますか？", "强制退出 {a}？", "¿Forzar salida de {a}?"], "Baru": ["New", "Baharu", "新規", "新建", "Nuevo"], "Buka…": ["Open…", "Buka…", "開く…", "打开…", "Abrir…"], "Simpan": ["Save", "Simpan", "保存", "保存", "Guardar"], "Simpan Sebagai…": ["Save As…", "Simpan Sebagai…", "名前を付けて保存…", "另存为…", "Guardar como…"], "Cetak…": ["Print…", "Cetak…", "印刷…", "打印…", "Imprimir…"], "Tutup Tab": ["Close Tab", "Tutup Tab", "タブを閉じる", "关闭标签页", "Cerrar pestaña"], "Urungkan": ["Undo", "Buat Asal", "元に戻す", "撤销", "Deshacer"], "Ulangi": ["Redo", "Buat Semula", "やり直す", "重做", "Rehacer"], "Potong": ["Cut", "Potong", "切り取り", "剪切", "Cortar"], "Tempel": ["Paste", "Tampal", "貼り付け", "粘贴", "Pegar"], "Pilih Semua": ["Select All", "Pilih Semua", "すべてを選択", "全选", "Seleccionar todo"], "Temukan…": ["Find…", "Cari…", "検索…", "查找…", "Buscar…"], "Muat Ulang": ["Reload", "Muat Semula", "再読み込み", "重新加载", "Recargar"], "Layar Penuh": ["Full Screen", "Skrin Penuh", "全画面表示", "全屏", "Pantalla completa"], "Perbesar": ["Zoom In", "Zum Masuk", "拡大", "放大", "Acercar"], "Perkecil": ["Zoom Out", "Zum Keluar", "縮小", "缩小", "Alejar"], "Ukuran Sebenarnya": ["Actual Size", "Saiz Sebenar", "実際のサイズ", "实际大小", "Tamaño real"], "Minimalkan": ["Minimize", "Minimumkan", "最小化", "最小化", "Minimizar"], "Zoom (Maksimalkan)": ["Zoom (Maximize)", "Zum (Maksimumkan)", "ズーム（最大化）", "缩放（最大化）", "Zoom (maximizar)"], "Pulihkan": ["Restore", "Pulihkan", "復元", "还原", "Restaurar"], "Bantuan": ["Help", "Bantuan", "ヘルプ", "帮助", "Ayuda"], "Enter untuk menyalin": ["Press Enter to copy", "Tekan Enter untuk menyalin", "Enter でコピー", "按 Enter 复制", "Enter para copiar"], "Aplikasi": ["Application", "Aplikasi", "アプリ", "应用", "Aplicación"], "Cari": ["Search", "Cari", "検索", "搜索", "Buscar"], "Tidak ada hasil": ["No results", "Tiada hasil", "結果なし", "无结果", "Sin resultados"], "Memuat aplikasi...": ["Loading apps...", "Memuatkan aplikasi...", "アプリを読み込み中...", "正在加载应用...", "Cargando aplicaciones..."], "Pusat Kontrol": ["Control Center", "Pusat Kawalan", "コントロールセンター", "控制中心", "Centro de control"], "Mode gelap": ["Dark Mode", "Mod Gelap", "ダークモード", "深色模式", "Modo oscuro"], "Jangan ganggu": ["Do Not Disturb", "Jangan Ganggu", "サイレント", "勿扰", "No molestar"], "Volume": ["Volume", "Kelantangan", "音量", "音量", "Volumen"], "Kecerahan": ["Brightness", "Kecerahan", "明るさ", "亮度", "Brillo"], "Aktif": ["On", "Hidup", "オン", "开", "Activado"], "Mati": ["Off", "Mati", "オフ", "关", "Desactivado"], "Tidak terhubung": ["Not connected", "Tidak bersambung", "未接続", "未连接", "Sin conexión"], "Tidak didukung di layar ini": ["Not supported on this display", "Tidak disokong pada skrin ini", "このディスプレイでは非対応", "此显示器不支持", "No compatible con esta pantalla"], "Hapus semua": ["Clear all", "Padam semua", "すべて削除", "全部清除", "Borrar todo"], "Tidak ada notifikasi": ["No notifications", "Tiada pemberitahuan", "通知はありません", "没有通知", "No hay notificaciones"], "Spotlight: cari aplikasi, file, atau hitung": ["Spotlight: search apps, files, or calculate", "Spotlight: cari aplikasi, fail, atau kira", "Spotlight: アプリ・ファイルの検索や計算", "Spotlight：搜索应用、文件或进行计算", "Spotlight: busca aplicaciones, archivos o calcula"], "Seret untuk memilih area \u00B7 Esc untuk batal": ["Drag to select an area \u00B7 Esc to cancel", "Seret untuk memilih kawasan \u00B7 Esc untuk batal", "ドラッグして範囲を選択 \u00B7 Esc でキャンセル", "拖动以选择区域 \u00B7 按 Esc 取消", "Arrastra para elegir un área \u00B7 Esc para cancelar"], "Tulis sesuatu\u2026": ["Write something\u2026", "Tulis sesuatu\u2026", "何か書いてください\u2026", "写点什么\u2026", "Escribe algo\u2026"]});
+Object.assign(D, {"Tidur…": ["Sleep…", "Tidur…", "スリープ…", "睡眠…", "Suspender…"], "Hibernasi…": ["Hibernate…", "Hibernasi…", "休止状態…", "休眠…", "Hibernar…"], "Hibernasi": ["Hibernate", "Hibernasi", "休止状態", "休眠", "Hibernar"], "Mulai Ulang": ["Restart", "Mulakan Semula", "再起動", "重新启动", "Reiniciar"], "Matikan": ["Shut Down", "Matikan", "シャットダウン", "关机", "Apagar"], "Keluar dari Akun": ["Sign Out", "Log Keluar Akaun", "サインアウト", "注销账户", "Cerrar sesión"], "Paksa Keluar": ["Force Quit", "Paksa Keluar", "強制終了", "强制退出", "Forzar salida"], "PC akan masuk mode tidur.": ["The PC will go to sleep.", "PC akan masuk mod tidur.", "PC がスリープ状態になります。", "电脑将进入睡眠状态。", "El PC pasará a suspensión."], "Layar mati dan PC masuk mode hemat daya.": ["The screen turns off and the PC enters low-power mode.", "Skrin dimatikan dan PC masuk mod jimat kuasa.", "画面が消え、PC は省電力モードになります。", "屏幕关闭，电脑进入低功耗模式。", "La pantalla se apaga y el PC entra en modo de bajo consumo."], "Aplikasi dan dokumen tetap terbuka, tidak ada yang ditutup.": ["Apps and documents stay open; nothing is closed.", "Aplikasi dan dokumen kekal terbuka, tiada yang ditutup.", "アプリとドキュメントは開いたままで、何も閉じられません。", "应用和文档保持打开，不会关闭任何内容。", "Las aplicaciones y los documentos siguen abiertos; no se cierra nada."], "Tekan tombol power atau gerakkan mouse untuk membangunkan.": ["Press the power button or move the mouse to wake it.", "Tekan butang kuasa atau gerakkan tetikus untuk membangunkannya.", "電源ボタンを押すかマウスを動かすと復帰します。", "按电源键或移动鼠标即可唤醒。", "Pulsa el botón de encendido o mueve el ratón para reactivarlo."], "PC akan disimpan ke disk lalu mati.": ["The PC will save its state to disk and power off.", "PC akan menyimpan keadaan ke cakera lalu mati.", "PC は状態をディスクに保存して電源を切ります。", "电脑会把状态保存到磁盘后关机。", "El PC guardará su estado en el disco y se apagará."], "Isi memori disimpan ke disk, lalu PC mati total (tanpa daya).": ["Memory is saved to disk, then the PC powers off completely.", "Kandungan memori disimpan ke cakera, kemudian PC mati sepenuhnya.", "メモリの内容をディスクに保存し、PC の電源が完全に切れます。", "内存内容会保存到磁盘，然后电脑完全关机。", "La memoria se guarda en el disco y el PC se apaga por completo."], "Aplikasi dan dokumen terbuka kembali saat PC dinyalakan.": ["Apps and documents reopen when the PC is turned on.", "Aplikasi dan dokumen dibuka semula apabila PC dihidupkan.", "PC を起動するとアプリとドキュメントが元の状態で再開されます。", "开机后应用和文档会恢复打开。", "Las aplicaciones y los documentos se restauran al encender el PC."], "Fitur hibernasi harus aktif di Windows; kalau belum, perintah ini tidak berefek.": ["Hibernation must be enabled in Windows; otherwise this does nothing.", "Ciri hibernasi mesti diaktifkan dalam Windows; jika belum, arahan ini tidak berkesan.", "Windows で休止状態が有効になっている必要があります。無効の場合は何も起こりません。", "需要在 Windows 中启用休眠功能，否则此操作无效。", "La hibernación debe estar activada en Windows; si no, esto no hace nada."], "PC akan dimulai ulang.": ["The PC will restart.", "PC akan dimulakan semula.", "PC が再起動されます。", "电脑将重新启动。", "El PC se reiniciará."], "Semua aplikasi akan ditutup, lalu PC menyala kembali.": ["All apps will be closed, then the PC starts again.", "Semua aplikasi akan ditutup, kemudian PC hidup semula.", "すべてのアプリが閉じられ、PC が再び起動します。", "所有应用将被关闭，然后电脑重新启动。", "Se cerrarán todas las aplicaciones y el PC volverá a encenderse."], "Pekerjaan yang belum disimpan bisa hilang.": ["Unsaved work may be lost.", "Kerja yang belum disimpan mungkin hilang.", "保存していない作業は失われる可能性があります。", "未保存的工作可能会丢失。", "El trabajo sin guardar puede perderse."], "Windows mungkin memasang pembaruan yang tertunda sebelum menyala kembali.": ["Windows may install pending updates before starting again.", "Windows mungkin memasang kemas kini tertunda sebelum hidup semula.", "再起動前に保留中の更新プログラムがインストールされる場合があります。", "Windows 可能会在重新启动前安装待处理的更新。", "Windows puede instalar actualizaciones pendientes antes de volver a iniciar."], "PC akan dimatikan.": ["The PC will shut down.", "PC akan dimatikan.", "PC がシャットダウンされます。", "电脑将关机。", "El PC se apagará."], "Semua aplikasi akan ditutup, lalu PC mati total.": ["All apps will be closed, then the PC powers off completely.", "Semua aplikasi akan ditutup, kemudian PC mati sepenuhnya.", "すべてのアプリが閉じられ、PC の電源が完全に切れます。", "所有应用将被关闭，然后电脑完全关机。", "Se cerrarán todas las aplicaciones y el PC se apagará por completo."], "Nyalakan kembali lewat tombol power.": ["Turn it back on with the power button.", "Hidupkan semula melalui butang kuasa.", "再び使うには電源ボタンで起動してください。", "需要按电源键重新开机。", "Vuelve a encenderlo con el botón de encendido."], "Akun Windows ini akan keluar.": ["This Windows account will sign out.", "Akaun Windows ini akan log keluar.", "この Windows アカウントからサインアウトします。", "此 Windows 账户将注销。", "Se cerrará la sesión de esta cuenta de Windows."], "Semua aplikasi milik akun ini akan ditutup.": ["All apps of this account will be closed.", "Semua aplikasi akaun ini akan ditutup.", "このアカウントのすべてのアプリが閉じられます。", "此账户的所有应用都将关闭。", "Se cerrarán todas las aplicaciones de esta cuenta."], "Kamu kembali ke layar masuk Windows.": ["You return to the Windows sign-in screen.", "Anda kembali ke skrin log masuk Windows.", "Windows のサインイン画面に戻ります。", "将返回 Windows 登录界面。", "Volverás a la pantalla de inicio de sesión de Windows."], "{a} akan dihentikan paksa.": ["{a} will be force-quit.", "{a} akan dihentikan secara paksa.", "{a} が強制終了されます。", "{a} 将被强制结束。", "{a} se cerrará a la fuerza."], "{a} dihentikan seketika tanpa menyimpan.": ["{a} stops immediately without saving.", "{a} dihentikan serta-merta tanpa menyimpan.", "{a} は保存せずに即座に終了します。", "{a} 会立即结束，不会保存。", "{a} se detiene al instante sin guardar."], "Data di {a} yang belum disimpan akan hilang.": ["Unsaved data in {a} will be lost.", "Data dalam {a} yang belum disimpan akan hilang.", "{a} の未保存のデータは失われます。", "{a} 中未保存的数据将丢失。", "Se perderán los datos sin guardar de {a}."], "Aplikasi lain tidak terpengaruh.": ["Other apps are not affected.", "Aplikasi lain tidak terjejas.", "他のアプリには影響しません。", "其他应用不受影响。", "Las demás aplicaciones no se ven afectadas."], "Apa yang akan terjadi": ["What will happen", "Apa yang akan berlaku", "実行される内容", "将会发生什么", "Qué va a pasar"], "Tunda": ["Delay", "Tangguh", "待機時間", "延迟", "Retraso"], "Langsung": ["Now", "Serta-merta", "すぐに", "立即", "Ahora"], "{n} detik": ["{n} sec", "{n} saat", "{n} 秒", "{n} 秒", "{n} s"], "{n} menit": ["{n} min", "{n} minit", "{n} 分", "{n} 分钟", "{n} min"], "Paksa tutup aplikasi yang masih terbuka": ["Force-close apps that are still open", "Paksa tutup aplikasi yang masih terbuka", "開いているアプリを強制的に閉じる", "强制关闭仍在运行的应用", "Forzar el cierre de las aplicaciones abiertas"], "Aplikasi tidak akan bertanya \"simpan?\" lagi. Data yang belum disimpan hilang.": ["Apps will not ask to save. Unsaved data is lost.", "Aplikasi tidak akan bertanya \"simpan?\". Data yang belum disimpan hilang.", "アプリは保存の確認をしません。未保存のデータは失われます。", "应用不会再询问是否保存，未保存的数据将丢失。", "Las aplicaciones no preguntarán si guardar. Se pierden los datos sin guardar."], "Batalkan": ["Cancel", "Batalkan", "キャンセル", "取消", "Cancelar"], "Lanjutkan": ["Continue", "Teruskan", "続行", "继续", "Continuar"], "Lanjutkan sekarang": ["Continue now", "Teruskan sekarang", "今すぐ実行", "立即继续", "Continuar ahora"], "Detik tersisa. Simpan pekerjaanmu sekarang.": ["Seconds left. Save your work now.", "Saat berbaki. Simpan kerja anda sekarang.", "残り秒数です。今すぐ作業を保存してください。", "剩余秒数。请立即保存你的工作。", "Segundos restantes. Guarda tu trabajo ahora."]});
+const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+const ok = l => LANGS.indexOf(l) >= 0;
+function t(lang, k, v) {
+  let r = k == null ? "" : String(k);
+  if (r && has(D, r) && has(IDX, lang)) r = D[r][IDX[lang]] || D[r][0] || r;
+  if (v) for (const n in v) r = r.split("{" + n + "}").join(String(v[n]));
+  return r;
+}
+// kamus untuk jendela island (satu bahasa saja, supaya ringan dikirim lewat IPC)
+function pack(lang) {
+  const o = {};
+  if (!has(IDX, lang)) return o;
+  for (const k in D) o[k] = D[k][IDX[lang]] || D[k][0];
+  return o;
+}
+module.exports = { LANGS, t, pack, ok, loc: l => LOC[l] || "id-ID", geo: l => (ok(l) ? l : "id") };
 =====FXFILE:island.html=====
 <!doctype html>
 <html><head><meta charset="utf-8">
@@ -3420,13 +3462,6 @@ function LT(k, v) {
 })();
 </script>
 </body></html>
-=====FXFILE:launchpad-preload.js=====
-const { contextBridge, ipcRenderer } = require("electron");
-const IN = ["show", "apps", "icon", "out"], OUT = ["icons", "run", "hide"];
-contextBridge.exposeInMainWorld("lpad", {
-  on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("lp:" + ch, (_e, d) => cb(d)); },
-  send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("lp:" + ch, d); }
-});
 =====FXFILE:launchpad.html=====
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Launchpad</title>
@@ -3548,56 +3583,6 @@ contextBridge.exposeInMainWorld("lpad", {
   window.lpad.on("icon", function (d) { if (d && /^data:image\/png;base64,/.test(d.v)) { icons[d.i] = d.v; setIcon(d.i); } });
 })();
 </script></body></html>
-=====FXFILE:m2-bar.html=====
-<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Toolbar Tangkapan Layar</title>
-<style>
-  :root { --bg:rgba(38,38,44,.92); --fg:#f5f5f7; --dim:rgba(255,255,255,.6); --ln:rgba(255,255,255,.14); --hv:rgba(255,255,255,.14); }
-  body.lt { --bg:rgba(246,246,250,.94); --fg:#1d1d1f; --dim:rgba(0,0,0,.55); --ln:rgba(0,0,0,.1); --hv:rgba(0,0,0,.08); }
-  * { box-sizing:border-box; margin:0; user-select:none; -webkit-user-select:none; }
-  html, body { height:100%; overflow:hidden; background:transparent; font:13px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; color:var(--fg); }
-  body { padding:8px; }
-  #bar { height:100%; display:flex; align-items:center; gap:4px; padding:0 10px; background:var(--bg); border:1px solid var(--ln); border-radius:16px; box-shadow:0 12px 36px rgba(0,0,0,.4); opacity:0; transform:translateY(10px); transition:opacity .15s, transform .2s cubic-bezier(.2,.9,.25,1.15); }
-  #bar.in { opacity:1; transform:none; }
-  button { font:inherit; color:inherit; background:transparent; border:0; border-radius:10px; padding:6px 12px; cursor:pointer; display:flex; align-items:center; gap:6px; white-space:nowrap; }
-  button:hover { background:var(--hv); } button.on { background:var(--hv); }
-  .sp { width:1px; height:26px; background:var(--ln); margin:0 6px; flex:none; }
-  #cd { display:none; flex:1; justify-content:center; font-size:30px; font-weight:600; }
-  svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
-</style></head>
-<body><div id="bar">
-  <button id="x" title="Esc"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button><span class="sp"></span>
-  <button id="full"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="13" rx="2"/><path d="M8 21h8"/></svg><span id="lf"></span></button>
-  <button id="area"><svg viewBox="0 0 24 24"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4" stroke-dasharray="0"/><rect x="8" y="8" width="8" height="8" rx="1" stroke-dasharray="2 2"/></svg><span id="la"></span></button>
-  <span class="sp"></span>
-  <button id="tm"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 3h6"/></svg><span id="lt"></span></button>
-  <button id="cl"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1"/></svg><span id="lc"></span></button>
-  <div id="cd"></div>
-</div>
-<script>
-(function () {
-  var $ = function (i) { return document.getElementById(i); }, L = {}, tm = 0, clip = false, busy = false;
-  function ui() { $("lt").textContent = tm ? (L.sec || "{n}").replace("{n}", tm) : (L.timer || ""); $("tm").classList.toggle("on", tm > 0); $("cl").classList.toggle("on", clip); }
-  $("x").onclick = function () { window.m2.send("close"); };
-  $("full").onclick = function () { if (!busy) window.m2.send("go", "full"); };
-  $("area").onclick = function () { if (!busy) window.m2.send("go", "area"); };
-  $("tm").onclick = function () { tm = tm === 0 ? 5 : tm === 5 ? 10 : 0; window.m2.send("timer", tm); ui(); };
-  $("cl").onclick = function () { clip = !clip; window.m2.send("clip", clip); ui(); };
-  addEventListener("keydown", function (e) { if (e.key === "Escape") window.m2.send("close"); });
-  window.m2.on("show", function (d) {
-    L = d.L || {}; tm = d.timer | 0; clip = !!d.clip; busy = false;
-    document.body.classList.toggle("lt", !!d.light);
-    $("lf").textContent = L.full || ""; $("la").textContent = L.area || ""; $("lc").textContent = L.clip || ""; ui();
-    $("cd").style.display = "none"; [].forEach.call(document.querySelectorAll("#bar > button, #bar > .sp"), function (e) { e.style.display = ""; });
-    var b = $("bar"); b.className = ""; void b.offsetWidth; b.className = "in";
-  });
-  window.m2.on("count", function (n) {
-    busy = true;
-    [].forEach.call(document.querySelectorAll("#bar > button, #bar > .sp"), function (e) { e.style.display = "none"; });
-    $("cd").style.display = "flex"; $("cd").textContent = n;
-  });
-})();
-</script></body></html>
 =====FXFILE:m2-note.html=====
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Catatan Cepat</title>
@@ -3641,6 +3626,62 @@ contextBridge.exposeInMainWorld("lpad", {
     setTimeout(function () { var t = $("ta"); t.focus(); t.setSelectionRange(t.value.length, t.value.length); }, 60);
   });
   window.m2.on("out", function () { $("box").className = "out"; });
+})();
+</script></body></html>
+=====FXFILE:m2-saver.html=====
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Screen Saver</title>
+<style>
+  * { margin:0; box-sizing:border-box; user-select:none; -webkit-user-select:none; }
+  html, body { height:100%; overflow:hidden; background:#000; cursor:none; font-family:"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif; color:#fff; }
+  #root { position:fixed; inset:0; opacity:0; transition:opacity .5s ease; } #root.in { opacity:1; } #root.out { opacity:0; transition:opacity .35s ease; }
+  .bl { position:absolute; border-radius:50%; filter:blur(90px); opacity:.85; will-change:transform; }
+  #b1 { width:55vmax; height:55vmax; left:-10vmax; top:-14vmax; background:#5e5ce6; animation:m1 28s ease-in-out infinite alternate; }
+  #b2 { width:50vmax; height:50vmax; right:-12vmax; top:5vmax; background:#ff375f; animation:m2 34s ease-in-out infinite alternate; }
+  #b3 { width:48vmax; height:48vmax; left:10vmax; bottom:-18vmax; background:#0a84ff; animation:m3 31s ease-in-out infinite alternate; }
+  #b4 { width:38vmax; height:38vmax; right:8vmax; bottom:-10vmax; background:#ff9f0a; animation:m4 37s ease-in-out infinite alternate; }
+  @keyframes m1 { to { transform:translate(38vw,30vh) scale(1.2); } } @keyframes m2 { to { transform:translate(-40vw,22vh) scale(.9); } }
+  @keyframes m3 { to { transform:translate(36vw,-34vh) scale(1.15); } } @keyframes m4 { to { transform:translate(-30vw,-38vh) scale(1.25); } }
+  #drift { position:absolute; inset:0; background:#101018; overflow:hidden; }
+  #ck { position:absolute; left:0; top:0; text-align:center; transition:transform 2s ease; will-change:transform; }
+  #tm { font-weight:200; font-size:min(22vw,320px); letter-spacing:-.02em; line-height:1; text-shadow:0 4px 40px rgba(0,0,0,.35); }
+  #dd { margin-top:1.2vmin; font-size:min(3.2vw,44px); font-weight:300; opacity:.8; }
+  #msg { position:absolute; left:0; top:0; font-size:min(8vw,120px); font-weight:300; text-align:center; max-width:90vw; transition:transform 3s ease; }
+  .dk { background:#000; }
+</style></head>
+<body><div id="root"><div id="drift"><div class="bl" id="b1"></div><div class="bl" id="b2"></div><div class="bl" id="b3"></div><div class="bl" id="b4"></div></div>
+<div id="ck"><div id="tm"></div><div id="dd"></div></div><div id="msg"></div></div>
+<script>
+(function () {
+  var $ = function (i) { return document.getElementById(i); }, cfg = {}, t0 = 0, tick = null, ready = false;
+  function fmt() {
+    var n = new Date(), o = { hour: "2-digit", minute: "2-digit", hour12: !cfg.h24 };
+    try { $("tm").textContent = n.toLocaleTimeString(cfg.loc || undefined, o).replace(/^0(?=\d:)/, ""); $("dd").textContent = n.toLocaleDateString(cfg.loc || undefined, { weekday: "long", day: "numeric", month: "long" }); }
+    catch (e) { $("tm").textContent = n.getHours() + ":" + ("0" + n.getMinutes()).slice(-2); }
+  }
+  function place(el, pad) {
+    var w = el.offsetWidth, h = el.offsetHeight, mx = Math.max(0, innerWidth - w - pad * 2), my = Math.max(0, innerHeight - h - pad * 2);
+    el.style.transform = "translate(" + Math.round(pad + Math.random() * mx) + "px," + Math.round(pad + Math.random() * my) + "px)";
+  }
+  function wander() { if (cfg.style === "clock") place($("ck"), 20); else if (cfg.style === "text") place($("msg"), 30); }
+  window.m2.on("init", function (d) {
+    cfg = d || {}; t0 = Date.now();
+    var st = cfg.style, drift = st === "drift";
+    $("drift").style.display = drift ? "block" : "none"; if (!drift) $("root").classList.add("dk");
+    $("msg").style.display = st === "text" ? "block" : "none";
+    $("ck").style.display = (st === "text" && cfg.text) ? "none" : (st === "drift" && !cfg.main ? "none" : "block");
+    if (st === "drift") { $("ck").style.left = "50%"; $("ck").style.top = "50%"; $("ck").style.transform = "translate(-50%,-50%)"; $("ck").style.transition = "none"; }
+    $("msg").textContent = cfg.text || "";
+    fmt(); clearInterval(tick); tick = setInterval(fmt, 1000);
+    if (!drift) { setTimeout(wander, 50); setInterval(wander, 45000); }
+    requestAnimationFrame(function () { $("root").classList.add("in"); ready = true; });
+  });
+  window.m2.on("out", function () { $("root").classList.remove("in"); $("root").classList.add("out"); });
+  function dismiss() { if (ready && Date.now() - t0 > 900) window.m2.send("dismiss"); }
+  var lx = -1, ly = -1;
+  addEventListener("mousemove", function (e) { if (lx < 0) { lx = e.screenX; ly = e.screenY; return; } if (Math.abs(e.screenX - lx) + Math.abs(e.screenY - ly) > 12) dismiss(); });
+  addEventListener("mousedown", dismiss); addEventListener("keydown", dismiss); addEventListener("wheel", dismiss, { passive: true });
+  addEventListener("touchstart", dismiss, { passive: true });
 })();
 </script></body></html>
 =====FXFILE:m2-shot.html=====
@@ -3762,473 +3803,122 @@ contextBridge.exposeInMainWorld("m2", {
   on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("m2:" + ch, (_e, d) => cb(d)); },
   send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("m2:msg", { c: ch, d: d }); }
 });
-=====FXFILE:mac2.js=====
-"use strict";
-// Fitur macOS tambahan (semuanya baru, tidak menduplikasi modul yang sudah ada):
-// Pengalih Aplikasi (Cmd+Tab), Screenshot (Cmd+Shift+3/4/5), Force Quit, Night Shift, Screen Saver, Quick Note.
-const { BrowserWindow, screen, globalShortcut, ipcMain, desktopCapturer, clipboard, shell, powerMonitor, app } = require("electron");
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const { execFile } = require("child_process");
-
-const D2 = { asw: true, shot: true, shotclip: false, shotsnd: true, shotthumb: true, fq: true, ns: false, nsw: 40, nssch: true, nsfrom: "21:00", nsto: "07:00", ss: false, ssmin: 5, ssstyle: "drift", sstext: "", qn: true };
-const BOOL = ["asw", "shot", "shotclip", "shotsnd", "shotthumb", "fq", "ns", "nssch", "ss", "qn"];
-const PROTECTED = ["explorer", "applicationframehost", "dwm", "searchhost", "searchapp", "startmenuexperiencehost", "shellexperiencehost", "textinputhost", "lockapp", "systemsettings", "fxdock", "fxsys", "fxhelper", "csrss", "winlogon", "svchost"];
-
-module.exports = function (X) {
-  const S = () => X.S();
-  const g = k => { const v = S()[k]; return v === undefined ? D2[k] : v; };
-  const T = (k, v) => X.T(k, v);
-  const owns = k => Object.prototype.hasOwnProperty.call(D2, k);
-  const alive = w => !!w && !w.isDestroyed();
-  const send = (w, ch, d) => { if (alive(w)) { try { w.webContents.send("m2:" + ch, d); } catch (_) {} } };
-  const hm = s => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || "")); return m ? Math.min(23, +m[1]) * 60 + Math.min(59, +m[2]) : 0; };
-  const base = p => String(p || "").replace(/^.*[\\\/]/, "").toLowerCase();
-  const own = { exe: "" };
-  try { own.exe = path.basename(process.execPath).replace(/\.exe$/i, "").toLowerCase(); } catch (_) {}
-
-  /* ---------- jendela & pesan ---------- */
-  const W = { sw: null, fq: null, shot: null, bar: null, thumb: null, note: null };
-  const byWc = new Map(), ready = {}, pend = {};
-  let ssWins = [], tints = new Map(), regd = [];
-
-  function mk(name, opts, file, extra) {
-    const o = Object.assign({
-      show: false, frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false,
-      fullscreenable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false, backgroundColor: "#00000000", title: "",
-      webPreferences: { preload: path.join(__dirname, "mac2-preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false }
-    }, opts);
-    const w = new BrowserWindow(o);
-    const id = w.webContents.id;
-    byWc.set(id, name); ready[id] = false; pend[id] = [];
-    try { w.setAlwaysOnTop(true, "screen-saver"); } catch (_) {}
-    w.webContents.once("did-finish-load", () => { ready[id] = true; const q = pend[id] || []; pend[id] = []; q.forEach(m => send(w, m[0], m[1])); if (extra && extra.onLoad) extra.onLoad(w); });
-    w.on("closed", () => { byWc.delete(id); delete ready[id]; delete pend[id]; if (W[name] === w) W[name] = null; });
-    w.loadFile(path.join(__dirname, file));
-    return w;
-  }
-  function post(w, ch, d) {
-    if (!alive(w)) return;
-    const id = w.webContents.id;
-    if (ready[id]) send(w, ch, d); else (pend[id] = pend[id] || []).push([ch, d]);
-  }
-  const wcName = e => byWc.get(e.sender.id) || "";
-  function wins() {
-    const l = [];
-    ["sw", "fq", "shot", "bar", "thumb", "note"].forEach(k => { if (alive(W[k])) l.push(W[k]); });
-    ssWins.forEach(w => { if (alive(w)) l.push(w); });
-    tints.forEach(w => { if (alive(w)) l.push(w); });
-    return l;
-  }
-  function popup(w) { try { w.setAlwaysOnTop(true, "screen-saver"); w.show(); w.focus(); w.webContents.focus(); } catch (_) {} }
-  const cursorDisp = () => { try { return screen.getDisplayNearestPoint(screen.getCursorScreenPoint()); } catch (_) { return screen.getPrimaryDisplay(); } };
-  const light = () => S().dtheme === "light";
-
-  /* ---------- daftar aplikasi (dipakai Pengalih & Force Quit) ---------- */
-  function nameOf(w) { if (w.a) return X.pretty(w.a); const b = base(w.x); return b ? X.nice(b) : "App"; }
-  function groups(cb) {
-    X.snap(m => {
-      if (!m || !Array.isArray(m.l)) { cb(null); return; }
-      const ow = X.own(), fg = Number(m.fg) || 0, map = new Map(), arr = [];
-      m.l.forEach(w => {
-        if (!w || !Number.isInteger(w.h) || typeof w.x !== "string" || ow.has(String(w.h))) return;
-        const id = w.a || w.x;
-        if (!id) return;
-        const k = String(id).toLowerCase();
-        let gp = map.get(k);
-        if (!gp) { gp = { k: k, id: id, x: w.x, a: w.a || "", name: nameOf(w), ws: [], fg: false }; map.set(k, gp); arr.push(gp); }
-        gp.ws.push({ h: w.h, m: !!w.m });
-        if (w.h === fg) gp.fg = true;
-      });
-      arr.sort((a, b) => (b.fg ? 1 : 0) - (a.fg ? 1 : 0));
-      cb(arr);
+=====FXFILE:mbpop.html=====
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Menu</title>
+<style>
+  :root { --bg:rgba(246,246,248,.96); --fg:#1d1d1f; --dim:rgba(0,0,0,.5); --hv:#0a84ff; --ln:rgba(0,0,0,.14); --card:#fff; --chip:rgba(0,0,0,.06); --warn:#b25e00; }
+  @media (prefers-color-scheme: dark) { :root { --bg:rgba(40,40,45,.97); --fg:#f5f5f7; --dim:rgba(255,255,255,.55); --ln:rgba(255,255,255,.16); --card:#2a2a2f; --chip:rgba(255,255,255,.1); --warn:#ffb340; } }
+  * { box-sizing:border-box; margin:0; user-select:none; -webkit-user-select:none; }
+  html, body { height:100%; overflow:hidden; background:transparent; }
+  body { font:400 13px/1.35 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; color:var(--fg); }
+  #back { position:fixed; inset:0; }
+  #back.dim { background:rgba(0,0,0,.3); }
+  #menu { position:fixed; min-width:230px; max-width:360px; padding:5px; border-radius:10px; background:var(--bg); border:1px solid var(--ln); box-shadow:0 14px 38px rgba(0,0,0,.35); display:none; backdrop-filter:blur(20px); }
+  .mi { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:4px 12px; border-radius:6px; cursor:default; white-space:nowrap; }
+  .mi:hover { background:var(--hv); color:#fff; }
+  .mi.off { color:var(--dim); pointer-events:none; }
+  .mi .ac { color:var(--dim); font-size:12px; } .mi:hover .ac { color:rgba(255,255,255,.8); }
+  .ms { height:1px; background:var(--ln); margin:5px 8px; }
+  #dlg { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); width:440px; max-width:94vw; padding:22px; border-radius:16px; background:var(--card); border:1px solid var(--ln); box-shadow:0 24px 60px rgba(0,0,0,.45); display:none; }
+  #dlg h1 { font-size:17px; font-weight:700; margin-bottom:4px; }
+  #dlg .lead { color:var(--dim); margin-bottom:12px; }
+  #dlg h2 { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--dim); margin:12px 0 6px; }
+  #dlg ul { padding-left:18px; } #dlg li { margin:3px 0; }
+  .row { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { padding:5px 11px; border-radius:999px; background:var(--chip); cursor:default; font-size:12.5px; border:1px solid transparent; }
+  .chip.on { background:rgba(10,132,255,.16); border-color:#0a84ff; color:#0a84ff; font-weight:600; }
+  .chk { display:flex; gap:9px; align-items:flex-start; margin-top:12px; cursor:default; }
+  .box { width:18px; height:18px; border-radius:5px; border:1.5px solid var(--dim); flex:none; margin-top:1px; display:flex; align-items:center; justify-content:center; font-size:13px; color:#fff; }
+  .chk.on .box { background:#0a84ff; border-color:#0a84ff; }
+  .chk small { display:block; color:var(--warn); font-size:12px; margin-top:2px; }
+  .btns { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+  .btn { padding:8px 20px; border-radius:9px; font-weight:600; background:var(--chip); cursor:default; }
+  .btn:hover { filter:brightness(1.08); }
+  .btn.go { background:#0a84ff; color:#fff; } .btn.go.red { background:#ff453a; }
+  .hide { display:none !important; }
+  body.count #back { background:transparent; }
+  body.count #dlg { left:10px; top:10px; transform:none; width:320px; padding:16px; border-radius:14px; }
+  #cnt { font-size:30px; font-weight:700; text-align:center; margin:6px 0 2px; font-variant-numeric:tabular-nums; }
+</style></head>
+<body>
+<div id="back"></div>
+<div id="menu"></div>
+<div id="dlg">
+  <div id="d-main">
+    <h1 id="d-title"></h1><div class="lead" id="d-lead"></div>
+    <h2 id="d-wh"></h2><ul id="d-what"></ul>
+    <div id="d-opts">
+      <div id="d-dl"><h2 id="d-dlh"></h2><div class="row" id="d-delay"></div></div>
+      <div class="chk" id="d-force"><div class="box"></div><div><span id="d-fl"></span><small id="d-fw"></small></div></div>
+    </div>
+    <div class="btns"><div class="btn" id="d-cancel"></div><div class="btn go" id="d-go"></div></div>
+  </div>
+  <div id="d-count" class="hide">
+    <h1 id="c-title"></h1><div id="cnt"></div><div class="lead" id="c-lead" style="text-align:center"></div>
+    <div class="btns"><div class="btn" id="c-cancel"></div><div class="btn go" id="c-now"></div></div>
+  </div>
+</div>
+<script>
+(function () {
+  var $ = function (i) { return document.getElementById(i); };
+  var P = window.mpop, cur = null, st = { delay: 0, force: false };
+  function down(el, fn) { el.addEventListener("mousedown", function (e) { if (e.button !== 0) return; e.preventDefault(); e.stopPropagation(); fn(e); }); }
+  function reset() { $("menu").style.display = "none"; $("dlg").style.display = "none"; $("back").className = ""; document.body.className = ""; $("d-main").classList.remove("hide"); $("d-count").classList.add("hide"); cur = null; }
+  down($("back"), function () { P.send("close", 1); });
+  P.on("reset", reset);
+  P.on("menu", function (m) {
+    reset();
+    var el = $("menu"); el.innerHTML = "";
+    m.items.forEach(function (it) {
+      var d = document.createElement("div");
+      if (it.s) { d.className = "ms"; el.appendChild(d); return; }
+      d.className = "mi" + (it.e ? "" : " off");
+      var l = document.createElement("span"); l.textContent = it.l; d.appendChild(l);
+      if (it.a) { var a = document.createElement("span"); a.className = "ac"; a.textContent = it.a; d.appendChild(a); }
+      if (it.e) down(d, function () { P.send("pick", it.i); });
+      el.appendChild(d);
+    });
+    el.style.display = "block"; el.style.left = "0px"; el.style.top = "0px";
+    var w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.max(4, Math.min(m.x, innerWidth - w - 6)) + "px";
+    el.style.top = Math.max(0, Math.min(m.y + 2, innerHeight - h - 6)) + "px";
+  });
+  function chips() {
+    var box = $("d-delay"); box.innerHTML = "";
+    cur.delays.forEach(function (o) {
+      var c = document.createElement("div"); c.className = "chip" + (st.delay === o.v ? " on" : ""); c.textContent = o.l;
+      down(c, function () { st.delay = o.v; chips(); P.send("pw", { a: "cfg", delay: st.delay, force: st.force }); });
+      box.appendChild(c);
     });
   }
-  function sendIcons(w, list, ch) {
-    const done = new Set();
-    list.forEach((it, i) => {
-      if (done.has(it.k)) return; done.add(it.k);
-      const isDrive = /^[a-z]:[\\\/]/i.test(String(it.x || ""));
-      const p = isDrive ? X.exeIcon(it.x) : X.icon(it.a || it.id, 96);
-      Promise.resolve(p).then(v => { if (v) post(w, ch || "icons", { i: i, v: v }); }).catch(() => {});
-    });
-  }
-
-  /* ================= Pengalih Aplikasi ================= */
-  let swList = [], swSeq = 0;
-  function swVisible() { return alive(W.sw) && W.sw.isVisible(); }
-  function switcher(fromKey) {
-    if (swVisible()) { if (fromKey) post(W.sw, "next", 1); else swHide(); return; }
-    const seq = ++swSeq;
-    groups(list => {
-      if (seq !== swSeq) return;
-      swList = list || [];
-      const d = cursorDisp(), wa = d.workArea;
-      const n = Math.max(1, swList.length), cell = 104, w = Math.min(wa.width - 40, n * cell + 48), h = 176;
-      const b = { x: Math.round(wa.x + (wa.width - w) / 2), y: Math.round(wa.y + (wa.height - h) / 2), width: Math.round(w), height: h };
-      if (!alive(W.sw)) W.sw = mk("sw", b, "m2-switcher.html"); else { try { W.sw.setBounds(b); } catch (_) {} }
-      post(W.sw, "show", {
-        items: swList.map((it, i) => ({ i: i, name: it.name, run: it.ws.length, min: it.ws.every(x => x.m) })), sel: swList.length > 1 ? 1 : 0, light: light(),
-        L: { none: T("Tidak ada aplikasi terbuka"), quit: T("Keluar"), hide: T("Sembunyikan") }
-      });
-      popup(W.sw);
-      sendIcons(W.sw, swList);
-    });
-  }
-  function swHide() { if (alive(W.sw) && W.sw.isVisible()) { post(W.sw, "out", 1); const w = W.sw; setTimeout(() => { try { if (alive(w)) w.hide(); } catch (_) {} }, 140); } }
-  function swFocus(gp) { const t = gp.ws.find(x => !x.m) || gp.ws[0]; if (t) X.cmd("focus " + t.h); }
-
-  /* ================= Force Quit ================= */
-  let fqList = [];
-  const killable = gp => { const b = base(gp.x).replace(/\.exe$/, ""); return /\.exe$/i.test(gp.x) && /^[\w .()-]{1,80}$/.test(b) && PROTECTED.indexOf(b) < 0 && b !== own.exe; };
-  function forceQuit() {
-    if (alive(W.fq) && W.fq.isVisible()) { fqHide(); return; }
-    groups(list => {
-      fqList = (list || []).filter(killable);
-      const d = cursorDisp(), wa = d.workArea, w = 460, h = 480;
-      const b = { x: Math.round(wa.x + (wa.width - w) / 2), y: Math.round(wa.y + (wa.height - h) / 2), width: w, height: h };
-      if (!alive(W.fq)) W.fq = mk("fq", b, "m2-fq.html"); else { try { W.fq.setBounds(b); } catch (_) {} }
-      fqPush();
-      popup(W.fq);
-      sendIcons(W.fq, fqList);
-      fqResp();
-    });
-  }
-  function fqPush() {
-    post(W.fq, "show", {
-      items: fqList.map((it, i) => ({ i: i, name: it.name })), light: light(),
-      L: { title: T("Paksa Keluar Aplikasi"), sub: T("Jika sebuah aplikasi tidak merespons, pilih lalu klik Paksa Keluar."), kill: T("Paksa Keluar"), cancel: T("Batal"), none: T("Tidak ada aplikasi terbuka"), nr: T("Tidak merespons"), ask: T("Paksa keluar dari {n}? Perubahan yang belum disimpan akan hilang.") }
-    });
-  }
-  function fqResp() {
-    const ps = "Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and -not $_.Responding } | ForEach-Object { $_.ProcessName }";
-    try {
-      execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps], { windowsHide: true, timeout: 8000 }, (_e, out) => {
-        const bad = String(out || "").split(/\r?\n/).map(s => s.trim().toLowerCase()).filter(Boolean);
-        if (!bad.length) return;
-        const idx = [];
-        fqList.forEach((it, i) => { if (bad.indexOf(base(it.x).replace(/\.exe$/, "")) >= 0) idx.push(i); });
-        post(W.fq, "nr", idx);
-      });
-    } catch (_) {}
-  }
-  function fqHide() { if (alive(W.fq) && W.fq.isVisible()) { post(W.fq, "out", 1); const w = W.fq; setTimeout(() => { try { if (alive(w)) w.hide(); } catch (_) {} }, 140); } }
-  function fqKill(i) {
-    const it = fqList[i | 0];
-    if (!it || !killable(it)) return;
-    const exe = base(it.x);
-    if (!/^[\w .()-]{1,80}\.exe$/i.test(exe)) return;
-    try { execFile("taskkill", ["/IM", exe, "/F"], { windowsHide: true }, () => {}); } catch (_) {}
-    setTimeout(() => {
-      groups(list => { fqList = (list || []).filter(killable); fqPush(); sendIcons(W.fq, fqList); fqResp(); });
-    }, 900);
-  }
-
-  /* ================= Night Shift ================= */
-  let tintT = null, tintHidden = false;
-  function nsActive() {
-    if (!g("ns")) return false;
-    if (!g("nssch")) return true;
-    const n = new Date(), cur = n.getHours() * 60 + n.getMinutes(), a = hm(g("nsfrom")), b = hm(g("nsto"));
-    if (a === b) return false;
-    return a < b ? (cur >= a && cur < b) : (cur >= a || cur < b);
-  }
-  const tintCss = () => "rgba(255,147,41," + (Math.max(5, Math.min(80, +g("nsw") || 40)) / 100 * 0.4).toFixed(3) + ")";
-  const TINT_HTML = "<!doctype html><meta charset=utf-8><title></title><style>html,body{margin:0;height:100%;overflow:hidden}body{background:rgba(255,147,41,0);transition:background 1.4s ease}</style>";
-  function tintApply() {
-    const want = nsActive() && !X.gm() && !X.full() && !tintHidden;
-    if (!want) { tints.forEach(w => { try { if (alive(w)) w.hide(); } catch (_) {} }); return; }
-    const ds = screen.getAllDisplays(), ids = new Set(ds.map(d => d.id));
-    tints.forEach((w, id) => { if (!ids.has(id)) { try { w.destroy(); } catch (_) {} tints.delete(id); } });
-    ds.forEach(d => {
-      let w = tints.get(d.id);
-      if (!alive(w)) {
-        w = new BrowserWindow({ x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height, show: false, frame: false, transparent: true, resizable: false, movable: false, focusable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false, backgroundColor: "#00000000", title: "", webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
-        try { w.setAlwaysOnTop(true, "screen-saver"); w.setIgnoreMouseEvents(true); } catch (_) {}
-        w.once("ready-to-show", () => { try { w.showInactive(); } catch (_) {} setTimeout(() => tintColor(w), 30); });
-        w.on("closed", () => { if (tints.get(d.id) === w) tints.delete(d.id); });
-        w.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(TINT_HTML));
-        tints.set(d.id, w);
-      } else {
-        try { w.setBounds(d.bounds); if (!w.isVisible()) w.showInactive(); w.setAlwaysOnTop(true, "screen-saver"); } catch (_) {}
-        tintColor(w);
-      }
-    });
-  }
-  function tintColor(w) { try { w.webContents.executeJavaScript("document.body.style.background='" + tintCss() + "'").catch(() => {}); } catch (_) {} }
-  function tintHide(on) { tintHidden = !!on; if (on) tints.forEach(w => { try { if (alive(w)) w.hide(); } catch (_) {} }); else tintApply(); }
-  function nsToggle() {
-    set("ns", !g("ns"));
-    try { X.showIsland({ title: T(g("ns") ? "Night Shift menyala" : "Night Shift mati"), text: "", app: "Night Shift", icon: X.svg("#ff9f0a", "\u263E"), appId: "", quiet: true }); } catch (_) {}
-  }
-  function nsStart() { if (!tintT) tintT = setInterval(tintApply, 30000); tintApply(); }
-  function nsStop() { if (tintT) { clearInterval(tintT); tintT = null; } tints.forEach(w => { try { if (alive(w)) w.destroy(); } catch (_) {} }); tints.clear(); }
-
-  /* ================= Screenshot ================= */
-  let shotBusy = false, shotImg = null, shotDisp = null, barT = null, barOpt = { timer: 0 };
-  const pad = v => String(v).padStart(2, "0");
-  function stamp() { const n = new Date(); return n.getFullYear() + "-" + pad(n.getMonth() + 1) + "-" + pad(n.getDate()) + " at " + pad(n.getHours()) + "." + pad(n.getMinutes()) + "." + pad(n.getSeconds()); }
-  function outDir() { try { return app.getPath("desktop"); } catch (_) { return os.homedir(); } }
-  function uniq(f) {
-    if (!fs.existsSync(f)) return f;
-    const e = path.extname(f), b = f.slice(0, f.length - e.length);
-    for (let i = 2; i < 100; i++) { if (!fs.existsSync(b + " " + i + e)) return b + " " + i + e; }
-    return f;
-  }
-  function capture(d, cb) {
-    const sf = d.scaleFactor || 1, sz = { width: Math.round(d.bounds.width * sf), height: Math.round(d.bounds.height * sf) };
-    const hid = tints.size > 0;
-    if (hid) tintHide(true);
-    setTimeout(() => {
-      desktopCapturer.getSources({ types: ["screen"], thumbnailSize: sz }).then(src => {
-        if (hid) tintHide(false);
-        const s = src.find(x => String(x.display_id) === String(d.id)) || src[0];
-        if (!s || !s.thumbnail || s.thumbnail.isEmpty()) { cb(null); return; }
-        cb(s.thumbnail);
-      }).catch(() => { if (hid) tintHide(false); cb(null); });
-    }, hid ? 160 : 40);
-  }
-  function shotFinish(img, d) {
-    shotBusy = false;
-    if (!img || img.isEmpty()) return;
-    let file = "";
-    try { file = uniq(path.join(outDir(), "Screenshot " + stamp() + ".png")); fs.writeFileSync(file, img.toPNG()); } catch (_) { file = ""; }
-    if (g("shotclip") || !file) { try { clipboard.writeImage(img); } catch (_) {} }
-    if (!g("shotthumb")) return;
-    const sz = img.getSize(), k = 360 / Math.max(sz.width, sz.height), th = k < 1 ? img.resize({ width: Math.max(1, Math.round(sz.width * k)), height: Math.max(1, Math.round(sz.height * k)) }) : img;
-    const wa = (d || cursorDisp()).workArea, w = 340, h = 250;
-    const b = { x: wa.x + wa.width - w - 10, y: wa.y + wa.height - h - 10, width: w, height: h };
-    if (alive(W.thumb)) { try { W.thumb.destroy(); } catch (_) {} }
-    W.thumb = mk("thumb", Object.assign({ focusable: false }, b), "m2-thumb.html");
-    try { W.thumb.setIgnoreMouseEvents(false); } catch (_) {}
-    post(W.thumb, "show", { img: th.toDataURL(), w: sz.width, h: sz.height, file: file ? path.basename(file) : "", snd: !!g("shotsnd"), L: { saved: T(file ? "Tangkapan layar disimpan" : "Disalin"), open: T("Klik untuk membuka") } });
-    W.thumb.__file = file;
-    try { W.thumb.showInactive(); } catch (_) {}
-  }
-  function shotFull(delay) {
-    if (!g("shot") || shotBusy) return;
-    shotBusy = true; barClose();
-    const go = () => { const d = cursorDisp(); capture(d, img => shotFinish(img, d)); };
-    if (delay > 0) setTimeout(go, delay * 1000); else go();
-  }
-  function shotArea() {
-    if (!g("shot") || shotBusy) return;
-    shotBusy = true; barClose();
-    const d = cursorDisp();
-    capture(d, img => {
-      if (!img) { shotBusy = false; return; }
-      shotImg = img; shotDisp = d;
-      const jp = "data:image/jpeg;base64," + img.toJPEG(82).toString("base64");
-      if (alive(W.shot)) { try { W.shot.destroy(); } catch (_) {} }
-      W.shot = mk("shot", { x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height, transparent: false, backgroundColor: "#000000" }, "m2-shot.html");
-      post(W.shot, "init", { img: jp, ratio: img.getSize().width / d.bounds.width, L: { hint: T("Seret untuk memilih area \u00B7 Esc untuk batal") } });
-      popup(W.shot);
-    });
-  }
-  function shotEnd() { if (alive(W.shot)) { try { W.shot.destroy(); } catch (_) {} } W.shot = null; shotImg = null; shotBusy = false; }
-  function shotCrop(r) {
-    const img = shotImg, d = shotDisp, ratio = img ? img.getSize().width / d.bounds.width : 1;
-    if (alive(W.shot)) { try { W.shot.destroy(); } catch (_) {} } W.shot = null; shotImg = null;
-    if (!img || !r) { shotBusy = false; return; }
-    const sz = img.getSize();
-    const x = Math.max(0, Math.round(r.x * ratio)), y = Math.max(0, Math.round(r.y * ratio));
-    const w = Math.min(sz.width - x, Math.round(r.w * ratio)), h = Math.min(sz.height - y, Math.round(r.h * ratio));
-    if (w < 4 || h < 4) { shotBusy = false; return; }
-    shotFinish(img.crop({ x: x, y: y, width: w, height: h }), d);
-  }
-  function shotBar() {
-    if (!g("shot")) return;
-    if (alive(W.bar) && W.bar.isVisible()) { barClose(); return; }
-    const d = cursorDisp(), wa = d.workArea, w = 560, h = 76;
-    const b = { x: Math.round(wa.x + (wa.width - w) / 2), y: wa.y + wa.height - h - 44, width: w, height: h };
-    if (!alive(W.bar)) W.bar = mk("bar", b, "m2-bar.html"); else { try { W.bar.setBounds(b); } catch (_) {} }
-    post(W.bar, "show", { light: light(), timer: barOpt.timer, clip: !!g("shotclip"), L: { full: T("Seluruh layar"), area: T("Area terpilih"), timer: T("Timer"), none: T("Tanpa timer"), sec: T("{n} dtk"), clip: T("Salin ke papan klip") } });
-    popup(W.bar);
-  }
-  function barClose() { if (barT) { clearInterval(barT); barT = null; } if (alive(W.bar) && W.bar.isVisible()) { try { W.bar.hide(); } catch (_) {} } }
-  function barGo(mode) {
-    const t = barOpt.timer | 0;
-    if (mode === "area") { barClose(); setTimeout(shotArea, 60); return; }
-    if (t <= 0) { barClose(); setTimeout(() => shotFull(0), 160); return; }
-    let n = t;
-    post(W.bar, "count", n);
-    barT = setInterval(() => {
-      n--;
-      if (n <= 0) { clearInterval(barT); barT = null; barClose(); shotFull(0); } else post(W.bar, "count", n);
-    }, 1000);
-  }
-
-  /* ================= Screen Saver ================= */
-  let ssOn = false, ssPoll = null, ssLast = 0;
-  function saverNow() {
-    if (ssOn) return;
-    ssOn = true; ssLast = Date.now();
-    tints.forEach(w => { try { if (alive(w)) w.hide(); } catch (_) {} });
-    const ds = screen.getAllDisplays(), pr = screen.getPrimaryDisplay().id;
-    ssWins = ds.map(d => {
-      const w = new BrowserWindow({ x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height, show: false, frame: false, transparent: false, backgroundColor: "#000000", resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false, title: "", focusable: d.id === pr,
-        webPreferences: { preload: path.join(__dirname, "mac2-preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false } });
-      const id = w.webContents.id;
-      byWc.set(id, "saver"); ready[id] = false;
-      try { w.setAlwaysOnTop(true, "screen-saver"); } catch (_) {}
-      w.webContents.once("did-finish-load", () => {
-        ready[id] = true;
-        send(w, "init", { style: g("ssstyle"), text: g("sstext") || "", loc: X.loc(), h24: S().mb24 !== false, main: d.id === pr });
-        try { w.showInactive(); if (d.id === pr) { w.focus(); w.webContents.focus(); } } catch (_) {}
-      });
-      w.on("closed", () => { byWc.delete(id); delete ready[id]; });
-      w.loadFile(path.join(__dirname, "m2-saver.html"));
-      return w;
-    });
-  }
-  function saverStop() {
-    if (!ssOn) return;
-    ssOn = false; ssLast = Date.now();
-    const l = ssWins; ssWins = [];
-    l.forEach(w => send(w, "out", 1));
-    setTimeout(() => { l.forEach(w => { try { if (alive(w)) w.destroy(); } catch (_) {} }); tintApply(); }, 380);
-  }
-  function ssTick() {
-    if (ssOn || !g("ss") || X.gm() || X.full() || X.playing() || Date.now() - ssLast < 15000) return;
-    let idle = 0;
-    try { idle = powerMonitor.getSystemIdleTime(); } catch (_) { return; }
-    if (idle >= (+g("ssmin") || 5) * 60) saverNow();
-  }
-  function ssStart() { if (!ssPoll) ssPoll = setInterval(ssTick, 5000); }
-  function ssStopPoll() { if (ssPoll) { clearInterval(ssPoll); ssPoll = null; } }
-
-  /* ================= Quick Note ================= */
-  const noteFile = () => path.join(app.getPath("userData"), "quicknote.txt");
-  let noteSaveT = null;
-  function noteRead() { try { return fs.readFileSync(noteFile(), "utf8").slice(0, 200000); } catch (_) { return ""; } }
-  function noteWrite(t) {
-    clearTimeout(noteSaveT);
-    noteSaveT = setTimeout(() => { try { fs.writeFileSync(noteFile(), String(t || "").slice(0, 200000), "utf8"); } catch (_) {} }, 250);
-  }
-  function noteToggle() {
-    if (alive(W.note) && W.note.isVisible()) { noteHide(); return; }
-    const d = cursorDisp(), wa = d.workArea, w = 340, h = 400;
-    const b = { x: wa.x + wa.width - w - 16, y: wa.y + wa.height - h - 16, width: w, height: h };
-    if (!alive(W.note)) W.note = mk("note", b, "m2-note.html"); else { try { W.note.setBounds(b); } catch (_) {} }
-    post(W.note, "show", { text: noteRead(), light: light(), loc: X.loc(), L: { title: T("Catatan Cepat"), ph: T("Tulis sesuatu\u2026"), copy: T("Salin"), clear: T("Kosongkan"), chars: T("{n} karakter") } });
-    popup(W.note);
-  }
-  function noteHide() { if (alive(W.note) && W.note.isVisible()) { post(W.note, "out", 1); const w = W.note; setTimeout(() => { try { if (alive(w)) w.hide(); } catch (_) {} }, 140); } }
-
-  function displaySleep() {
-    const ps = "(Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern int SendMessage(int hWnd,int hMsg,int wParam,int lParam);' -Name M2 -Namespace W -PassThru)::SendMessage(-1,0x0112,0xF170,2)";
-    try { execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand", Buffer.from(ps, "utf16le").toString("base64")], { windowsHide: true, timeout: 8000 }, () => {}); } catch (_) {}
-  }
-
-  /* ---------- IPC dari halaman ---------- */
-  const H = {
-    sw: {
-      pick: i => { const gp = swList[i | 0]; swHide(); if (gp) setTimeout(() => swFocus(gp), 60); },
-      quit: i => { const gp = swList[i | 0]; if (!gp) return; gp.ws.forEach(x => X.cmd("close " + x.h)); swList.splice(i | 0, 1); },
-      hide: i => { const gp = swList[i | 0]; if (gp) gp.ws.forEach(x => X.cmd("min " + x.h)); },
-      close: () => swHide()
-    },
-    fq: { kill: i => fqKill(i), close: () => fqHide() },
-    shot: { sel: r => { if (r && isFinite(r.x) && isFinite(r.y) && isFinite(r.w) && isFinite(r.h)) shotCrop({ x: +r.x, y: +r.y, w: +r.w, h: +r.h }); else shotEnd(); }, cancel: () => shotEnd() },
-    bar: {
-      go: m => barGo(m === "area" ? "area" : "full"),
-      timer: v => { barOpt.timer = [0, 5, 10].indexOf(+v) >= 0 ? +v : 0; },
-      clip: v => set("shotclip", !!v),
-      close: () => barClose()
-    },
-    thumb: {
-      open: () => { const f = alive(W.thumb) && W.thumb.__file; if (f) { try { shell.openPath(f); } catch (_) {} } if (alive(W.thumb)) { try { W.thumb.destroy(); } catch (_) {} } },
-      dismiss: () => { if (alive(W.thumb)) { try { W.thumb.destroy(); } catch (_) {} } }
-    },
-    note: {
-      save: t => noteWrite(t),
-      copy: t => { try { clipboard.writeText(String(t || "").slice(0, 200000)); } catch (_) {} },
-      close: () => noteHide()
-    },
-    saver: { dismiss: () => saverStop() }
-  };
-  function bind() {
-    ipcMain.on("m2:msg", (e, p) => {
-      try {
-        const n = wcName(e);
-        if (!n || !p || typeof p.c !== "string") return;
-        const f = H[n] && H[n][p.c];
-        if (f) f(p.d);
-      } catch (_) {}
-    });
-  }
-
-  /* ---------- pintasan keyboard ---------- */
-  function unkeys() { regd.forEach(a => { try { globalShortcut.unregister(a); } catch (_) {} }); regd = []; }
-  function keys() {
-    unkeys();
-    if (S().hot === false) return;
-    const reg = (a, f) => { try { if (globalShortcut.register(a, f)) regd.push(a); } catch (_) {} };
-    if (g("asw")) reg("CommandOrControl+Alt+S", () => switcher(true));
-    if (g("fq")) reg("CommandOrControl+Alt+Escape", () => forceQuit());
-    if (g("qn")) reg("CommandOrControl+Alt+Q", () => noteToggle());
-    reg("CommandOrControl+Alt+W", () => nsToggle());
-    if (g("shot")) {
-      reg("CommandOrControl+Shift+3", () => shotFull(0));
-      reg("CommandOrControl+Shift+4", () => shotArea());
-      reg("CommandOrControl+Shift+5", () => shotBar());
-    }
-  }
-
-  /* ---------- pengaturan ---------- */
-  function set(key, val) {
-    if (!owns(key)) return;
-    const s = S();
-    if (BOOL.indexOf(key) >= 0) s[key] = !!val;
-    else if (key === "nsw") s[key] = Math.round(X.clamp(val, 5, 80));
-    else if (key === "ssmin") s[key] = Math.round(X.clamp(val, 1, 60));
-    else if (key === "ssstyle") s[key] = ["drift", "clock", "text"].indexOf(val) >= 0 ? val : "drift";
-    else if (key === "sstext") s[key] = String(val || "").slice(0, 80);
-    else if (key === "nsfrom" || key === "nsto") { if (/^\d{1,2}:\d{2}$/.test(String(val))) s[key] = String(val); else return; }
-    else return;
-    X.save();
-    if (key === "ns" || key === "nsw" || key === "nssch" || key === "nsfrom" || key === "nsto") tintApply();
-    if (key === "asw" || key === "fq" || key === "qn" || key === "shot") keys();
-    if (key === "ss") { if (g("ss")) ssStart(); else { ssStopPoll(); if (ssOn) saverStop(); } }
-  }
-  function filter() { const o = {}; Object.keys(D2).forEach(k => { o[k] = g(k); }); o.nsnow = nsActive(); return o; }
-  function menuItems() {
-    const sep = { type: "separator" };
-    const it = (l, f, acc) => ({ label: l, click: f, accelerator: acc, registerAccelerator: false });
-    return [sep,
-      it(T("Pengalih Aplikasi"), () => switcher(false), "CommandOrControl+Alt+S"),
-      it(T("Catatan Cepat"), () => { if (!alive(W.note) || !W.note.isVisible()) noteToggle(); }, "CommandOrControl+Alt+Q"),
-      it(T("Tangkapan Layar") + "\u2026", () => shotBar(), "CommandOrControl+Shift+5"),
-      { label: "Screen Saver", click: () => saverNow() }];
-  }
-
-  function start() {
-    bind();
-    keys();
-    ssStart();
-    nsStart();
-    screen.on("display-metrics-changed", () => { try { tintApply(); } catch (_) {} });
-    screen.on("display-added", () => { try { tintApply(); } catch (_) {} });
-  }
-  function stop() {
-    unkeys(); ssStopPoll(); nsStop();
-    try { if (ssOn) { ssOn = false; ssWins.forEach(w => { try { if (alive(w)) w.destroy(); } catch (_) {} }); ssWins = []; } } catch (_) {}
-    wins().forEach(w => { try { w.destroy(); } catch (_) {} });
-  }
-
-  return {
-    start, stop, owns, set, filter, wins, menuItems,
-    switcher: () => switcher(false), forceQuit, fqOn: () => g("fq"), shotFull: () => shotFull(0), shotArea, shotBar, noteToggle, saverNow, displaySleep, keys
-  };
-};
-=====FXFILE:mc-preload.js=====
-const { contextBridge, ipcRenderer } = require("electron");
-const IN = ["show", "thumbs", "icons", "alive", "out"], OUT = ["pick", "close", "hide"];
-contextBridge.exposeInMainWorld("mc", {
-  on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("mc:" + ch, (_e, d) => cb(d)); },
-  send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("mc:" + ch, d); }
-});
+  function forceUi() { $("d-force").classList.toggle("on", st.force); $("d-force").firstChild.textContent = st.force ? "\u2713" : ""; }
+  P.on("dlg", function (d) {
+    reset(); cur = d; st.delay = d.delay | 0; st.force = !!d.force;
+    $("back").className = "dim";
+    $("d-title").textContent = d.title; $("d-lead").textContent = d.lead; $("d-wh").textContent = d.L.what;
+    var ul = $("d-what"); ul.innerHTML = ""; d.what.forEach(function (s) { var li = document.createElement("li"); li.textContent = s; ul.appendChild(li); });
+    $("d-dl").classList.toggle("hide", !d.hasDelay); $("d-force").classList.toggle("hide", !d.hasForce);
+    $("d-dlh").textContent = d.L.delay; $("d-fl").textContent = d.L.force; $("d-fw").textContent = d.L.forceWarn;
+    $("d-cancel").textContent = d.L.cancel; $("d-go").textContent = d.L.go; $("d-go").classList.toggle("red", !!d.danger);
+    if (d.hasDelay) chips(); forceUi();
+    $("dlg").style.display = "block";
+  });
+  down($("d-force"), function () { st.force = !st.force; forceUi(); P.send("pw", { a: "cfg", delay: st.delay, force: st.force }); });
+  down($("d-cancel"), function () { P.send("close", 1); });
+  down($("d-go"), function () { if (cur) P.send("pw", { a: "go", kind: cur.kind, delay: st.delay, force: st.force }); });
+  P.on("count", function (c) {
+    $("d-main").classList.add("hide"); $("d-count").classList.remove("hide");
+    document.body.className = "count"; $("back").className = "";
+    $("c-title").textContent = c.title; $("c-lead").textContent = c.lead; $("c-cancel").textContent = c.L.cancel; $("c-now").textContent = c.L.now;
+    $("cnt").textContent = c.left; $("dlg").style.display = "block";
+  });
+  P.on("tick", function (n) { $("cnt").textContent = n; });
+  down($("c-cancel"), function () { P.send("pw", { a: "cancel" }); });
+  down($("c-now"), function () { P.send("pw", { a: "now" }); });
+  P.send("ready", 1);
+})();
+</script></body></html>
 =====FXFILE:mc.html=====
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Mission Control</title>
@@ -4343,13 +4033,6 @@ contextBridge.exposeInMainWorld("mc", {
   });
 })();
 </script></body></html>
-=====FXFILE:menubar-preload.js=====
-const { contextBridge, ipcRenderer } = require("electron");
-const IN = ["cfg", "app", "wifi", "vol", "vis"], OUT = ["act"];
-contextBridge.exposeInMainWorld("mbar", {
-  on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("mb:" + ch, (_e, d) => cb(d)); },
-  send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("mb:" + ch, d); }
-});
 =====FXFILE:menubar.html=====
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Menu bar</title>
@@ -4424,17 +4107,17 @@ contextBridge.exposeInMainWorld("mbar", {
   window.mbar.on("app", function (n) { $("app").textContent = n; });
   window.mbar.on("wifi", wifi);
   window.mbar.on("vol", function (v) { vol = v; volUi(); });
-  $("ivol").onclick = function () { window.mbar.send("act", { a: "mute" }); };
+  $("ivol").onmousedown = function (ev) { if (ev && ev.button) return; window.mbar.send("act", { a: "mute" }); };
   $("ivol").onwheel = function (e) { e.preventDefault(); if (vol.v < 0) return; var n = Math.max(0, Math.min(100, vol.v + (e.deltaY < 0 ? 5 : -5))); vol.v = n; volUi(); window.mbar.send("act", { a: "vol", v: n }); };
-  $("iwifi").onclick = function () { window.mbar.send("act", { a: "wifi" }); };
-  $("ibat").onclick = function () { window.mbar.send("act", { a: "bat" }); };
-  $("iclk").onclick = function () { window.mbar.send("act", { a: "clock" }); };
-  $("icc").onclick = function () { window.mbar.send("act", { a: "cc" }); };
+  $("iwifi").onmousedown = function (ev) { if (ev && ev.button) return; window.mbar.send("act", { a: "wifi" }); };
+  $("ibat").onmousedown = function (ev) { if (ev && ev.button) return; window.mbar.send("act", { a: "bat" }); };
+  $("iclk").onmousedown = function (ev) { if (ev && ev.button) return; window.mbar.send("act", { a: "clock" }); };
+  $("icc").onmousedown = function (ev) { if (ev && ev.button) return; window.mbar.send("act", { a: "cc" }); };
   function menu(el, m) { var r = el.getBoundingClientRect(); window.mbar.send("act", { a: "menu", m: m, x: Math.round(r.left), y: Math.round(r.bottom) }); }
-  $("iapl").onclick = function () { menu(this, "apple"); };
-  $("iapp").onclick = function () { menu(this, "app"); };
-  Array.prototype.forEach.call(document.querySelectorAll(".mn"), function (e) { e.onclick = function () { menu(this, this.getAttribute("data-m")); }; });
-  $("imc").onclick = function () { window.mbar.send("act", { a: "mc" }); };
+  $("iapl").onmousedown = function (ev) { if (ev && ev.button) return; menu(this, "apple"); };
+  $("iapp").onmousedown = function (ev) { if (ev && ev.button) return; menu(this, "app"); };
+  Array.prototype.forEach.call(document.querySelectorAll(".mn"), function (e) { e.onmousedown = function (ev) { if (ev && ev.button) return; menu(this, this.getAttribute("data-m")); }; });
+  $("imc").onmousedown = function (ev) { if (ev && ev.button) return; window.mbar.send("act", { a: "mc" }); };
   if (navigator.getBattery) {
     navigator.getBattery().then(function (b) {
       function u() {
@@ -4451,82 +4134,37 @@ contextBridge.exposeInMainWorld("mbar", {
   wifi({ k: "none", n: "", s: 0 }); volUi(); clock(); setInterval(clock, 1000);
 })();
 </script></body></html>
-=====FXFILE:spot.html=====
-<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Spotlight</title>
-<style>
-  :root { --bg:rgba(250,250,252,.95); --fg:#1d1d1f; --dim:rgba(0,0,0,.5); --sel:rgba(124,92,255,.16); --ln:rgba(0,0,0,.08); }
-  @media (prefers-color-scheme: dark) { :root { --bg:rgba(36,36,42,.95); --fg:#f5f5f7; --dim:rgba(255,255,255,.5); --sel:rgba(124,92,255,.35); --ln:rgba(255,255,255,.1); } }
-  * { box-sizing:border-box; margin:0; user-select:none; -webkit-user-select:none; }
-  html, body { overflow:hidden; background:transparent; font:14px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; color:var(--fg); }
-  body { padding:24px; }
-  #box { background:var(--bg); border:1px solid var(--ln); border-radius:20px; box-shadow:0 18px 50px rgba(0,0,0,.35); overflow:hidden; opacity:0; transform:translateY(-10px) scale(.96); transform-origin:50% 0; transition:opacity .18s ease, transform .26s cubic-bezier(.2,.9,.25,1.15); }
-  #box.in { opacity:1; transform:none; }
-  #box.out { opacity:0; transform:translateY(-6px) scale(.97); transition:opacity .12s ease, transform .12s ease; }
-  #top { display:flex; align-items:center; gap:12px; padding:0 18px; height:64px; }
-  #top svg { width:22px; height:22px; flex:none; fill:none; stroke:var(--dim); stroke-width:2; stroke-linecap:round; }
-  #in { flex:1; border:0; outline:0; background:transparent; color:var(--fg); font:400 22px "Segoe UI Variable Display","Segoe UI",system-ui,sans-serif; user-select:text; -webkit-user-select:text; }
-  #in::placeholder { color:var(--dim); }
-  #lw { height:0; overflow:hidden; transition:height .24s cubic-bezier(.3,.8,.25,1); }
-  #list { border-top:1px solid var(--ln); padding:6px; max-height:520px; overflow-y:auto; }
-  #list.hide { display:block; border-top-color:transparent; }
-  .r { transition:background .12s ease, transform .12s ease; animation:rin .22s ease-out both; }
-  .r:active { transform:scale(.99); }
-  @keyframes rin { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
-  .r { display:flex; align-items:center; gap:12px; padding:7px 10px; border-radius:10px; cursor:default; }
-  .r.sel { background:var(--sel); }
-  .ic { width:32px; height:32px; flex:none; display:flex; align-items:center; justify-content:center; font-size:22px; border-radius:8px; }
-  .ic img { width:32px; height:32px; object-fit:contain; }
-  .tx { min-width:0; flex:1; } .tx b { display:block; font-weight:500; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .tx small { display:block; color:var(--dim); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .r.calc .tx b { font-size:20px; font-weight:600; }
-  .none { padding:16px; text-align:center; color:var(--dim); }
-  .hide { }
-</style></head>
-<body>
-<div id="box">
-  <div id="top"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="in" type="text" placeholder="Spotlight: cari aplikasi, file, atau hitung" autocomplete="off" spellcheck="false"></div>
-  <div id="lw"><div id="list" class="hide"></div></div>
-</div>
-<script>
-(function () {
-  var $ = function (i) { return document.getElementById(i); }, items = [], sel = 0, tmr = null, q = "", LB = {};
-  var GL = { app: "\u25A6", file: "\uD83D\uDCC4", dir: "\uD83D\uDCC1", calc: "\uFF1D" };
-  function size() { var l = $("list"), h = (!q || l.classList.contains("hide")) ? 0 : Math.min(l.scrollHeight + 1, 521); requestAnimationFrame(function () { $("lw").style.height = h + "px"; }); }
-  function mark() { var rs = $("list").children; for (var i = 0; i < rs.length; i++) { rs[i].classList.toggle("sel", i === sel); if (i === sel) rs[i].scrollIntoView({ block: "nearest" }); } }
-  function render() {
-    var l = $("list");
-    l.textContent = "";
-    if (!q) { l.classList.add("hide"); size(); return; }
-    l.classList.remove("hide");
-    if (!items.length) { var n = document.createElement("div"); n.className = "none"; n.textContent = LB.none || "Tidak ada hasil"; l.appendChild(n); size(); return; }
-    items.forEach(function (it, i) {
-      var r = document.createElement("div"); r.className = "r " + it.t; r.dataset.i = i;
-      var ic = document.createElement("div"); ic.className = "ic"; ic.id = "ic" + it.i; ic.textContent = GL[it.t] || "";
-      var tx = document.createElement("div"); tx.className = "tx";
-      var b = document.createElement("b"); b.textContent = it.n; var s = document.createElement("small"); s.textContent = it.s || "";
-      tx.appendChild(b); tx.appendChild(s); r.appendChild(ic); r.appendChild(tx);
-      r.onmousemove = function () { if (sel !== i) { sel = i; mark(); } };
-      r.onclick = function () { window.spot.send("run", it.i); };
-      l.appendChild(r);
-    });
-    sel = 0; mark(); size();
-  }
-  function ask() { clearTimeout(tmr); tmr = setTimeout(function () { window.spot.send("q", q); }, 50); }
-  $("in").oninput = function () { q = this.value.trim(); if (!q) { items = []; render(); } ask(); };
-  document.onkeydown = function (e) {
-    if (e.key === "Escape") { window.spot.send("hide"); return; }
-    if (e.key === "ArrowDown") { e.preventDefault(); if (items.length) { sel = (sel + 1) % items.length; mark(); } }
-    else if (e.key === "ArrowUp") { e.preventDefault(); if (items.length) { sel = (sel - 1 + items.length) % items.length; mark(); } }
-    else if (e.key === "Enter") { e.preventDefault(); if (items[sel]) window.spot.send("run", items[sel].i); }
-  };
-  window.spot.on("out", function () { $("box").className = "out"; });
-  window.spot.on("show", function (d) { if (d && typeof d === "object") { LB = d; if (d.ph) $("in").placeholder = d.ph; } var b = $("box"); b.className = ""; $("in").value = ""; q = ""; items = []; render(); void b.offsetWidth; b.className = "in"; $("in").focus(); });
-  window.spot.on("res", function (r) { items = r || []; render(); });
-  window.spot.on("icon", function (d) {
-    var e = $("ic" + d.i);
-    if (e && /^data:image\/png;base64,/.test(d.v)) { e.textContent = ""; var im = document.createElement("img"); im.src = d.v; e.appendChild(im); }
-  });
-  size();
-})();
-</script></body></html>
+=====FXFILE:nc-preload.js=====
+const { contextBridge, ipcRenderer } = require("electron");
+const IN = ["show", "wx", "out", "hist"], OUT = ["act", "hide"];
+contextBridge.exposeInMainWorld("nc", {
+  on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("nc:" + ch, (_e, d) => cb(d)); },
+  send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("nc:" + ch, d); }
+});
+=====FXFILE:preload.js=====
+"use strict";
+// Jembatan untuk halaman pengaturan: dipasang untuk file lokal di dalam aplikasi, atau (mode URL) untuk halaman dari alamat https yang diatur saat build.
+// Nama dan bentuknya sama dengan jembatan Android (window.AndroidIsland), jadi halaman yang sama bisa dipakai di keduanya.
+const { contextBridge, ipcRenderer } = require("electron");
+const fo = (function () { for (let i = 0; i < process.argv.length; i++) { const a = String(process.argv[i]); if (a.indexOf("--fx-origin=") === 0) return a.slice(12); } return ""; })();
+if (location.protocol === "file:" || (fo && location.origin === fo)) {
+  const SYNC = ["getState", "getInfo", "getApps", "getIcon", "getFilter", "getSounds", "getHistory", "getGameApps", "getDock"];
+  const CAST = ["openOverlay", "openListener", "requestNotif", "start", "stop", "test", "setStyle", "reload", "setFilter",
+    "setTapOpen", "setAnim", "setAnimMin", "setPillAlways", "openAccessibility", "setHideNotif", "setDuration", "setSound",
+    "previewSound", "setSoundUri", "setSoundVol", "demoAnim", "openWinSettings",
+    "setEdge", "setBat", "setGlow", "setClip", "setDnd", "setQuiet", "setHotkeys", "setMonitor", "setHistOn", "clearHistory", "reshow", "setOpt", "openCal", "grantFps", "setGameMark", "dockPinAdd", "dockPinRemove", "dockPinMove", "openSwitcher", "openForceQuit", "shotFull", "shotArea", "shotBar", "openNote", "startSaver"];
+  const api = {};
+  SYNC.forEach(n => { api[n] = function () { return ipcRenderer.sendSync("fx:call", n, Array.prototype.slice.call(arguments)); }; });
+  CAST.forEach(n => { api[n] = function () { ipcRenderer.send("fx:cast", n, Array.prototype.slice.call(arguments)); }; });
+  api.getIconAsync = function (id) { return ipcRenderer.invoke("fx:icon", String(id || "")); };
+  api.platform = "windows";
+  contextBridge.exposeInMainWorld("AndroidIsland", api);
+  contextBridge.exposeInMainWorld("WinIsland", api);
+}
+=====FXFILE:spot-preload.js=====
+const { contextBridge, ipcRenderer } = require("electron");
+const IN = ["show", "res", "icon", "out"], OUT = ["q", "run", "hide", "h"];
+contextBridge.exposeInMainWorld("spot", {
+  on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("sp:" + ch, (_e, d) => cb(d)); },
+  send: (ch, d) => { if (OUT.indexOf(ch) >= 0) ipcRenderer.send("sp:" + ch, d); }
+});
