@@ -309,7 +309,8 @@ jobs:
           async function create() {
             Menu.setApplicationMenu(null);
             win = new BrowserWindow({ width: 1100, height: 760, title: cfg.name, autoHideMenuBar: true, show: !hidden,
-              webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: (fx && !cfg.url) ? path.join(__dirname, "fx", "preload.js") : undefined } });
+              webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: fx ? path.join(__dirname, "fx", "preload.js") : undefined,
+                additionalArguments: (fx && cfg.url) ? ["--fx-origin=" + (() => { try { const o = new URL(cfg.url); return o.protocol === "https:" ? o.origin : ""; } catch (_) { return ""; } })()] : [] } });
             // F11 / Alt+Enter = layar penuh, Esc = keluar dari layar penuh (menu dimatikan, jadi harus ditangani manual)
             win.webContents.on("before-input-event", (ev, input) => {
               if (input.type !== "keyDown") return;
