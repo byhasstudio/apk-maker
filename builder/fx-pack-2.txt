@@ -8,7 +8,7 @@ contextBridge.exposeInMainWorld("cc", {
 =====FXFILE:dock-preload.js=====
 "use strict";
 const { contextBridge, ipcRenderer } = require("electron");
-const IN = ["cfg", "items", "icons", "cur"];
+const IN = ["cfg", "items", "icons", "cur", "pd"];
 const OUT = ["act", "rect", "ready", "hov"];
 contextBridge.exposeInMainWorld("fxd", {
   on: (ch, cb) => { if (IN.indexOf(ch) >= 0 && typeof cb === "function") ipcRenderer.on("dock:" + ch, (_e, d) => cb(d)); },
@@ -2568,9 +2568,35 @@ static class CursorFx
     [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
     [DllImport("winmm.dll")] static extern uint timeBeginPeriod(uint ms);
     [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr h);
+    [DllImport("user32.dll")] static extern short GetAsyncKeyState(int vk);
+
+    static readonly Dictionary<uint, bool> own = new Dictionary<uint, bool>();
+    static string root = null;
+    // jendela milik aplikasi ini sendiri (Dock, island, dll) tidak perlu dipaksa: kursornya sudah kursor kita
+    static bool IsOwn(uint pid)
+    {
+        bool r;
+        if (own.TryGetValue(pid, out r)) return r;
+        r = false;
+        try
+        {
+            if (root == null)
+            {
+                string b = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
+                root = System.IO.Path.GetDirectoryName(b);
+                root = (root == null ? "" : root.TrimEnd('\\', '/') + "\\");
+            }
+            string f = Process.GetProcessById((int)pid).MainModule.FileName;
+            if (root.Length > 3 && f.StartsWith(root, StringComparison.OrdinalIgnoreCase)) r = true;
+        }
+        catch (Exception) { }
+        if (own.Count > 300) own.Clear();
+        own[pid] = r;
+        return r;
+    }
 
     // semua kursor sistem: panah, I-beam, tunggu, silang, panah atas, ubah ukuran (4 arah + semua), dilarang, tangan, sibuk, bantuan, pin, orang
-    static readonly uint[] IDS = new uint[] { 32512, 32513, 32514, 32515, 32516, 32642, 32643, 32644, 32645, 32646, 32648, 32649, 32650, 32651, 32671, 32672 };
+    static readonly uint[] IDS = new uint[] { 32512, 32513, 32514, 32515, 32516, 32642, 32643, 32644, 32645, 32646, 32648, 32649, 32650, 32651, 32671, 32672 };   // SEMUA kursor sistem, dipasang sekali (tanpa pengawas/pemasangan ulang) supaya tidak berganti-ganti
 
     static readonly object L = new object();
     static volatile bool on = false;
@@ -2700,10 +2726,11 @@ static class CursorFx
                 {
                     if (!on) continue;
                     tick++;
-                    bool bad = (tick % 12) == 0;
+                    if (tick < 10) continue;
+                    bool bad = false;
                     for (int i = 0; i < IDS.Length && !bad; i++)
                         if (sys[i] != IntPtr.Zero && LoadCursor(IntPtr.Zero, (IntPtr)IDS[i]) != sys[i]) bad = true;
-                    if (bad) Build();
+                    if (bad) { tick = 0; Build(); }
                 }
             }
             catch (Exception) { }
@@ -2725,6 +2752,7 @@ static class CursorFx
                 ci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
                 if (!GetCursorInfo(ref ci)) continue;
                 if ((ci.flags & 1) == 0 || ci.hCursor == IntPtr.Zero) continue;    // kursor sengaja disembunyikan (mouse-lock / first person): biarkan
+                if ((GetAsyncKeyState(0x01) & 0x8000) != 0 || (GetAsyncKeyState(0x02) & 0x8000) != 0) continue;   // jangan ganggu saat tombol mouse ditekan (klik/seret)
                 lock (L)
                 {
                     if (!on || force == IntPtr.Zero || Ours(ci.hCursor)) continue;
@@ -2732,7 +2760,7 @@ static class CursorFx
                     if (w == IntPtr.Zero) continue;
                     uint pid;
                     uint tid = GetWindowThreadProcessId(w, out pid);
-                    if (tid == 0 || tid == me) continue;
+                    if (tid == 0 || tid == me || IsOwn(pid)) continue;
                     bool att = AttachThreadInput(me, tid, true);
                     SetCursor(force);
                     if (att) AttachThreadInput(me, tid, false);
@@ -2752,12 +2780,6 @@ static class CursorFx
             hexc = hex; sz = size;
             on = true;
             Build();
-            if (tWatch == null)
-            {
-                try { timeBeginPeriod(1); } catch (Exception) { }
-                tWatch = new Thread(Watch); tWatch.IsBackground = true; tWatch.Start();
-                tForce = new Thread(Force); tForce.IsBackground = true; tForce.Start();
-            }
         }
     }
 
