@@ -2550,14 +2550,36 @@ static class CursorFx
 {
     [StructLayout(LayoutKind.Sequential)]
     struct ICONINFO { public bool fIcon; public int xHotspot; public int yHotspot; public IntPtr hbmMask; public IntPtr hbmColor; }
+    [StructLayout(LayoutKind.Sequential)]
+    struct PT { public int X; public int Y; }
+    [StructLayout(LayoutKind.Sequential)]
+    struct CURSORINFO { public int cbSize; public int flags; public IntPtr hCursor; public PT pt; }
     [DllImport("user32.dll")] static extern bool SetSystemCursor(IntPtr hcur, uint id);
     [DllImport("user32.dll")] static extern bool SystemParametersInfo(uint a, uint b, IntPtr c, uint d);
     [DllImport("user32.dll")] static extern IntPtr CreateIconIndirect(ref ICONINFO ii);
     [DllImport("user32.dll")] static extern bool GetIconInfo(IntPtr h, out ICONINFO ii);
     [DllImport("user32.dll")] static extern bool DestroyIcon(IntPtr h);
+    [DllImport("user32.dll")] static extern bool GetCursorInfo(ref CURSORINFO ci);
+    [DllImport("user32.dll")] static extern IntPtr LoadCursor(IntPtr inst, IntPtr name);
+    [DllImport("user32.dll")] static extern IntPtr SetCursor(IntPtr h);
+    [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(PT p);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern bool AttachThreadInput(uint a, uint b, bool attach);
+    [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
+    [DllImport("winmm.dll")] static extern uint timeBeginPeriod(uint ms);
     [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr h);
 
+    // semua kursor sistem: panah, I-beam, tunggu, silang, panah atas, ubah ukuran (4 arah + semua), dilarang, tangan, sibuk, bantuan, pin, orang
+    static readonly uint[] IDS = new uint[] { 32512, 32513, 32514, 32515, 32516, 32642, 32643, 32644, 32645, 32646, 32648, 32649, 32650, 32651, 32671, 32672 };
+
+    static readonly object L = new object();
+    static volatile bool on = false;
     static bool changed = false;
+    static string st = "ring", hexc = "ffffff";
+    static int sz = 36;
+    static IntPtr force = IntPtr.Zero;                 // kursor cadangan untuk dipaksakan ke aplikasi yang memasang kursornya sendiri
+    static IntPtr[] sys = new IntPtr[IDS.Length];      // pegangan kursor sistem setelah diganti, untuk mendeteksi reset
+    static Thread tWatch, tForce;
 
     static Color Parse(string hex)
     {
@@ -2637,28 +2659,117 @@ static class CursorFx
         return cur;
     }
 
+    // dipanggil di dalam lock(L): ganti SEMUA kursor sistem dengan gaya pilihan + siapkan kursor cadangan
+    static void Build()
+    {
+        Color c = Parse(hexc);
+        int hx, hy;
+        using (Bitmap bmp = Draw(st, c, sz, out hx, out hy))
+        {
+            for (int i = 0; i < IDS.Length; i++)
+            {
+                IntPtr cur = MakeCursor(bmp, hx, hy);
+                if (cur == IntPtr.Zero) continue;
+                if (SetSystemCursor(cur, IDS[i])) changed = true;
+                else DestroyIcon(cur);
+            }
+            IntPtr old = force;
+            force = MakeCursor(bmp, hx, hy);
+            if (old != IntPtr.Zero) DestroyIcon(old);
+        }
+        for (int i = 0; i < IDS.Length; i++) sys[i] = LoadCursor(IntPtr.Zero, (IntPtr)IDS[i]);
+    }
+
+    static bool Ours(IntPtr h)
+    {
+        if (h == force) return true;
+        for (int i = 0; i < sys.Length; i++) if (sys[i] == h) return true;
+        return false;
+    }
+
+    // Pengawas: kalau Windows/aplikasi/game mengembalikan kursor ke bawaan (reset), pasang lagi. Tetap dipasang ulang berkala sebagai jaring pengaman.
+    static void Watch()
+    {
+        int tick = 0;
+        while (true)
+        {
+            Thread.Sleep(500);
+            try
+            {
+                lock (L)
+                {
+                    if (!on) continue;
+                    tick++;
+                    bool bad = (tick % 12) == 0;
+                    for (int i = 0; i < IDS.Length && !bad; i++)
+                        if (sys[i] != IntPtr.Zero && LoadCursor(IntPtr.Zero, (IntPtr)IDS[i]) != sys[i]) bad = true;
+                    if (bad) Build();
+                }
+            }
+            catch (Exception) { }
+        }
+    }
+
+    // Pemaksa: game seperti Roblox memasang kursor gambarnya sendiri (jari, panah putih, dll) yang tidak ikut terganti.
+    // Setiap kali kursor yang tampil bukan milik kita, langsung ditimpa dengan kursor kita. Tidak menyuntik apa pun ke game.
+    static void Force()
+    {
+        uint me = GetCurrentThreadId();
+        while (true)
+        {
+            Thread.Sleep(3);
+            try
+            {
+                if (!on) { Thread.Sleep(100); continue; }
+                CURSORINFO ci = new CURSORINFO();
+                ci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
+                if (!GetCursorInfo(ref ci)) continue;
+                if ((ci.flags & 1) == 0 || ci.hCursor == IntPtr.Zero) continue;    // kursor sengaja disembunyikan (mouse-lock / first person): biarkan
+                lock (L)
+                {
+                    if (!on || force == IntPtr.Zero || Ours(ci.hCursor)) continue;
+                    IntPtr w = WindowFromPoint(ci.pt);
+                    if (w == IntPtr.Zero) continue;
+                    uint pid;
+                    uint tid = GetWindowThreadProcessId(w, out pid);
+                    if (tid == 0 || tid == me) continue;
+                    bool att = AttachThreadInput(me, tid, true);
+                    SetCursor(force);
+                    if (att) AttachThreadInput(me, tid, false);
+                }
+            }
+            catch (Exception) { }
+        }
+    }
+
     public static void Apply(string style, string hex, int size)
     {
         if (size < 20) size = 20;
         if (size > 64) size = 64;
-        Color c = Parse(hex);
-        uint[] ids = new uint[] { 32512, 32649 };  // panah, tangan
-        foreach (uint id in ids)
+        lock (L)
         {
-            int hx, hy;
-            using (Bitmap bmp = Draw(style, c, size, out hx, out hy))
+            st = (style == "arrow" || style == "dot" || style == "cross") ? style : "ring";
+            hexc = hex; sz = size;
+            on = true;
+            Build();
+            if (tWatch == null)
             {
-                IntPtr cur = MakeCursor(bmp, hx, hy);
-                if (cur != IntPtr.Zero && SetSystemCursor(cur, id)) changed = true;
+                try { timeBeginPeriod(1); } catch (Exception) { }
+                tWatch = new Thread(Watch); tWatch.IsBackground = true; tWatch.Start();
+                tForce = new Thread(Force); tForce.IsBackground = true; tForce.Start();
             }
         }
     }
 
     public static void Restore()
     {
-        if (!changed) return;
-        changed = false;
-        SystemParametersInfo(0x0057, 0, IntPtr.Zero, 0);
+        lock (L)
+        {
+            on = false;
+            if (!changed) return;
+            changed = false;
+            SystemParametersInfo(0x0057, 0, IntPtr.Zero, 0);
+        }
     }
 }
 =====FXFILE:i18n.js=====
