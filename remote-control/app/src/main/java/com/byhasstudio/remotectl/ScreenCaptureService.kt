@@ -71,7 +71,21 @@ class ScreenCaptureService : Service() {
             getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         mediaProjection = projectionManager.getMediaProjection(resultCode, resultData)
 
-        startCapture()
+        // WAJIB sejak Android 14 (API 34): daftarkan callback sebelum
+        // createVirtualDisplay dipanggil, kalau tidak sistem akan
+        // melempar IllegalStateException dan proses ini langsung mati.
+        mediaProjection?.registerCallback(object : MediaProjection.Callback() {
+            override fun onStop() {
+                stopSelf()
+            }
+        }, handler)
+
+        try {
+            startCapture()
+        } catch (t: Throwable) {
+            notifyFailure(t)
+            stopSelf()
+        }
         return START_STICKY
     }
 
@@ -99,7 +113,6 @@ class ScreenCaptureService : Service() {
             val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
             try {
                 if (now - lastSendAt < FRAME_INTERVAL_MS) {
-                    image.close()
                     return@setOnImageAvailableListener
                 }
                 lastSendAt = now
@@ -123,6 +136,9 @@ class ScreenCaptureService : Service() {
 
                 bitmap.recycle()
                 cropped.recycle()
+            } catch (t: Throwable) {
+                // Satu frame gagal diproses tidak boleh menjatuhkan seluruh
+                // layanan -- cukup lewati frame ini dan lanjut ke berikutnya.
             } finally {
                 image.close()
             }
@@ -139,6 +155,23 @@ class ScreenCaptureService : Service() {
         val wm = getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
         @Suppress("DEPRECATION")
         wm.defaultDisplay.getRealMetrics(out)
+    }
+
+    private fun notifyFailure(t: Throwable) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID, "Berbagi layar jarak jauh", NotificationManager.IMPORTANCE_HIGH
+            )
+            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
+                .createNotificationChannel(channel)
+        }
+        val notif = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Gagal mulai berbagi layar")
+            .setContentText(t.message ?: t.javaClass.simpleName)
+            .setSmallIcon(android.R.drawable.stat_notify_error)
+            .setAutoCancel(true)
+            .build()
+        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(NOTIF_ID + 1, notif)
     }
 
     private fun buildNotification(): Notification {
