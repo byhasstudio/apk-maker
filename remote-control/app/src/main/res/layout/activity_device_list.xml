@@ -19,7 +19,7 @@
         android:id="@+id/txtEmpty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Belum ada perangkat. Aktifkan \"Hubungkan tanpa kode\" di perangkat yang ingin kamu kontrol (dengan akun yang sama)."
+        android:text="Belum ada perangkat. Aktifkan \'Hubungkan tanpa kode' di perangkat yang ingin kamu kontrol (dengan akun yang sama)."
         android:textColor="@color/text_secondary"
         android:textSize="13sp"
         android:layout_marginTop="16dp"
