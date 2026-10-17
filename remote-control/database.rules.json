@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "sessions": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "meta": {
+          ".validate": "newData.hasChildren(['width', 'height', 'createdAt'])"
+        },
+        "frame": {
+          ".validate": "newData.hasChildren(['jpegBase64', 'ts'])"
+        },
+        "cmd": {
+          ".validate": "newData.hasChildren(['type', 'ts'])"
+        }
+      }
+    }
+  }
+}

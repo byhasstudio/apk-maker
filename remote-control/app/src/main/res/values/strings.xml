@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Remote Ctl</string>
+    <string name="accessibility_service_desc">Mengizinkan Remote Ctl mengirim ketukan dan geser dari jarak jauh saat perangkat ini dijadikan perangkat yang dikontrol.</string>
+</resources>
