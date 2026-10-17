@@ -6,7 +6,6 @@ import android.provider.Settings
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import java.security.MessageDigest
 
@@ -15,8 +14,13 @@ import java.security.MessageDigest
  * sedang login, untuk fitur hubungkan-tanpa-kode. Disimpan di bawah
  * /users/{uid}/devices/{deviceId} -- dikunci oleh aturan database
  * supaya hanya pemilik akun itu sendiri yang bisa membaca/menulisnya.
+ * Karena itu, mode "tanpa kata sandi" tetap aman: yang bisa menulis
+ * permintaan konek ke sini hanya akun yang sama (login yang sama),
+ * bukan sembarang orang.
  */
 object DeviceStore {
+
+    data class DeviceEntry(val id: String, val name: String, val online: Boolean, val requiresPassword: Boolean)
 
     private val db get() = SessionRelay.sessionRef("").database.reference
     private val uid get() = FirebaseAuth.getInstance().currentUser?.uid
@@ -31,12 +35,13 @@ object DeviceStore {
 
     private fun devicesRef() = uid?.let { db.child("users").child(it).child("devices") }
 
-    fun enableQuickConnect(context: Context, password: String) {
+    fun enableQuickConnect(context: Context, requirePassword: Boolean, password: String?) {
         val ref = devicesRef()?.child(deviceId(context)) ?: return
         ref.setValue(
             mapOf(
                 "name" to "${Build.MANUFACTURER} ${Build.MODEL}",
-                "passwordHash" to hash(password),
+                "passwordHash" to if (requirePassword && password != null) hash(password) else "",
+                "requiresPassword" to requirePassword,
                 "enabled" to true,
                 "online" to true,
                 "lastSeen" to System.currentTimeMillis()
@@ -59,12 +64,13 @@ object DeviceStore {
         devicesRef()?.child(deviceId(context))?.child("online")?.setValue(false)
     }
 
+    /** onRequest memberi tahu code yang diminta dan passwordHash (kosong "" kalau mode tanpa kata sandi). */
     fun listenIncomingRequest(context: Context, onRequest: (code: String, passwordHash: String) -> Unit): ValueEventListener? {
         val ref = devicesRef()?.child(deviceId(context))?.child("incomingRequest") ?: return null
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val code = snapshot.child("code").getValue(String::class.java) ?: return
-                val hash = snapshot.child("passwordHash").getValue(String::class.java) ?: return
+                val hash = snapshot.child("passwordHash").getValue(String::class.java) ?: ""
                 onRequest(code, hash)
             }
             override fun onCancelled(error: DatabaseError) {}
@@ -77,17 +83,18 @@ object DeviceStore {
         devicesRef()?.child(deviceId(context))?.child("incomingRequest")?.removeValue()
     }
 
-    fun listMyDevices(onResult: (List<Triple<String, String, Boolean>>) -> Unit) {
+    fun listMyDevices(onResult: (List<DeviceEntry>) -> Unit) {
         val ref = devicesRef() ?: return onResult(emptyList())
         ref.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val list = mutableListOf<Triple<String, String, Boolean>>() // id, name, online
+                val list = mutableListOf<DeviceEntry>()
                 for (child in snapshot.children) {
                     val enabled = child.child("enabled").getValue(Boolean::class.java) ?: false
                     if (!enabled) continue
                     val name = child.child("name").getValue(String::class.java) ?: "Perangkat"
                     val online = child.child("online").getValue(Boolean::class.java) ?: false
-                    list.add(Triple(child.key ?: "", name, online))
+                    val requiresPassword = child.child("requiresPassword").getValue(Boolean::class.java) ?: true
+                    list.add(DeviceEntry(child.key ?: "", name, online, requiresPassword))
                 }
                 onResult(list)
             }
@@ -97,8 +104,14 @@ object DeviceStore {
         })
     }
 
-    fun requestConnect(deviceId: String, code: String, password: String) {
+    fun requestConnect(deviceId: String, code: String, password: String?) {
         val ref = devicesRef()?.child(deviceId)?.child("incomingRequest") ?: return
-        ref.setValue(mapOf("code" to code, "passwordHash" to hash(password), "ts" to System.currentTimeMillis()))
+        ref.setValue(
+            mapOf(
+                "code" to code,
+                "passwordHash" to if (password != null) hash(password) else "",
+                "ts" to System.currentTimeMillis()
+            )
+        )
     }
 }

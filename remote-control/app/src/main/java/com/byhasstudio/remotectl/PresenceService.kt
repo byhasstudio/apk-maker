@@ -58,18 +58,28 @@ class PresenceService : Service() {
     }
 
     private fun handleRequest(code: String, passwordHash: String) {
-        // Ambil ulang hash kata sandi tersimpan untuk dibandingkan.
+        // Ambil ulang data perangkat (mode + hash kata sandi tersimpan)
+        // untuk dicocokkan. Jalur ini hanya bisa ditulis oleh akun yang
+        // sama (dikunci di aturan database), jadi mode tanpa kata sandi
+        // tetap aman walau tidak ada verifikasi tambahan di sini.
         val deviceId = DeviceStore.deviceId(this)
         com.google.firebase.database.FirebaseDatabase.getInstance(
             "https://apk-maker-ceb1f-default-rtdb.asia-southeast1.firebasedatabase.app"
         ).reference
             .child("users").child(com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: return)
-            .child("devices").child(deviceId).child("passwordHash")
+            .child("devices").child(deviceId)
             .get()
             .addOnSuccessListener { snapshot ->
-                val savedHash = snapshot.getValue(String::class.java)
+                val requiresPassword = snapshot.child("requiresPassword").getValue(Boolean::class.java) ?: true
+                val savedHash = snapshot.child("passwordHash").getValue(String::class.java)
                 DeviceStore.clearIncomingRequest(this)
-                if (savedHash != null && savedHash == passwordHash) {
+
+                val allowed = if (requiresPassword) {
+                    savedHash != null && savedHash == passwordHash
+                } else {
+                    true
+                }
+                if (allowed) {
                     val intent = Intent(this, CaptureRequestActivity::class.java).apply {
                         putExtra(CaptureRequestActivity.EXTRA_SESSION_CODE, code)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

@@ -13,8 +13,9 @@ import com.google.android.material.button.MaterialButton
 
 /**
  * Daftar perangkat (milik akun yang sama) yang sudah mengaktifkan
- * "hubungkan tanpa kode". Pilih satu, masukkan kata sandinya, dan
- * aplikasi otomatis menyambung tanpa perlu menyalin kode 6 digit
+ * "hubungkan tanpa kode". Pilih satu -- kalau perangkat itu diset
+ * tanpa kata sandi, langsung tersambung; kalau pakai kata sandi,
+ * diminta masukkan dulu. Keduanya tanpa perlu menyalin kode 6 digit
  * secara manual.
  */
 class DeviceListActivity : AppCompatActivity() {
@@ -30,14 +31,14 @@ class DeviceListActivity : AppCompatActivity() {
             runOnUiThread {
                 container.removeAllViews()
                 empty.visibility = if (devices.isEmpty()) View.VISIBLE else View.GONE
-                for ((deviceId, name, online) in devices) {
-                    container.addView(buildDeviceRow(deviceId, name, online))
+                for (device in devices) {
+                    container.addView(buildDeviceRow(device))
                 }
             }
         }
     }
 
-    private fun buildDeviceRow(deviceId: String, name: String, online: Boolean): View {
+    private fun buildDeviceRow(device: DeviceStore.DeviceEntry): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -53,20 +54,28 @@ class DeviceListActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         info.addView(TextView(this).apply {
-            text = name
+            text = device.name
             setTextColor(getColor(R.color.text_primary))
             textSize = 15f
         })
         info.addView(TextView(this).apply {
-            text = if (online) "● Online" else "○ Offline"
-            setTextColor(getColor(if (online) R.color.success else R.color.text_secondary))
+            val statusText = if (device.online) "● Online" else "○ Offline"
+            val modeText = if (device.requiresPassword) "" else " · tanpa kata sandi"
+            text = statusText + modeText
+            setTextColor(getColor(if (device.online) R.color.success else R.color.text_secondary))
             textSize = 12f
         })
 
         val btn = MaterialButton(this).apply {
             text = "Hubungkan"
-            isEnabled = online
-            setOnClickListener { promptPasswordAndConnect(deviceId, name) }
+            isEnabled = device.online
+            setOnClickListener {
+                if (device.requiresPassword) {
+                    promptPasswordAndConnect(device)
+                } else {
+                    connectNow(device.id, null)
+                }
+            }
         }
 
         row.addView(info)
@@ -74,26 +83,30 @@ class DeviceListActivity : AppCompatActivity() {
         return row
     }
 
-    private fun promptPasswordAndConnect(deviceId: String, name: String) {
+    private fun promptPasswordAndConnect(device: DeviceStore.DeviceEntry) {
         val input = EditText(this).apply {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            hint = "Kata sandi $name"
+            hint = "Kata sandi ${device.name}"
         }
         AlertDialog.Builder(this)
-            .setTitle("Hubungkan ke $name")
+            .setTitle("Hubungkan ke ${device.name}")
             .setView(input)
             .setPositiveButton("Sambung") { _, _ ->
                 val password = input.text.toString()
                 if (password.length < 6) return@setPositiveButton
-                val code = SessionRelay.generateCode()
-                DeviceStore.requestConnect(deviceId, code, password)
-
-                val intent = Intent(this, ControlActivity::class.java)
-                intent.putExtra(ControlActivity.EXTRA_PRECONNECT_CODE, code)
-                startActivity(intent)
-                finish()
+                connectNow(device.id, password)
             }
             .setNegativeButton("Batal", null)
             .show()
+    }
+
+    private fun connectNow(deviceId: String, password: String?) {
+        val code = SessionRelay.generateCode()
+        DeviceStore.requestConnect(deviceId, code, password)
+
+        val intent = Intent(this, ControlActivity::class.java)
+        intent.putExtra(ControlActivity.EXTRA_PRECONNECT_CODE, code)
+        startActivity(intent)
+        finish()
     }
 }
