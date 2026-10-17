@@ -67,8 +67,20 @@
             android:id="@+id/imgScreen"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="fitCenter"
+            android:scaleType="matrix"
             android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/txtZoomHint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="12dp"
+            android:background="@drawable/bg_card"
+            android:padding="8dp"
+            android:text="🤏 Cubit 2 jari buat zoom"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp" />
     </FrameLayout>
 
 </LinearLayout>
