@@ -37,6 +37,17 @@
     </LinearLayout>
 
     <TextView
+        android:id="@+id/txtSavedDevices"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/surface"
+        android:padding="10dp"
+        android:text="📱 Perangkat tersimpan (hubungkan tanpa kode)"
+        android:textColor="@color/primary"
+        android:textSize="13sp"
+        android:gravity="center" />
+
+    <TextView
         android:id="@+id/txtControlStatus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

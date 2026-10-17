@@ -39,4 +39,14 @@
         android:layout_marginTop="14dp"
         android:text="Kontrol perangkat lain" />
 
+    <TextView
+        android:id="@+id/txtSettings"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:padding="8dp"
+        android:text="⚙ Pengaturan hubungkan tanpa kode"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp" />
+
 </LinearLayout>

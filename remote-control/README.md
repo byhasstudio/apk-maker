@@ -57,6 +57,20 @@ Buka tab **Actions** di GitHub repo → workflow **"Build Remote Control APK"** 
 
 Setiap kali aplikasi dibuka, ia mengecek rilis terbaru di GitHub Releases (repo publik, tidak perlu token). Kalau ada versi lebih baru, muncul pop-up dengan catatan perubahan dan tombol "Update Sekarang" -- APK baru diunduh otomatis, lalu Android membuka dialog pemasangan (cukup sekali ketuk "Install", ini batasan keamanan Android dan tidak bisa dilewati tanpa root).
 
+## Hubungkan tanpa kode (akun + kata sandi)
+
+Sekarang aplikasi mewajibkan **login (email + kata sandi)** -- ini supaya fitur "perangkat tersimpan" hanya terlihat dan bisa diakses oleh akun yang sama (dikunci di aturan keamanan database, bukan cuma disaring di aplikasi).
+
+Cara pakai:
+1. Login dengan akun yang sama di semua perangkat yang mau dihubungkan.
+2. Di perangkat yang ingin bisa dikontrol: buka menu "⚙ Pengaturan hubungkan tanpa kode" dari halaman utama, aktifkan, isi kata sandi (minimal 6 karakter), Simpan.
+3. Di perangkat pengontrol: buka "Kontrol perangkat lain" → "📱 Perangkat tersimpan" → pilih perangkat → masukkan kata sandinya → otomatis tersambung, tanpa perlu menyalin kode 6 digit.
+
+Catatan penting:
+- Begitu diaktifkan, perangkat itu menjalankan layanan latar belakang kecil (notifikasi permanen "Remote Ctl aktif") supaya tetap bisa menerima permintaan konek walau aplikasi tidak sedang dibuka. **Beberapa merk HP (Xiaomi/MIUI, Oppo/ColorOS, Vivo, dll.) agresif mematikan aplikasi latar belakang** -- kalau koneksi sering gagal, cari pengaturan "Izinkan berjalan di latar belakang" / matikan "Battery optimization" untuk aplikasi ini di Pengaturan HP.
+- Saat ada permintaan konek masuk, Android **tetap akan menampilkan satu dialog sistem singkat** ("Mulai merekam atau mentransmisikan?") di perangkat yang dikontrol -- ini pagar keamanan Android sendiri dan tidak bisa dilewati tanpa root, jadi bukan 100% tanpa sentuhan sama sekali, tapi jauh lebih singkat dibanding buka aplikasi dan salin kode manual.
+- Fitur ini baru ada di Android. Windows (`windows-control/`) masih pakai kode 6 digit manual untuk sekarang.
+
 ## Batasan versi pertama ini (sengaja disederhanakan)
 
 - Hanya Android ↔ Android (belum ke komputer Windows/Mac/Linux — itu

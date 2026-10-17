@@ -14,6 +14,17 @@
           ".validate": "newData.hasChildren(['type', 'ts'])"
         }
       }
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "devices": {
+          "$deviceId": {
+            ".validate": "newData.hasChildren(['name'])"
+          }
+        }
+      }
     }
   }
 }

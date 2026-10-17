@@ -20,6 +20,10 @@ import com.google.firebase.database.ValueEventListener
  */
 class ControlActivity : AppCompatActivity() {
 
+    companion object {
+        const val EXTRA_PRECONNECT_CODE = "preconnect_code"
+    }
+
     private var sessionCode: String? = null
     private var remoteWidth = 0
     private var remoteHeight = 0
@@ -51,6 +55,20 @@ class ControlActivity : AppCompatActivity() {
         imgScreen.setOnTouchListener { view, event ->
             handleTouch(view as ImageView, event)
             true
+        }
+
+        findViewById<android.widget.TextView>(R.id.txtSavedDevices).setOnClickListener {
+            startActivity(android.content.Intent(this, DeviceListActivity::class.java))
+        }
+
+        // Dibuka dari DeviceListActivity (hubungkan tanpa kode): kode
+        // sesi sudah dibuat dan dikirim ke perangkat tujuan lewat
+        // permintaan konek, tinggal menunggu perangkat itu menerima.
+        val preconnectCode = intent.getStringExtra(EXTRA_PRECONNECT_CODE)
+        if (preconnectCode != null) {
+            editCode.setText(preconnectCode)
+            status.text = "Menunggu perangkat menerima permintaan..."
+            connect(preconnectCode, status)
         }
     }
 

@@ -11,19 +11,27 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
 
-        // Masuk anonim ke Firebase supaya aturan keamanan database
-        // bisa mensyaratkan pengguna yang masuk (bukan asal publik).
-        if (FirebaseAuth.getInstance().currentUser == null) {
-            FirebaseAuth.getInstance().signInAnonymously()
+        // Perlu akun sungguhan (bukan login anonim) supaya fitur
+        // "hubungkan tanpa kode" bisa dikunci khusus ke akun ini lewat
+        // aturan keamanan database.
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user == null) {
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+            return
         }
+
+        setContentView(R.layout.activity_main)
 
         findViewById<android.widget.Button>(R.id.btnHost).setOnClickListener {
             startActivity(Intent(this, HostActivity::class.java))
         }
         findViewById<android.widget.Button>(R.id.btnControl).setOnClickListener {
             startActivity(Intent(this, ControlActivity::class.java))
+        }
+        findViewById<android.widget.TextView>(R.id.txtSettings).setOnClickListener {
+            startActivity(Intent(this, QuickConnectSettingsActivity::class.java))
         }
 
         checkForUpdate()
