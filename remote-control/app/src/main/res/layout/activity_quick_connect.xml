@@ -19,7 +19,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
         android:layout_marginBottom="24dp"
-        android:text="Kalau diaktifkan, perangkat ini akan muncul di daftar perangkatmu saat kamu buka \"Kontrol perangkat lain\" dari akun yang sama — tinggal pilih dan masukkan kata sandi, tidak perlu salin kode tiap kali."
+        android:text="Kalau diaktifkan, perangkat ini akan muncul di daftar perangkatmu saat kamu buka 'Kontrol perangkat lain' dari akun yang sama — tinggal pilih dan masukkan kata sandi, tidak perlu salin kode tiap kali."
         android:textColor="@color/text_secondary"
         android:textSize="13sp" />
 
