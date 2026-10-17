@@ -56,5 +56,20 @@ public class ModeSelectForm : Form
         Controls.Add(subtitle);
         Controls.Add(btnHost);
         Controls.Add(btnControl);
+
+        Shown += async (_, _) => await CheckForUpdateAsync();
+    }
+
+    private async Task CheckForUpdateAsync()
+    {
+        var info = await UpdateChecker.CheckForUpdateAsync();
+        if (info == null) return;
+
+        using var dialog = new UpdateForm(info);
+        dialog.ShowDialog(this);
+        if (dialog.UpdateNow)
+        {
+            await UpdateChecker.DownloadAndSelfReplaceAsync(info);
+        }
     }
 }

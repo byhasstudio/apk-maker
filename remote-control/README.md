@@ -49,7 +49,13 @@ Secret, di-decode saat build:
 
 ### 3. Jalankan build
 
-Buka tab **Actions** di GitHub repo → workflow **"Build Remote Control APK"** → Run workflow. Setelah selesai, unduh APK dari bagian **Artifacts** di halaman run tersebut (`remote-ctl-debug-apk`).
+Buka tab **Actions** di GitHub repo → workflow **"Build Remote Control APK"** → Run workflow. Isi kolom **version** (contoh `0.2.0`) dan **changelog** (catatan singkat perubahan, akan tampil di pop-up update pengguna). Setelah selesai, unduh APK dari bagian **Artifacts**, atau dari halaman **Releases** repo.
+
+> Setiap kali build ulang untuk merilis pembaruan, **naikkan nomor version** (misal 0.2.0 → 0.2.1) dibanding rilis sebelumnya. Aplikasi yang sudah terpasang di HP pengguna akan otomatis mendeteksi versi baru ini dan menampilkan pop-up update -- lihat bagian "Update otomatis" di bawah.
+
+## Update otomatis
+
+Setiap kali aplikasi dibuka, ia mengecek rilis terbaru di GitHub Releases (repo publik, tidak perlu token). Kalau ada versi lebih baru, muncul pop-up dengan catatan perubahan dan tombol "Update Sekarang" -- APK baru diunduh otomatis, lalu Android membuka dialog pemasangan (cukup sekali ketuk "Install", ini batasan keamanan Android dan tidak bisa dilewati tanpa root).
 
 ## Batasan versi pertama ini (sengaja disederhanakan)
 

@@ -25,8 +25,14 @@ yang sama, dan tidak butuh file `google-services.json` karena bukan
 aplikasi Android).
 
 1. Buka tab **Actions** di GitHub repo.
-2. Jalankan workflow **"Build Remote Control EXE (Windows)"**.
-3. Setelah selesai, unduh **RemoteCtlAgent.exe** dari bagian Artifacts.
+2. Jalankan workflow **"Build Remote Control EXE (Windows)"**. Isi kolom **version** (contoh `0.2.0`) dan **changelog**.
+3. Setelah selesai, unduh **RemoteCtlAgent.exe** dari bagian Artifacts, atau dari halaman **Releases** repo.
+
+> Naikkan nomor **version** tiap kali merilis pembaruan baru supaya program yang sudah jalan di komputer pengguna otomatis mendeteksinya.
+
+## Update otomatis
+
+Setiap kali dijalankan, program mengecek rilis terbaru di GitHub Releases. Kalau ada versi lebih baru, muncul pop-up dengan catatan perubahan. Kalau pengguna pilih "Update Sekarang", file baru diunduh dan program **mengganti dirinya sendiri lalu restart otomatis** -- tidak perlu unduh manual atau install ulang lagi.
 
 ## Cara pakai
 
