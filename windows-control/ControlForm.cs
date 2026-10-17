@@ -41,17 +41,22 @@ public class ControlForm : Form
         _codeBox.KeyPress += (_, e) => { if (!char.IsDigit(e.KeyChar) && e.KeyChar != (char)8) e.Handled = true; };
 
         _connectBtn = UiTheme.MakeButton("Sambung", UiTheme.Primary);
-        _connectBtn.SetBounds(166, 8, 110, 36);
+        _connectBtn.SetBounds(166, 8, 100, 36);
         _connectBtn.Click += async (_, _) => await ConnectAsync();
+
+        var btnSaved = UiTheme.MakeButton("📱 Perangkat tersimpan", UiTheme.Surface);
+        btnSaved.SetBounds(276, 8, 180, 36);
+        btnSaved.Click += async (_, _) => await ConnectFromSavedAsync();
 
         _statusLabel = new Label
         {
-            Top = 18, Left = 290, Width = 560,
+            Top = 18, Left = 470, Width = 400,
             ForeColor = UiTheme.TextSecondary, Font = UiTheme.BodyFont
         };
 
         topBar.Controls.Add(_codeBox);
         topBar.Controls.Add(_connectBtn);
+        topBar.Controls.Add(btnSaved);
         topBar.Controls.Add(_statusLabel);
 
         _screen = new PictureBox
@@ -79,6 +84,30 @@ public class ControlForm : Form
             return;
         }
 
+        await StartSessionAsync(code);
+    }
+
+    private async Task ConnectFromSavedAsync()
+    {
+        if (!FirebaseRest.Instance.IsSignedIn)
+        {
+            await FirebaseRest.Instance.TryRestoreSessionAsync();
+        }
+        if (!FirebaseRest.Instance.IsSignedIn)
+        {
+            using var login = new LoginForm();
+            if (login.ShowDialog(this) != DialogResult.OK || !login.Success) return;
+        }
+
+        using var list = new DeviceListForm();
+        if (list.ShowDialog(this) != DialogResult.OK || list.ConnectedSessionCode == null) return;
+
+        _codeBox.Text = list.ConnectedSessionCode;
+        await StartSessionAsync(list.ConnectedSessionCode);
+    }
+
+    private async Task StartSessionAsync(string code)
+    {
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         _sessionCode = code;

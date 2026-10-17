@@ -7,15 +7,21 @@ dari proyek C# terpisah di folder ini.
 
 ## Cara kerja
 
-Sama persis dengan versi Android: membuat kode sesi 6 digit, lalu
-mengirim cuplikan layar berkala ke Firebase Realtime Database dan
-menerima perintah klik/geser dari HP pengontrol. HP yang sudah dipasangi
-aplikasi Remote Ctl (bagian "Kontrol perangkat lain") bisa langsung
-dipakai mengontrol komputer ini tanpa perlu diubah sama sekali --
-sisi pengontrol memang dibuat generik.
+Komputer Windows bisa dipakai di **dua arah**, sama seperti HP Android:
 
-- **tap** dari HP -> diterjemahkan jadi klik kiri mouse di titik itu.
-- **swipe** dari HP -> diterjemahkan jadi klik-tahan-geser (drag).
+- **"Jadikan komputer ini yang dikontrol"**: membuat kode sesi 6 digit
+  (atau lewat "hubungkan tanpa kode", lihat di bawah), lalu mengirim
+  cuplikan layar berkala ke Firebase Realtime Database dan menerima
+  perintah klik/geser dari perangkat pengontrol -- HP ataupun komputer
+  Windows lain.
+- **"Kontrol perangkat lain"**: masukkan kode sesi (atau pilih dari
+  "Perangkat tersimpan"), lalu layar perangkat lain itu tampil di
+  jendela dan bisa diklik/digeser dengan mouse untuk mengontrolnya dari
+  jarak jauh -- bisa dipakai mengontrol HP Android ataupun komputer
+  Windows lain.
+
+- **tap** -> diterjemahkan jadi klik kiri mouse di titik itu.
+- **swipe** -> diterjemahkan jadi klik-tahan-geser (drag).
 - Belum ada dukungan keyboard atau klik kanan di versi pertama ini.
 
 ## Cara mendapatkan EXE-nya
@@ -45,11 +51,38 @@ Setiap kali dijalankan, program mengecek rilis terbaru di GitHub Releases. Kalau
 3. Di HP, buka aplikasi Remote Ctl, pilih "Kontrol perangkat lain",
    masukkan kode itu, lalu Sambung.
 
+## Hubungkan tanpa kode (akun + kata sandi)
+
+Sama seperti versi Android: aktifkan sekali, lalu komputer ini muncul
+di daftar "Perangkat tersimpan" milik akun yang sama, tanpa perlu
+menyalin kode 6 digit tiap kali.
+
+Cara pakai:
+1. Dari jendela utama, klik **"Masuk dengan akun"** -- pakai email +
+   kata sandi yang sama di semua perangkat (Android maupun Windows)
+   yang ingin dihubungkan.
+2. Klik **"⚙ Hubungkan tanpa kode"**, aktifkan, pilih mode tanpa kata
+   sandi atau pakai kata sandi tambahan (minimal 6 karakter), centang
+   "Nyalakan otomatis saat Windows start" (disarankan), lalu Simpan.
+3. Dari perangkat lain (HP atau Windows lain, akun yang sama): buka
+   "Kontrol perangkat lain" -> "📱 Perangkat tersimpan" -> pilih
+   komputer ini -> masukkan kata sandi kalau diminta -> langsung
+   tersambung.
+
+Catatan:
+- Menutup jendela utama (tombol X) hanya menyembunyikannya ke **system
+  tray**, bukan keluar sepenuhnya -- supaya fitur ini tetap jalan di
+  latar belakang. Klik kanan ikon di tray untuk membuka lagi atau
+  keluar sungguhan.
+- Sesi login disimpan terenkripsi di komputer ini (Windows DPAPI,
+  terkunci ke akun Windows yang sedang login) supaya setelah komputer
+  di-restart, program bisa masuk lagi otomatis tanpa perlu mengetik
+  kata sandi akun berulang kali.
+- Tidak ada dialog izin tambahan di Windows seperti di Android (tidak
+  ada batasan OS yang sama) -- begitu permintaan konek masuk dan kata
+  sandinya cocok, pengiriman layar langsung dimulai di latar belakang.
+
 ## Batasan versi pertama ini
 
-- Harus dijalankan manual tiap kali mau dikontrol (belum otomatis
-  jalan saat Windows nyala / tidak ada system tray).
 - Mouse saja, belum ada kontrol keyboard.
 - Komputer dengan banyak monitor hanya memakai monitor utama (primary).
-- Berjalan sebagai aplikasi biasa (window), bukan layanan latar
-  belakang -- kalau ditutup, kontrol berhenti.
