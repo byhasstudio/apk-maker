@@ -2,28 +2,41 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/bg"
     android:orientation="vertical"
     android:gravity="center"
-    android:padding="24dp">
+    android:padding="28dp">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/app_name"
-        android:textSize="24sp"
-        android:layout_marginBottom="32dp" />
+        android:textColor="@color/text_primary"
+        android:textSize="30sp"
+        android:textStyle="bold" />
 
-    <Button
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="40dp"
+        android:text="Kontrol perangkat dari jarak jauh"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp" />
+
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnHost"
+        style="@style/RoundedButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Jadikan perangkat ini yang dikontrol" />
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnControl"
+        style="@style/RoundedButton.Secondary"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="14dp"
         android:text="Kontrol perangkat lain" />
 
 </LinearLayout>

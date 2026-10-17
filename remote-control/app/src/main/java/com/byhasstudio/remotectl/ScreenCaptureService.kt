@@ -34,11 +34,13 @@ class ScreenCaptureService : Service() {
         private const val CHANNEL_ID = "remotectl_capture"
         private const val NOTIF_ID = 42
 
-        // Resolusi dan kualitas sengaja direndahkan supaya ukuran payload
-        // per frame kecil dan aman dikirim lewat Realtime Database.
-        private const val TARGET_WIDTH = 480
-        private const val JPEG_QUALITY = 40
-        private const val FRAME_INTERVAL_MS = 350L
+        // Resolusi dan kualitas dinaikkan untuk gambar yang lebih tajam.
+        // Nilai ini tetap dibatasi supaya ukuran payload per frame masih
+        // wajar dikirim lewat Realtime Database (bukan video streaming
+        // sungguhan, jadi tidak bisa 4K/60fps tanpa server khusus).
+        private const val TARGET_WIDTH = 720
+        private const val JPEG_QUALITY = 62
+        private const val FRAME_INTERVAL_MS = 120L
     }
 
     private var mediaProjection: MediaProjection? = null

@@ -3,66 +3,100 @@ using System.Text.Json;
 namespace RemoteCtlAgent;
 
 /// <summary>
-/// Jendela utama: menampilkan kode sesi 6 digit dan status koneksi.
-/// Sengaja dibuat sangat sederhana -- satu tombol, dua label -- karena
-/// tujuannya hanya dijalankan sekali lalu dibiarkan jalan di latar
-/// belakang selagi menerima kontrol dari HP.
+/// Jendela untuk komputer yang AKAN DIKONTROL: menampilkan kode sesi
+/// 6 digit, lalu mengirim cuplikan layar berkala dan menjalankan
+/// perintah klik/geser yang diterima dari perangkat pengontrol.
 /// </summary>
-public class MainForm : Form
+public class HostForm : Form
 {
     private readonly Label _codeLabel;
     private readonly Label _statusLabel;
+    private readonly Label _dot;
     private readonly FirebaseRest _firebase = new();
     private string _sessionCode = "------";
     private long _lastCommandTs;
     private CancellationTokenSource? _cts;
 
-    public MainForm()
+    public HostForm()
     {
-        Text = "Remote Ctl - Perangkat ini";
-        Width = 420;
-        Height = 220;
+        Text = "Remote Ctl — Dikontrol";
+        Width = 460;
+        Height = 300;
         StartPosition = FormStartPosition.CenterScreen;
+        FormBorderStyle = FormBorderStyle.FixedSingle;
+        MaximizeBox = false;
+        UiTheme.ApplyFormChrome(this);
+
+        var card = new Panel
+        {
+            BackColor = UiTheme.Surface
+        };
+        card.SetBounds(24, 24, Width - 72, Height - 100);
 
         var title = new Label
         {
-            Text = "Kode sesi:",
-            Top = 20, Left = 20, Width = 380, Font = new Font("Segoe UI", 11)
+            Text = "KODE SESI",
+            Top = 24, Left = 0, Width = card.Width,
+            Font = new Font("Segoe UI", 9, FontStyle.Bold),
+            ForeColor = UiTheme.TextSecondary,
+            TextAlign = ContentAlignment.MiddleCenter
         };
         _codeLabel = new Label
         {
             Text = _sessionCode,
-            Top = 45, Left = 20, Width = 380, Height = 60,
-            Font = new Font("Segoe UI", 32, FontStyle.Bold),
-            TextAlign = ContentAlignment.MiddleLeft
+            Top = 48, Left = 0, Width = card.Width, Height = 70,
+            Font = UiTheme.CodeFont,
+            ForeColor = UiTheme.TextPrimary,
+            TextAlign = ContentAlignment.MiddleCenter
+        };
+
+        _dot = new Label
+        {
+            Text = "●",
+            Top = 128, Left = card.Width / 2 - 100, Width = 20,
+            ForeColor = UiTheme.TextSecondary,
+            Font = new Font("Segoe UI", 9)
         };
         _statusLabel = new Label
         {
             Text = "Menyiapkan...",
-            Top = 115, Left = 20, Width = 380, Font = new Font("Segoe UI", 10)
+            Top = 128, Left = card.Width / 2 - 78, Width = 240,
+            Font = UiTheme.BodyFont,
+            ForeColor = UiTheme.TextSecondary
         };
 
-        Controls.Add(title);
-        Controls.Add(_codeLabel);
-        Controls.Add(_statusLabel);
+        card.Controls.Add(title);
+        card.Controls.Add(_codeLabel);
+        card.Controls.Add(_dot);
+        card.Controls.Add(_statusLabel);
+        Controls.Add(card);
 
         Load += async (_, _) => await StartAsync();
         FormClosing += (_, _) => _cts?.Cancel();
     }
 
+    private void SetStatus(string text, Color color)
+    {
+        if (InvokeRequired) { BeginInvoke(() => SetStatus(text, color)); return; }
+        _statusLabel.Text = text;
+        _dot.ForeColor = color;
+    }
+
     private async Task StartAsync()
     {
-        _statusLabel.Text = "Masuk ke server...";
+        SetStatus("Masuk ke server...", UiTheme.TextSecondary);
         var signedIn = await _firebase.SignInAnonymouslyAsync();
         if (!signedIn)
         {
-            _statusLabel.Text = "Gagal masuk ke server. Cek koneksi internet.";
+            SetStatus("Gagal masuk ke server. Cek internet.", UiTheme.Danger);
             return;
         }
 
         _sessionCode = new Random().Next(100000, 999999).ToString();
-        _codeLabel.Text = _sessionCode;
-        _statusLabel.Text = "Aktif. Bagikan kode ini ke perangkat pengontrol.";
+        if (InvokeRequired) BeginInvoke(() => _codeLabel.Text = _sessionCode);
+        else _codeLabel.Text = _sessionCode;
+
+        SetStatus("Aktif — bagikan kode ke pengontrol", UiTheme.Success);
 
         _cts = new CancellationTokenSource();
         _ = CaptureLoopAsync(_cts.Token);
@@ -99,7 +133,7 @@ public class MainForm : Form
                 // Satu cuplikan gagal tidak boleh menghentikan loop -- coba lagi di putaran berikutnya.
             }
 
-            await Task.Delay(400, token).ContinueWith(_ => { });
+            try { await Task.Delay(120, token); } catch (TaskCanceledException) { break; }
         }
     }
 
@@ -125,7 +159,7 @@ public class MainForm : Form
                 // Lewati, coba lagi di putaran berikutnya.
             }
 
-            await Task.Delay(150, token).ContinueWith(_ => { });
+            try { await Task.Delay(80, token); } catch (TaskCanceledException) { break; }
         }
     }
 

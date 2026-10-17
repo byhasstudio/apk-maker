@@ -11,7 +11,7 @@ namespace RemoteCtlAgent;
 /// </summary>
 public static class ScreenCapture
 {
-    private const int TargetWidth = 480;
+    private const int TargetWidth = 720;
 
     public static (string base64Jpeg, int fullWidth, int fullHeight) CaptureJpegBase64()
     {
@@ -35,7 +35,7 @@ public static class ScreenCapture
         using var ms = new MemoryStream();
         var jpegEncoder = ImageCodecInfo.GetImageEncoders().First(c => c.FormatID == ImageFormat.Jpeg.Guid);
         var parameters = new EncoderParameters(1);
-        parameters.Param[0] = new EncoderParameter(Encoder.Quality, 40L);
+        parameters.Param[0] = new EncoderParameter(Encoder.Quality, 62L);
         resized.Save(ms, jpegEncoder, parameters);
 
         return (Convert.ToBase64String(ms.ToArray()), bounds.Width, bounds.Height);

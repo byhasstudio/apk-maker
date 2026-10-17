@@ -1,0 +1,10 @@
+<resources>
+    <color name="bg">#12121A</color>
+    <color name="surface">#1E1E2A</color>
+    <color name="primary">#6366F1</color>
+    <color name="primary_dark">#4F52DD</color>
+    <color name="text_primary">#F0F0F5</color>
+    <color name="text_secondary">#A0A0AF</color>
+    <color name="success">#34D399</color>
+    <color name="danger">#F87171</color>
+</resources>
