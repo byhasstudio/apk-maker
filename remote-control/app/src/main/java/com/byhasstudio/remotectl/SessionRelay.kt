@@ -20,7 +20,15 @@ import kotlin.random.Random
  */
 object SessionRelay {
 
-    private val db get() = FirebaseDatabase.getInstance().reference
+    // Proyek Firebase ini memakai Realtime Database di region Asia
+    // Tenggara, bukan region default (us-central1). google-services.json
+    // tidak menyertakan URL untuk database regional seperti ini, jadi
+    // URL-nya harus ditulis eksplisit di sini -- kalau tidak,
+    // FirebaseDatabase.getInstance() diam-diam gagal tersambung.
+    private const val DATABASE_URL =
+        "https://apk-maker-ceb1f-default-rtdb.asia-southeast1.firebasedatabase.app"
+
+    private val db get() = FirebaseDatabase.getInstance(DATABASE_URL).reference
 
     fun generateCode(): String =
         (100000 + Random.nextInt(900000)).toString()
