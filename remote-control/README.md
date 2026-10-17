@@ -67,7 +67,8 @@ Cara pakai:
 3. Di perangkat pengontrol: buka "Kontrol perangkat lain" → "📱 Perangkat tersimpan" → pilih perangkat → masukkan kata sandinya → otomatis tersambung, tanpa perlu menyalin kode 6 digit.
 
 Catatan penting:
-- Begitu diaktifkan, perangkat itu menjalankan layanan latar belakang kecil (notifikasi permanen "Remote Ctl aktif") supaya tetap bisa menerima permintaan konek walau aplikasi tidak sedang dibuka. **Beberapa merk HP (Xiaomi/MIUI, Oppo/ColorOS, Vivo, dll.) agresif mematikan aplikasi latar belakang** -- kalau koneksi sering gagal, cari pengaturan "Izinkan berjalan di latar belakang" / matikan "Battery optimization" untuk aplikasi ini di Pengaturan HP.
+- Begitu diaktifkan, perangkat itu menjalankan layanan latar belakang kecil (notifikasi permanen "Remote Ctl aktif") supaya tetap bisa menerima permintaan konek walau aplikasi tidak sedang dibuka. Layanan ini otomatis menyala lagi kalau HP direstart, dan mencoba menyala ulang sendiri kalau sistem mematikannya.
+- **Tetap tekan tombol "🔋 Matikan optimasi baterai untuk aplikasi ini"** di halaman Pengaturan setelah mengaktifkan fitur ini. **Beberapa merk HP (Xiaomi/MIUI, Oppo/ColorOS, Vivo, dll.) tetap bisa agresif mematikan aplikasi latar belakang** meski sudah dikecualikan dari optimasi baterai Android standar -- untuk HP-HP ini, biasanya masih perlu tambahan cari pengaturan khusus merk seperti "Autostart" / "Izinkan berjalan di latar belakang" di aplikasi Pengaturan bawaan HP tersebut.
 - Saat ada permintaan konek masuk, Android **tetap akan menampilkan satu dialog sistem singkat** ("Mulai merekam atau mentransmisikan?") di perangkat yang dikontrol -- ini pagar keamanan Android sendiri dan tidak bisa dilewati tanpa root, jadi bukan 100% tanpa sentuhan sama sekali, tapi jauh lebih singkat dibanding buka aplikasi dan salin kode manual.
 - Fitur ini baru ada di Android. Windows (`windows-control/`) masih pakai kode 6 digit manual untuk sekarang.
 

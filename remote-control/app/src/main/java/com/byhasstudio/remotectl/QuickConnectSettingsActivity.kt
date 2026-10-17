@@ -27,6 +27,20 @@ class QuickConnectSettingsActivity : AppCompatActivity() {
         radioMode.setOnCheckedChangeListener { _, _ -> updatePasswordFieldVisibility() }
         updatePasswordFieldVisibility()
 
+        findViewById<MaterialButton>(R.id.btnBattery).setOnClickListener {
+            val powerManager = getSystemService(android.os.PowerManager::class.java)
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                val intent = Intent(
+                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    android.net.Uri.parse("package:$packageName")
+                )
+                startActivity(intent)
+            } else {
+                status.text = "Sudah dikecualikan dari optimasi baterai."
+                status.setTextColor(getColor(R.color.success))
+            }
+        }
+
         findViewById<MaterialButton>(R.id.btnSave).setOnClickListener {
             if (switchEnable.isChecked) {
                 val requiresPassword = radioMode.checkedRadioButtonId == R.id.radioWithPassword
@@ -41,13 +55,15 @@ class QuickConnectSettingsActivity : AppCompatActivity() {
                 } else {
                     DeviceStore.enableQuickConnect(this, false, null)
                 }
-                startService(Intent(this, PresenceService::class.java))
+                QuickConnectPrefs.setEnabled(this, true)
+                androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, PresenceService::class.java))
                 status.text = if (requiresPassword)
                     "Aktif dengan kata sandi. Perangkat ini sekarang muncul di daftar perangkatmu."
                 else
                     "Aktif tanpa kata sandi. Tinggal pilih perangkat ini dari daftar lalu Hubungkan, langsung konek."
                 status.setTextColor(getColor(R.color.success))
             } else {
+                QuickConnectPrefs.setEnabled(this, false)
                 DeviceStore.disableQuickConnect(this)
                 stopService(Intent(this, PresenceService::class.java))
                 status.text = "Dinonaktifkan."

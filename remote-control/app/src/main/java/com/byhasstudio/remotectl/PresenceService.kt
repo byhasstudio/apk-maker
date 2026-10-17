@@ -43,6 +43,33 @@ class PresenceService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // START_STICKY: kalau proses ini dimatikan sistem (kehabisan
+        // memori, dsb.), Android akan mencoba menyalakannya lagi
+        // begitu memori tersedia -- tanpa perlu aplikasi dibuka manual.
+        return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // Sebagian HP (MIUI, ColorOS, dll.) mematikan service begitu
+        // aplikasi ditutup dari recents meski berstatus foreground.
+        // Minta sistem menyalakan ulang layanan ini sesaat kemudian.
+        if (QuickConnectPrefs.isEnabled(this)) {
+            val restartIntent = Intent(applicationContext, PresenceService::class.java)
+            val pendingIntent = android.app.PendingIntent.getService(
+                this, 1, restartIntent,
+                android.app.PendingIntent.FLAG_ONE_SHOT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+            val alarmManager = getSystemService(ALARM_SERVICE) as android.app.AlarmManager
+            alarmManager.set(
+                android.app.AlarmManager.ELAPSED_REALTIME,
+                android.os.SystemClock.elapsedRealtime() + 1000,
+                pendingIntent
+            )
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         startForeground(NOTIF_ID, buildNotification())

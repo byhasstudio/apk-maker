@@ -108,4 +108,20 @@
         android:layout_marginTop="16dp"
         android:text="Simpan" />
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnBattery"
+        style="@style/RoundedButton.Secondary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="🔋 Matikan optimasi baterai untuk aplikasi ini" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Penting di HP Xiaomi/Oppo/Vivo dkk. — tanpa ini, sistem bisa mematikan layanan latar belakang sehingga perangkat tidak bisa dihubungkan saat aplikasi tertutup."
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp" />
+
 </LinearLayout>
