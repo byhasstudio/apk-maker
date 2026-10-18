@@ -84,9 +84,24 @@ Catatan penting:
   pembatasan per akun, dsb.) bisa ditambahkan di versi berikutnya.
 - Belum ada transfer file, clipboard, atau suara.
 
+## Keyboard jarak jauh
+
+Di layar kontrol, tombol **"⌨ Keyboard"** membuka kolom ketik kecil di
+bawah. Setiap huruf yang diketik langsung dikirim ke perangkat yang
+dikontrol dan ditimpakan ke kolom teks yang sedang fokus di sana lewat
+Accessibility Service -- jadi terasa seperti mengetik langsung di
+perangkat itu. Tombol **⏎** dan **⌫** mengirim Enter/Backspace secara
+eksplisit, dan tombol **A-/A+** memperbesar/mengecilkan ukuran huruf di
+kolom ketik ini sendiri (murni tampilan lokal, tidak memengaruhi
+perangkat yang dikontrol).
+
+> Catatan: hanya bisa mengisi kolom teks yang memang sedang aktif
+> difokus di perangkat yang dikontrol (misalnya kolom chat atau kolom
+> pencarian yang sudah di-tap duluan) -- fitur ini belum bisa membuka
+> kolom teks itu sendiri dari jarak jauh.
+
 ## Ide pengembangan berikutnya
 
 - Kedaluwarsakan/hapus sesi otomatis setelah tidak dipakai.
-- Dukungan keyboard (ketik teks dari jarak jauh).
 - Kompres frame lebih baik / naikkan fps kalau jaringan bagus.
-- Versi untuk komputer (program desktop kecil, bukan APK).
+- Tombol navigasi (Back/Home/Recents) langsung dari layar kontrol.

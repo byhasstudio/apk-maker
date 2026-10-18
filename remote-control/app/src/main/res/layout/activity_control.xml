@@ -36,16 +36,95 @@
             android:text="Sambung" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/txtSavedDevices"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/surface">
+
+        <TextView
+            android:id="@+id/txtSavedDevices"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:padding="10dp"
+            android:text="📱 Perangkat tersimpan (hubungkan tanpa kode)"
+            android:textColor="@color/primary"
+            android:textSize="13sp"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/btnToggleKeyboard"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="10dp"
+            android:text="⌨ Keyboard"
+            android:textColor="@color/primary"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/keyboardBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
         android:background="@color/surface"
         android:padding="10dp"
-        android:text="📱 Perangkat tersimpan (hubungkan tanpa kode)"
-        android:textColor="@color/primary"
-        android:textSize="13sp"
-        android:gravity="center" />
+        android:gravity="center_vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/btnTypeSizeDown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:text="A-"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/editType"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:background="@drawable/bg_card"
+            android:padding="10dp"
+            android:hint="Ketik di sini..."
+            android:textColorHint="@color/text_secondary"
+            android:textColor="@color/text_primary"
+            android:inputType="text"
+            android:imeOptions="actionDone" />
+
+        <TextView
+            android:id="@+id/btnTypeSizeUp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:text="A+"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnEnter"
+            style="@style/RoundedButton.Secondary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="14dp"
+            android:text="⏎" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnBackspace"
+            style="@style/RoundedButton.Secondary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:minWidth="0dp"
+            android:paddingHorizontal="14dp"
+            android:text="⌫" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/txtControlStatus"

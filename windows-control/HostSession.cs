@@ -15,6 +15,14 @@ public class HostSession
     private long _lastCommandTs;
     private CancellationTokenSource? _cts;
 
+    // Isi kolom ketik terakhir yang diketahui dari perangkat pengontrol --
+    // dipakai buat menghitung selisih (huruf apa yang ditambah/dihapus)
+    // tiap kali perintah "settext" baru datang, supaya bisa diterjemahkan
+    // jadi tombol backspace + ketik asli lewat SendInput (Windows tidak
+    // punya cara "timpa kolom yang sedang fokus" langsung seperti
+    // AccessibilityService di Android).
+    private string _lastTypedText = "";
+
     public HostSession(FirebaseRest firebase, string sessionCode)
     {
         _firebase = firebase;
@@ -108,6 +116,45 @@ public class HostSession
                     (int)cmd.GetProperty("y2").GetDouble(),
                     cmd.TryGetProperty("durationMs", out var d) ? (int)d.GetDouble() : 200);
                 break;
+            case "settext":
+                ApplyTypedTextDiff(cmd.TryGetProperty("value", out var v) ? v.GetString() ?? "" : "");
+                break;
+            case "key":
+                var key = cmd.TryGetProperty("key", out var k) ? k.GetString() : null;
+                switch (key)
+                {
+                    case "ENTER":
+                        InputSimulator.SendSpecialKey(InputSimulator.VK_RETURN);
+                        break;
+                    case "BACKSPACE":
+                        InputSimulator.SendSpecialKey(InputSimulator.VK_BACK);
+                        if (_lastTypedText.Length > 0)
+                            _lastTypedText = _lastTypedText[..^1];
+                        break;
+                }
+                break;
         }
+    }
+
+    /// <summary>
+    /// Ubah isi kolom ketik terakhir ("" di awal) jadi `value` lewat
+    /// keystroke asli: hapus bagian yang sudah tidak sama dulu (backspace),
+    /// lalu ketik bagian yang baru -- hasilnya terasa seperti mengetik
+    /// langsung di keyboard komputer ini.
+    /// </summary>
+    private void ApplyTypedTextDiff(string value)
+    {
+        var old = _lastTypedText;
+        var commonLen = 0;
+        var maxCommon = Math.Min(old.Length, value.Length);
+        while (commonLen < maxCommon && old[commonLen] == value[commonLen]) commonLen++;
+
+        var backspaces = old.Length - commonLen;
+        for (var i = 0; i < backspaces; i++) InputSimulator.SendSpecialKey(InputSimulator.VK_BACK);
+
+        var toType = value[commonLen..];
+        if (toType.Length > 0) InputSimulator.TypeText(toType);
+
+        _lastTypedText = value;
     }
 }

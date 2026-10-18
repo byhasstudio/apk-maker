@@ -92,6 +92,8 @@ class ControlActivity : AppCompatActivity() {
             startActivity(android.content.Intent(this, DeviceListActivity::class.java))
         }
 
+        setupKeyboard()
+
         // Dibuka dari DeviceListActivity (hubungkan tanpa kode): kode
         // sesi sudah dibuat dan dikirim ke perangkat tujuan lewat
         // permintaan konek, tinggal menunggu perangkat itu menerima.
@@ -101,6 +103,77 @@ class ControlActivity : AppCompatActivity() {
             status.text = "Menunggu perangkat menerima permintaan..."
             connect(preconnectCode, status)
         }
+    }
+
+    // Ukuran font kolom ketik lokal -- "zoom" buat keyboard, murni tampilan
+    // di perangkat pengontrol saja, tidak memengaruhi apa pun di host.
+    private var typeTextSizeSp = 18f
+
+    private fun setupKeyboard() {
+        val keyboardBar = findViewById<android.view.View>(R.id.keyboardBar)
+        val btnToggle = findViewById<TextView>(R.id.btnToggleKeyboard)
+        val editType = findViewById<EditText>(R.id.editType)
+        val btnEnter = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnEnter)
+        val btnBackspace = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnBackspace)
+        val btnSizeUp = findViewById<TextView>(R.id.btnTypeSizeUp)
+        val btnSizeDown = findViewById<TextView>(R.id.btnTypeSizeDown)
+        editType.textSize = typeTextSizeSp
+
+        btnToggle.setOnClickListener {
+            val show = keyboardBar.visibility != android.view.View.VISIBLE
+            keyboardBar.visibility = if (show) android.view.View.VISIBLE else android.view.View.GONE
+            btnToggle.text = if (show) "⌨ Tutup" else "⌨ Keyboard"
+            if (show) {
+                editType.requestFocus()
+                val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                        as android.view.inputmethod.InputMethodManager
+                imm.showSoftInput(editType, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            }
+        }
+
+        // Tiap ketukan huruf langsung dikirim sebagai perintah "settext" --
+        // host akan menimpa isi kolom yang sedang fokus dengan teks ini,
+        // jadi efeknya terasa seperti mengetik langsung di perangkat host.
+        editType.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val code = sessionCode ?: return
+                SessionRelay.sendCommand(code, mapOf("type" to "settext", "value" to s.toString()))
+            }
+        })
+
+        editType.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                sendKey("ENTER")
+                true
+            } else false
+        }
+
+        btnEnter.setOnClickListener { sendKey("ENTER") }
+        btnBackspace.setOnClickListener {
+            val current = editType.text?.toString().orEmpty()
+            if (current.isNotEmpty()) {
+                editType.setText(current.substring(0, current.length - 1))
+                editType.setSelection(editType.text?.length ?: 0)
+            } else {
+                sendKey("BACKSPACE")
+            }
+        }
+
+        btnSizeUp.setOnClickListener {
+            typeTextSizeSp = (typeTextSizeSp + 2f).coerceAtMost(28f)
+            editType.textSize = typeTextSizeSp
+        }
+        btnSizeDown.setOnClickListener {
+            typeTextSizeSp = (typeTextSizeSp - 2f).coerceAtLeast(12f)
+            editType.textSize = typeTextSizeSp
+        }
+    }
+
+    private fun sendKey(key: String) {
+        val code = sessionCode ?: return
+        SessionRelay.sendCommand(code, mapOf("type" to "key", "key" to key))
     }
 
     private fun connect(code: String, status: TextView) {

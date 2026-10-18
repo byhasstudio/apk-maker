@@ -31,6 +31,16 @@ public class ControlForm : Form
     private const float MaxZoom = 4f;
     private float _zoom = 1f;
 
+    // Panel keyboard jarak jauh: isi kolom ini dikirim ke perangkat yang
+    // dikontrol sebagai keystroke asli (lihat HostSession.ApplyTypedTextDiff
+    // di sisi host). Ukuran fontnya bisa di-"zoom" sendiri lewat tombol A-/A+,
+    // terpisah dari zoom layar supaya tetap gampang dibaca di ukuran berapa pun.
+    private readonly Panel _keyboardBar;
+    private readonly TextBox _typeBox;
+    private const float MinTypeFontSize = 9f;
+    private const float MaxTypeFontSize = 24f;
+    private float _typeFontSize = 12f;
+
     public ControlForm()
     {
         Text = "Remote Ctl — Mengontrol";
@@ -56,16 +66,55 @@ public class ControlForm : Form
         btnSaved.SetBounds(276, 8, 180, 36);
         btnSaved.Click += async (_, _) => await ConnectFromSavedAsync();
 
+        var btnKeyboard = UiTheme.MakeButton("⌨ Keyboard", UiTheme.Surface);
+        btnKeyboard.SetBounds(466, 8, 120, 36);
+        btnKeyboard.Click += (_, _) => ToggleKeyboard();
+
         _statusLabel = new Label
         {
-            Top = 18, Left = 470, Width = 400,
+            Top = 18, Left = 600, Width = 280,
             ForeColor = UiTheme.TextSecondary, Font = UiTheme.BodyFont
         };
 
         topBar.Controls.Add(_codeBox);
         topBar.Controls.Add(_connectBtn);
         topBar.Controls.Add(btnSaved);
+        topBar.Controls.Add(btnKeyboard);
         topBar.Controls.Add(_statusLabel);
+
+        _typeBox = new TextBox
+        {
+            Left = 8, Top = 10, Width = 1, Font = new Font("Segoe UI", _typeFontSize),
+            BackColor = UiTheme.Surface, ForeColor = UiTheme.TextPrimary,
+            BorderStyle = BorderStyle.FixedSingle
+        };
+        _typeBox.TextChanged += TypeBox_TextChanged;
+        _typeBox.KeyDown += TypeBox_KeyDown;
+
+        var btnSizeDown = UiTheme.MakeButton("A-", UiTheme.Surface);
+        btnSizeDown.Click += (_, _) => ChangeTypeFontSize(-2f);
+        var btnSizeUp = UiTheme.MakeButton("A+", UiTheme.Surface);
+        btnSizeUp.Click += (_, _) => ChangeTypeFontSize(2f);
+        var btnKbEnter = UiTheme.MakeButton("⏎ Enter", UiTheme.Surface);
+        btnKbEnter.Click += (_, _) => SendRemoteKey("ENTER");
+        var btnKbBackspace = UiTheme.MakeButton("⌫", UiTheme.Surface);
+        btnKbBackspace.Click += (_, _) => KeyboardBackspaceClicked();
+
+        _keyboardBar = new Panel
+        {
+            Dock = DockStyle.Bottom,
+            Height = 52,
+            BackColor = UiTheme.Surface,
+            Visible = false,
+            Padding = new Padding(10, 8, 10, 8)
+        };
+        _keyboardBar.Controls.Add(_typeBox);
+        _keyboardBar.Controls.Add(btnSizeDown);
+        _keyboardBar.Controls.Add(btnSizeUp);
+        _keyboardBar.Controls.Add(btnKbEnter);
+        _keyboardBar.Controls.Add(btnKbBackspace);
+        _keyboardBar.Resize += (_, _) => LayoutKeyboardBar(btnSizeDown, btnSizeUp, btnKbEnter, btnKbBackspace);
+        LayoutKeyboardBar(btnSizeDown, btnSizeUp, btnKbEnter, btnKbBackspace);
 
         _screen = new PictureBox
         {
@@ -99,6 +148,7 @@ public class ControlForm : Form
         };
 
         Controls.Add(_scrollPanel);
+        Controls.Add(_keyboardBar);
         Controls.Add(topBar);
         // Ditaruh langsung di Form (bukan di dalam panel scroll) supaya
         // posisinya tetap diam di pojok layar walau sedang di-geser/pan.
@@ -271,6 +321,81 @@ public class ControlForm : Form
 
         _screen.Size = new Size((int)(baseW * _zoom), (int)(baseH * _zoom));
         if (_zoom <= 1f) _screen.Location = new Point(0, 0);
+    }
+
+    private void LayoutKeyboardBar(Button sizeDown, Button sizeUp, Button enter, Button backspace)
+    {
+        var h = _keyboardBar.ClientSize.Height - 16;
+        if (h < 20) h = 20;
+        var right = _keyboardBar.ClientSize.Width - 10;
+
+        backspace.SetBounds(right - 48, 8, 48, h);
+        enter.SetBounds(backspace.Left - 88 - 8, 8, 88, h);
+        sizeUp.SetBounds(enter.Left - 36 - 6, 8, 36, h);
+        sizeDown.SetBounds(sizeUp.Left - 36 - 6, 8, 36, h);
+        _typeBox.SetBounds(10, (_keyboardBar.ClientSize.Height - 26) / 2, Math.Max(40, sizeDown.Left - 20), 26);
+    }
+
+    private void ToggleKeyboard()
+    {
+        _keyboardBar.Visible = !_keyboardBar.Visible;
+        if (_keyboardBar.Visible) _typeBox.Focus();
+    }
+
+    /// <summary>
+    /// Tiap kali teks di kolom ini berubah, kirim isi lengkapnya sebagai
+    /// perintah "settext" -- host akan menerjemahkannya jadi keystroke asli
+    /// (lihat HostSession.ApplyTypedTextDiff), jadi efeknya terasa seperti
+    /// mengetik langsung di komputer yang dikontrol.
+    /// </summary>
+    private async void TypeBox_TextChanged(object? sender, EventArgs e)
+    {
+        if (_sessionCode == null) return;
+        await _firebase.PutAsync($"sessions/{_sessionCode}/cmd", new
+        {
+            type = "settext",
+            value = _typeBox.Text,
+            ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        });
+    }
+
+    private void TypeBox_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode == Keys.Enter)
+        {
+            e.SuppressKeyPress = true;
+            SendRemoteKey("ENTER");
+        }
+    }
+
+    private void KeyboardBackspaceClicked()
+    {
+        if (_typeBox.Text.Length > 0)
+        {
+            _typeBox.Text = _typeBox.Text[..^1];
+            _typeBox.SelectionStart = _typeBox.Text.Length;
+        }
+        else
+        {
+            SendRemoteKey("BACKSPACE");
+        }
+    }
+
+    private async void SendRemoteKey(string key)
+    {
+        if (_sessionCode == null) return;
+        await _firebase.PutAsync($"sessions/{_sessionCode}/cmd", new
+        {
+            type = "key",
+            key,
+            ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        });
+    }
+
+    private void ChangeTypeFontSize(float delta)
+    {
+        _typeFontSize = Math.Clamp(_typeFontSize + delta, MinTypeFontSize, MaxTypeFontSize);
+        _typeBox.Font = new Font("Segoe UI", _typeFontSize);
     }
 
     private void SetStatus(string text, Color color)

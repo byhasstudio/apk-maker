@@ -82,7 +82,16 @@ Catatan:
   ada batasan OS yang sama) -- begitu permintaan konek masuk dan kata
   sandinya cocok, pengiriman layar langsung dimulai di latar belakang.
 
+## Keyboard jarak jauh
+
+Tombol **"⌨ Keyboard"** di jendela kontrol membuka kolom ketik kecil di
+bawah. Semua yang diketik di situ langsung dikirim sebagai keystroke
+asli ke komputer yang dikontrol lewat SendInput -- berfungsi di
+aplikasi apa pun yang sedang fokus di sana, sama seperti mengetik di
+keyboard fisiknya. Tombol **⏎ Enter** dan **⌫** mengirim tombol itu
+secara langsung, dan **A-/A+** mengubah ukuran huruf kolom ketik ini
+(cuma tampilan lokal).
+
 ## Batasan versi pertama ini
 
-- Mouse saja, belum ada kontrol keyboard.
 - Komputer dengan banyak monitor hanya memakai monitor utama (primary).

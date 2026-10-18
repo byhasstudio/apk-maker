@@ -3,7 +3,10 @@ package com.byhasstudio.remotectl
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.os.Build
+import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import com.google.firebase.database.DataSnapshot
 
 /**
@@ -57,8 +60,61 @@ class RemoteAccessibilityService : AccessibilityService() {
             "back" -> performGlobalAction(GLOBAL_ACTION_BACK)
             "home" -> performGlobalAction(GLOBAL_ACTION_HOME)
             "recents" -> performGlobalAction(GLOBAL_ACTION_RECENTS)
+            "settext" -> {
+                val value = snapshot.child("value").getValue(String::class.java) ?: return
+                setFocusedFieldText(value)
+            }
+            "key" -> {
+                when (snapshot.child("key").getValue(String::class.java)) {
+                    "ENTER" -> pressEnter()
+                    "BACKSPACE" -> backspaceFocusedField()
+                }
+            }
         }
     }
+
+    /**
+     * Timpa isi kolom teks yang sedang fokus di layar ini dengan `value` --
+     * dipakai fitur keyboard jarak jauh, supaya ngetik di perangkat
+     * pengontrol langsung terlihat sebagai teks di kolom yang aktif di sini.
+     */
+    private fun setFocusedFieldText(value: String) {
+        val node = findFocusedEditableNode() ?: return
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
+        }
+        node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        node.recycle()
+    }
+
+    private fun backspaceFocusedField() {
+        val node = findFocusedEditableNode() ?: return
+        val current = node.text?.toString().orEmpty()
+        if (current.isNotEmpty()) {
+            val args = Bundle().apply {
+                putCharSequence(
+                    AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                    current.substring(0, current.length - 1)
+                )
+            }
+            node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        }
+        node.recycle()
+    }
+
+    private fun pressEnter() {
+        val node = findFocusedEditableNode() ?: return
+        // ACTION_IME_ENTER baru ada mulai Android 11 (API 30); di versi lebih
+        // lama, kolom input tunggal biasanya tetap bisa "selesai" lewat
+        // tombol Enter di keyboard host sendiri kalau keyboard-nya muncul.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            node.performAction(AccessibilityNodeInfo.ACTION_IME_ENTER)
+        }
+        node.recycle()
+    }
+
+    private fun findFocusedEditableNode(): AccessibilityNodeInfo? =
+        findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
 
     private fun dispatchTap(x: Float, y: Float) {
         val path = Path().apply { moveTo(x, y) }
