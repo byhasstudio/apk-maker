@@ -120,20 +120,21 @@ public class ModeSelectForm : Form
             Load += (_, _) => BeginInvoke(Hide);
         }
 
-        // Kalau fitur hubungkan-tanpa-kode sudah pernah diaktifkan sebelumnya
-        // (tersimpan di registry), coba masuk lagi otomatis pakai sesi
-        // tersimpan (tanpa minta kata sandi), lalu nyalakan layanan latar
-        // belakangnya -- supaya tetap jalan setelah komputer di-restart.
-        if (QuickConnectPrefs.IsEnabled)
+        // Coba masuk lagi otomatis pakai sesi tersimpan (refresh token,
+        // tanpa minta kata sandi lagi) setiap kali program dibuka --
+        // supaya "Masuk dengan akun" terasa seperti login SEKALI SAJA,
+        // bukan harus diulang tiap buka program. Sesi ini baru dihapus
+        // kalau pengguna sendiri menekan tombol "🚪 Keluar" (lihat
+        // LogoutAsync). Dulu ini cuma jalan kalau fitur "hubungkan tanpa
+        // kode" aktif -- sekarang jalan selalu, tidak terkait fitur itu.
+        Shown += async (_, _) =>
         {
-            Shown += async (_, _) =>
-            {
-                if (!FirebaseRest.Instance.IsSignedIn)
-                    await FirebaseRest.Instance.TryRestoreSessionAsync();
-                RefreshAccountLabel();
-                if (FirebaseRest.Instance.IsSignedIn) PresenceService.Instance.Start();
-            };
-        }
+            if (!FirebaseRest.Instance.IsSignedIn)
+                await FirebaseRest.Instance.TryRestoreSessionAsync();
+            RefreshAccountLabel();
+            if (FirebaseRest.Instance.IsSignedIn && QuickConnectPrefs.IsEnabled)
+                PresenceService.Instance.Start();
+        };
     }
 
     private void ShowFromTray()

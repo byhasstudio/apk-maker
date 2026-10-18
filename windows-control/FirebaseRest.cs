@@ -31,9 +31,53 @@ public class FirebaseRest
     private readonly HttpClient _http = new();
     private string? _idToken;
     private string? _refreshToken;
+    private DateTime _idTokenIssuedAt = DateTime.MinValue;
 
     public string? Uid { get; private set; }
     public bool IsSignedIn => _idToken != null && Uid != null;
+
+    /// <summary>
+    /// Token login Firebase cuma berlaku 1 jam -- kalau program dibiarkan
+    /// jalan lama di tray (fitur hubungkan-tanpa-kode), token bisa
+    /// kedaluwarsa diam-diam dan semua permintaan ke database mulai gagal
+    /// tanpa pesan error yang jelas. Dipanggil otomatis sebelum tiap
+    /// Put/Get/Patch/Delete supaya token selalu diperbarui pakai refresh
+    /// token sebelum sempat kedaluwarsa, tanpa pengguna perlu login ulang.
+    /// </summary>
+    private async Task EnsureFreshTokenAsync()
+    {
+        if (_idToken == null || _refreshToken == null) return;
+        if (DateTime.UtcNow - _idTokenIssuedAt < TimeSpan.FromMinutes(45)) return;
+
+        try
+        {
+            var resp = await _http.PostAsync(
+                $"https://securetoken.googleapis.com/v1/token?key={ApiKey}",
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["grant_type"] = "refresh_token",
+                    ["refresh_token"] = _refreshToken
+                }));
+            if (!resp.IsSuccessStatusCode) return;
+
+            var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
+            _idToken = json.GetProperty("id_token").GetString();
+            _refreshToken = json.GetProperty("refresh_token").GetString();
+            _idTokenIssuedAt = DateTime.UtcNow;
+            // Sengaja TIDAK ditulis ke SecureTokenStore di sini -- metode ini
+            // juga dipakai instance FirebaseRest sementara yang anonim (lihat
+            // ControlForm), jadi tidak boleh menimpa sesi akun asli yang
+            // tersimpan. Token akun asli sudah disimpan ulang tiap login
+            // manual/otomatis lewat EmailAuthAsync/SignInWithGoogleIdTokenAsync/
+            // TryRestoreSessionAsync -- cukup, karena refresh token Firebase
+            // pada praktiknya jarang berubah antar-refresh.
+        }
+        catch
+        {
+            // Gagal refresh (mis. jaringan putus sesaat) -- biarkan token lama
+            // dipakai, coba lagi di panggilan berikutnya.
+        }
+    }
 
     /// <summary>
     /// Coba masuk lagi otomatis pakai refresh token yang tersimpan terenkripsi
@@ -61,6 +105,7 @@ public class FirebaseRest
             _idToken = json.GetProperty("id_token").GetString();
             _refreshToken = json.GetProperty("refresh_token").GetString();
             Uid = json.GetProperty("user_id").GetString();
+            _idTokenIssuedAt = DateTime.UtcNow;
             if (_refreshToken != null) SecureTokenStore.Save(_refreshToken);
             return _idToken != null;
         }
@@ -81,6 +126,13 @@ public class FirebaseRest
             var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
             _idToken = json.GetProperty("idToken").GetString();
             Uid = json.GetProperty("localId").GetString();
+            // Disimpan juga (tapi TIDAK ditulis ke SecureTokenStore) supaya
+            // EnsureFreshTokenAsync bisa memperbarui sesi anonim ini sendiri
+            // kalau sesi kontrol (lihat/sentuh layar) berlangsung lebih dari
+            // 1 jam -- sesi anonim ini sengaja tidak dipulihkan lagi setelah
+            // program ditutup/dibuka ulang, beda dari akun email/Google.
+            _refreshToken = json.TryGetProperty("refreshToken", out var rt) ? rt.GetString() : null;
+            _idTokenIssuedAt = DateTime.UtcNow;
             return _idToken != null;
         }
         catch
@@ -117,6 +169,7 @@ public class FirebaseRest
             _idToken = json.GetProperty("idToken").GetString();
             Uid = json.GetProperty("localId").GetString();
             _refreshToken = json.TryGetProperty("refreshToken", out var rt) ? rt.GetString() : null;
+            _idTokenIssuedAt = DateTime.UtcNow;
             if (_refreshToken != null) SecureTokenStore.Save(_refreshToken);
             return null;
         }
@@ -154,6 +207,7 @@ public class FirebaseRest
             _idToken = json.GetProperty("idToken").GetString();
             Uid = json.GetProperty("localId").GetString();
             _refreshToken = json.TryGetProperty("refreshToken", out var rt) ? rt.GetString() : null;
+            _idTokenIssuedAt = DateTime.UtcNow;
             if (_refreshToken != null) SecureTokenStore.Save(_refreshToken);
             return null;
         }
@@ -168,6 +222,7 @@ public class FirebaseRest
         _idToken = null;
         _refreshToken = null;
         Uid = null;
+        _idTokenIssuedAt = DateTime.MinValue;
         SecureTokenStore.Clear();
     }
 
@@ -181,6 +236,7 @@ public class FirebaseRest
 
     public async Task PutAsync(string path, object value)
     {
+        await EnsureFreshTokenAsync();
         if (_idToken == null) return;
         var content = new StringContent(
             JsonSerializer.Serialize(value), Encoding.UTF8, "application/json");
@@ -190,6 +246,7 @@ public class FirebaseRest
     /// <summary>Update sebagian field saja (padanan updateChildren() di Android), tidak menimpa field lain.</summary>
     public async Task PatchAsync(string path, object value)
     {
+        await EnsureFreshTokenAsync();
         if (_idToken == null) return;
         var content = new StringContent(
             JsonSerializer.Serialize(value), Encoding.UTF8, "application/json");
@@ -202,12 +259,14 @@ public class FirebaseRest
 
     public async Task DeleteAsync(string path)
     {
+        await EnsureFreshTokenAsync();
         if (_idToken == null) return;
         try { await _http.DeleteAsync($"{DatabaseUrl}/{path}.json?auth={_idToken}"); } catch { }
     }
 
     public async Task<JsonElement?> GetAsync(string path)
     {
+        await EnsureFreshTokenAsync();
         if (_idToken == null) return null;
         try
         {
