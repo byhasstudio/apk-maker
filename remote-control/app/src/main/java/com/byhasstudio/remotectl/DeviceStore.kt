@@ -10,20 +10,21 @@ import com.google.firebase.database.ValueEventListener
 import java.security.MessageDigest
 
 /**
- * Menyimpan & membaca daftar "perangkat tersimpan" milik akun yang
- * sedang login, untuk fitur hubungkan-tanpa-kode. Disimpan di bawah
- * /users/{uid}/devices/{deviceId} -- dikunci oleh aturan database
- * supaya hanya pemilik akun itu sendiri yang bisa membaca/menulisnya.
- * Karena itu, mode "tanpa kata sandi" tetap aman: yang bisa menulis
- * permintaan konek ke sini hanya akun yang sama (login yang sama),
- * bukan sembarang orang.
+ * Menyimpan & membaca daftar "perangkat tersimpan" untuk fitur
+ * hubungkan-tanpa-kode. Disimpan di satu node bersama /sharedDevices/{deviceId}
+ * yang bisa dibaca & ditulis oleh SIAPA PUN yang sudah login (akun apa
+ * saja) -- supaya semua perangkat yang mengaktifkan fitur ini tetap
+ * muncul di daftar, walaupun perangkat-perangkat itu login pakai akun
+ * Firebase yang berbeda-beda (mis. satu pakai "Masuk cepat", satu pakai
+ * akun Google). Keamanannya tetap terjaga lewat kata sandi per
+ * perangkat (opsional) dan lewat kode sesi 6 digit sekali pakai yang
+ * dibuat ulang setiap permintaan konek -- bukan lewat pemisahan akun.
  */
 object DeviceStore {
 
     data class DeviceEntry(val id: String, val name: String, val online: Boolean, val requiresPassword: Boolean)
 
     private val db get() = SessionRelay.sessionRef("").database.reference
-    private val uid get() = FirebaseAuth.getInstance().currentUser?.uid
 
     fun deviceId(context: Context): String =
         Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
@@ -33,7 +34,8 @@ object DeviceStore {
         return digest.joinToString("") { "%02x".format(it) }
     }
 
-    private fun devicesRef() = uid?.let { db.child("users").child(it).child("devices") }
+    private fun devicesRef() =
+        if (FirebaseAuth.getInstance().currentUser != null) db.child("sharedDevices") else null
 
     fun enableQuickConnect(context: Context, requirePassword: Boolean, password: String?) {
         val ref = devicesRef()?.child(deviceId(context)) ?: return

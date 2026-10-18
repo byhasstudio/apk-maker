@@ -34,6 +34,8 @@ beda dari aplikasi Pembuat APK, jadi perlu didaftarkan sebagai
 4. Unduh file `google-services.json` yang diberikan.
 5. **Aktifkan Realtime Database** di proyek ini (menu Build → Realtime Database → Create database), kalau belum aktif.
 6. Di tab Rules Realtime Database, tempel isi file `database.rules.json` dari folder ini, lalu Publish.
+
+> **Kalau kamu sudah pernah Publish rules sebelumnya, WAJIB tempel ulang dan Publish lagi** setelah update ini -- struktur penyimpanan "perangkat tersimpan" berubah (dari per-akun jadi satu daftar bersama, lihat bagian "Hubungkan tanpa kode" di bawah), kalau rules lama masih dipakai maka fitur ini akan terus gagal.
 7. Di Authentication → Sign-in method, aktifkan **Anonymous**.
 8. **Di halaman yang sama, aktifkan juga provider Email/Password.** Ini
    LANGKAH YANG SERING KELEWATAN -- kalau tidak diaktifkan, tombol
@@ -99,10 +101,12 @@ punya/tidak mau pakai akun Google.
 
 ## Hubungkan tanpa kode (akun + kata sandi)
 
-Sekarang aplikasi mewajibkan **login (email + kata sandi)** -- ini supaya fitur "perangkat tersimpan" hanya terlihat dan bisa diakses oleh akun yang sama (dikunci di aturan keamanan database, bukan cuma disaring di aplikasi).
+Sekarang aplikasi mewajibkan **login (email + kata sandi, Google, atau "Masuk cepat")** -- bukan supaya dikunci per akun, tapi supaya setiap permintaan konek bisa dicatat dengan jelas siapa yang terhubung.
+
+**Perangkat yang mengaktifkan fitur ini akan tetap muncul di daftar "Perangkat tersimpan", DI PERANGKAT MANA PUN dan LOGIN PAKAI AKUN APA PUN** -- tidak perlu akun yang sama persis di semua perangkat. Ini sengaja diubah supaya kamu tidak kejebak kalau salah satu perangkat login pakai "Masuk cepat" dan perangkat lain login manual/Google -- semuanya tetap satu daftar yang sama. Yang menjaga keamanannya adalah kata sandi per perangkat (kalau diaktifkan) dan kode sesi 6 digit sekali pakai, bukan lagi pemisahan akun.
 
 Cara pakai:
-1. Login dengan akun yang sama di semua perangkat yang mau dihubungkan.
+1. Login (akun apa saja, tidak harus sama) di semua perangkat yang mau dihubungkan.
 2. Di perangkat yang ingin bisa dikontrol: buka menu "⚙ Pengaturan hubungkan tanpa kode" dari halaman utama, aktifkan, isi kata sandi (minimal 6 karakter), Simpan.
 3. Di perangkat pengontrol: buka "Kontrol perangkat lain" → "📱 Perangkat tersimpan" → pilih perangkat → masukkan kata sandinya → otomatis tersambung, tanpa perlu menyalin kode 6 digit.
 
@@ -110,7 +114,7 @@ Catatan penting:
 - Begitu diaktifkan, perangkat itu menjalankan layanan latar belakang kecil (notifikasi permanen "Remote Ctl aktif") supaya tetap bisa menerima permintaan konek walau aplikasi tidak sedang dibuka. Layanan ini otomatis menyala lagi kalau HP direstart, dan mencoba menyala ulang sendiri kalau sistem mematikannya.
 - **Tetap tekan tombol "🔋 Matikan optimasi baterai untuk aplikasi ini"** di halaman Pengaturan setelah mengaktifkan fitur ini. **Beberapa merk HP (Xiaomi/MIUI, Oppo/ColorOS, Vivo, dll.) tetap bisa agresif mematikan aplikasi latar belakang** meski sudah dikecualikan dari optimasi baterai Android standar -- untuk HP-HP ini, biasanya masih perlu tambahan cari pengaturan khusus merk seperti "Autostart" / "Izinkan berjalan di latar belakang" di aplikasi Pengaturan bawaan HP tersebut.
 - Saat ada permintaan konek masuk, Android **tetap akan menampilkan satu dialog sistem singkat** ("Mulai merekam atau mentransmisikan?") di perangkat yang dikontrol -- ini pagar keamanan Android sendiri dan tidak bisa dilewati tanpa root, jadi bukan 100% tanpa sentuhan sama sekali, tapi jauh lebih singkat dibanding buka aplikasi dan salin kode manual.
-- Fitur ini sekarang juga ada di versi Windows (`windows-control/`) -- satu akun yang sama dipakai untuk melihat gabungan perangkat Android dan Windows yang terdaftar.
+- Fitur ini sekarang juga ada di versi Windows (`windows-control/`) -- daftar perangkatnya sama (bersama), jadi HP dan laptop langsung saling lihat begitu sama-sama mengaktifkan fitur ini, tanpa perlu akun yang sama.
 
 ## Batasan versi pertama ini (sengaja disederhanakan)
 
@@ -139,6 +143,15 @@ perangkat yang dikontrol).
 > difokus di perangkat yang dikontrol (misalnya kolom chat atau kolom
 > pencarian yang sudah di-tap duluan) -- fitur ini belum bisa membuka
 > kolom teks itu sendiri dari jarak jauh.
+
+> **Kalau update ini baru kamu pasang dan keyboard masih belum jalan**:
+> izin Accessibility Service di perangkat yang DIKONTROL perlu
+> dinyalakan ULANG sekali -- buka Pengaturan > Aksesibilitas di HP itu,
+> matikan dulu "Remote Ctl" kalau sudah aktif, lalu nyalakan lagi. Ini
+> karena APK versi baru minta izin tambahan (baca isi kolom teks yang
+> sedang fokus) supaya tombol ketik/Enter/Backspace bisa benar-benar
+> jalan -- sebelumnya izin ini belum diminta sama sekali, itu sebabnya
+> keyboard selalu diam tanpa pesan error apa pun.
 
 ## Ide pengembangan berikutnya
 

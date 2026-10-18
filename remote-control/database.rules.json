@@ -15,15 +15,11 @@
         }
       }
     },
-    "users": {
-      "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid",
-        "devices": {
-          "$deviceId": {
-            ".validate": "newData.hasChildren(['name'])"
-          }
-        }
+    "sharedDevices": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$deviceId": {
+        ".validate": "newData.hasChildren(['name'])"
       }
     }
   }

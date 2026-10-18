@@ -6,10 +6,11 @@ namespace RemoteCtlAgent;
 
 /// <summary>
 /// Padanan DeviceStore.kt di aplikasi Android: menyimpan & membaca
-/// daftar "perangkat tersimpan" milik akun yang sedang login, untuk
-/// fitur hubungkan-tanpa-kode. Disimpan di /users/{uid}/devices/{deviceId}
-/// -- dikunci oleh aturan database Firebase yang sama persis dengan versi
-/// Android, jadi satu akun bisa melihat gabungan perangkat Android + Windows-nya.
+/// daftar "perangkat tersimpan" untuk fitur hubungkan-tanpa-kode.
+/// Disimpan di satu node bersama /sharedDevices/{deviceId} yang bisa
+/// dibaca & ditulis oleh akun mana pun yang sudah login -- jadi
+/// perangkat Android dan Windows tetap muncul sama-sama di daftar,
+/// walaupun login pakai akun Firebase yang berbeda-beda.
 /// </summary>
 public static class DeviceStore
 {
@@ -40,12 +41,12 @@ public static class DeviceStore
         return sb.ToString();
     }
 
-    private static string DevicesPath(string uid) => $"users/{uid}/devices";
+    private const string DevicesPath = "sharedDevices";
 
     public static async Task EnableQuickConnectAsync(bool requirePassword, string? password)
     {
         if (!Fb.IsSignedIn) return;
-        var path = $"{DevicesPath(Fb.Uid!)}/{DeviceId()}";
+        var path = $"{DevicesPath}/{DeviceId()}";
         await Fb.PutAsync(path, new
         {
             name = Environment.MachineName + " (Windows)",
@@ -60,14 +61,14 @@ public static class DeviceStore
     public static async Task DisableQuickConnectAsync()
     {
         if (!Fb.IsSignedIn) return;
-        var path = $"{DevicesPath(Fb.Uid!)}/{DeviceId()}";
+        var path = $"{DevicesPath}/{DeviceId()}";
         await Fb.PatchAsync(path, new { enabled = false, online = false });
     }
 
     public static async Task HeartbeatAsync()
     {
         if (!Fb.IsSignedIn) return;
-        var path = $"{DevicesPath(Fb.Uid!)}/{DeviceId()}";
+        var path = $"{DevicesPath}/{DeviceId()}";
         await Fb.PatchAsync(path, new
         {
             online = true,
@@ -78,7 +79,7 @@ public static class DeviceStore
     public static async Task SetOfflineAsync()
     {
         if (!Fb.IsSignedIn) return;
-        var path = $"{DevicesPath(Fb.Uid!)}/{DeviceId()}";
+        var path = $"{DevicesPath}/{DeviceId()}";
         await Fb.PatchAsync(path, new { online = false });
     }
 
@@ -86,7 +87,7 @@ public static class DeviceStore
     public static async Task<(string code, string passwordHash)?> PollIncomingRequestAsync()
     {
         if (!Fb.IsSignedIn) return null;
-        var path = $"{DevicesPath(Fb.Uid!)}/{DeviceId()}/incomingRequest";
+        var path = $"{DevicesPath}/{DeviceId()}/incomingRequest";
         var data = await Fb.GetAsync(path);
         if (data is not JsonElement el || el.ValueKind != JsonValueKind.Object) return null;
         if (!el.TryGetProperty("code", out var codeEl)) return null;
@@ -99,7 +100,7 @@ public static class DeviceStore
     public static async Task ClearIncomingRequestAsync()
     {
         if (!Fb.IsSignedIn) return;
-        var path = $"{DevicesPath(Fb.Uid!)}/{DeviceId()}/incomingRequest";
+        var path = $"{DevicesPath}/{DeviceId()}/incomingRequest";
         await Fb.DeleteAsync(path);
     }
 
@@ -107,7 +108,7 @@ public static class DeviceStore
     public static async Task<string?> GetMyStoredPasswordHashAsync()
     {
         if (!Fb.IsSignedIn) return null;
-        var path = $"{DevicesPath(Fb.Uid!)}/{DeviceId()}/passwordHash";
+        var path = $"{DevicesPath}/{DeviceId()}/passwordHash";
         var data = await Fb.GetAsync(path);
         if (data is not JsonElement el || el.ValueKind != JsonValueKind.String) return null;
         return el.GetString();
@@ -117,7 +118,7 @@ public static class DeviceStore
     {
         var result = new List<DeviceEntry>();
         if (!Fb.IsSignedIn) return result;
-        var data = await Fb.GetAsync(DevicesPath(Fb.Uid!));
+        var data = await Fb.GetAsync(DevicesPath);
         if (data is not JsonElement el || el.ValueKind != JsonValueKind.Object) return result;
 
         foreach (var prop in el.EnumerateObject())
@@ -138,7 +139,7 @@ public static class DeviceStore
     public static async Task RequestConnectAsync(string deviceId, string code, string? password)
     {
         if (!Fb.IsSignedIn) return;
-        var path = $"{DevicesPath(Fb.Uid!)}/{deviceId}/incomingRequest";
+        var path = $"{DevicesPath}/{deviceId}/incomingRequest";
         await Fb.PutAsync(path, new
         {
             code,

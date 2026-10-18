@@ -87,15 +87,15 @@ class PresenceService : Service() {
 
     private fun handleRequest(code: String, passwordHash: String) {
         // Ambil ulang data perangkat (mode + hash kata sandi tersimpan)
-        // untuk dicocokkan. Jalur ini hanya bisa ditulis oleh akun yang
-        // sama (dikunci di aturan database), jadi mode tanpa kata sandi
-        // tetap aman walau tidak ada verifikasi tambahan di sini.
+        // untuk dicocokkan. Disimpan di node bersama /sharedDevices supaya
+        // perangkat yang mau konek bisa login pakai akun apa saja -- jadi
+        // kata sandi per perangkat (kalau diaktifkan) adalah satu-satunya
+        // penjaga di sini, bukan lagi pemisahan akun.
         val deviceId = DeviceStore.deviceId(this)
         com.google.firebase.database.FirebaseDatabase.getInstance(
             "https://apk-maker-ceb1f-default-rtdb.asia-southeast1.firebasedatabase.app"
         ).reference
-            .child("users").child(com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: return)
-            .child("devices").child(deviceId)
+            .child("sharedDevices").child(deviceId)
             .get()
             .addOnSuccessListener { snapshot ->
                 val requiresPassword = snapshot.child("requiresPassword").getValue(Boolean::class.java) ?: true
