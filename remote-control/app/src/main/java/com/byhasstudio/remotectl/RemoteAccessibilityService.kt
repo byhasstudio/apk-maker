@@ -103,13 +103,13 @@ class RemoteAccessibilityService : AccessibilityService() {
     }
 
     private fun pressEnter() {
-    private fun pressEnter() {
         val node = findFocusedEditableNode() ?: return
         // Memicu aksi Enter/Kirim dengan mengirimkan perintah klik aksi input
         node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         node.recycle()
     }
 
+    private fun findFocusedEditableNode(): AccessibilityNodeInfo? =
         findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
 
     private fun dispatchTap(x: Float, y: Float) {
