@@ -126,6 +126,43 @@ public class FirebaseRest
         }
     }
 
+    /// <summary>Tukar ID token Google (dari GoogleAuth.SignInAsync) jadi sesi Firebase. Hasil = pesan error, null kalau berhasil.</summary>
+    public async Task<string?> SignInWithGoogleIdTokenAsync(string googleIdToken)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync(
+                $"https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key={ApiKey}",
+                new
+                {
+                    postBody = $"id_token={googleIdToken}&providerId=google.com",
+                    requestUri = "http://localhost",
+                    returnIdpCredential = true,
+                    returnSecureToken = true
+                });
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                var errJson = await resp.Content.ReadFromJsonAsync<JsonElement>();
+                var message = errJson.TryGetProperty("error", out var err) &&
+                              err.TryGetProperty("message", out var msg)
+                    ? msg.GetString() : "Gagal masuk dengan Google.";
+                return TranslateError(message ?? "Gagal masuk dengan Google.");
+            }
+
+            var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
+            _idToken = json.GetProperty("idToken").GetString();
+            Uid = json.GetProperty("localId").GetString();
+            _refreshToken = json.TryGetProperty("refreshToken", out var rt) ? rt.GetString() : null;
+            if (_refreshToken != null) SecureTokenStore.Save(_refreshToken);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
+
     public void SignOut()
     {
         _idToken = null;

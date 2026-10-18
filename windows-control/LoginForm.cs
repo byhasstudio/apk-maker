@@ -16,11 +16,13 @@ public class LoginForm : Form
     private readonly Button _btnLogin;
     private readonly Button _btnRegister;
 
+    private readonly Button _btnGoogle;
+
     public LoginForm()
     {
         Text = "Remote Ctl — Masuk";
         Width = 420;
-        Height = 340;
+        Height = 420;
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
@@ -65,6 +67,18 @@ public class LoginForm : Form
         _btnRegister.SetBounds(24 + (Width - 80) / 2 + 8, 248, (Width - 80) / 2, 40);
         _btnRegister.Click += async (_, _) => await SubmitAsync(signUp: true);
 
+        var divider = new Label
+        {
+            Text = "─────────  atau  ─────────",
+            Top = 300, Left = 24, Width = Width - 68, Height = 20,
+            ForeColor = UiTheme.TextSecondary, Font = UiTheme.BodyFont,
+            TextAlign = ContentAlignment.MiddleCenter
+        };
+
+        _btnGoogle = UiTheme.MakeButton("🔵 Masuk dengan Google", UiTheme.Surface);
+        _btnGoogle.SetBounds(24, 330, Width - 68, 40);
+        _btnGoogle.Click += async (_, _) => await SubmitGoogleAsync();
+
         Controls.Add(title);
         Controls.Add(subtitle);
         Controls.Add(emailLabel);
@@ -74,6 +88,44 @@ public class LoginForm : Form
         Controls.Add(_statusLabel);
         Controls.Add(_btnLogin);
         Controls.Add(_btnRegister);
+        Controls.Add(divider);
+        Controls.Add(_btnGoogle);
+    }
+
+    private async Task SubmitGoogleAsync()
+    {
+        _btnGoogle.Enabled = false;
+        _btnLogin.Enabled = false;
+        _btnRegister.Enabled = false;
+        _statusLabel.ForeColor = UiTheme.TextSecondary;
+        _statusLabel.Text = "Membuka browser buat login Google...";
+
+        var idToken = await GoogleAuth.SignInAsync();
+        if (idToken == null)
+        {
+            _statusLabel.ForeColor = UiTheme.Danger;
+            _statusLabel.Text = "Login Google dibatalkan, gagal, atau belum di-setup (lihat README).";
+            _btnGoogle.Enabled = true;
+            _btnLogin.Enabled = true;
+            _btnRegister.Enabled = true;
+            return;
+        }
+
+        _statusLabel.Text = "Menyambung ke akun...";
+        var error = await FirebaseRest.Instance.SignInWithGoogleIdTokenAsync(idToken);
+        if (error == null)
+        {
+            Success = true;
+            DialogResult = DialogResult.OK;
+            Close();
+            return;
+        }
+
+        _statusLabel.ForeColor = UiTheme.Danger;
+        _statusLabel.Text = error;
+        _btnGoogle.Enabled = true;
+        _btnLogin.Enabled = true;
+        _btnRegister.Enabled = true;
     }
 
     private async Task SubmitAsync(bool signUp)

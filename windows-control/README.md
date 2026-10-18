@@ -51,6 +51,28 @@ Setiap kali dijalankan, program mengecek rilis terbaru di GitHub Releases. Kalau
 3. Di HP, buka aplikasi Remote Ctl, pilih "Kontrol perangkat lain",
    masukkan kode itu, lalu Sambung.
 
+## Login Google
+
+Sama seperti versi Android, jendela "Masuk dengan akun" punya tombol
+**"🔵 Masuk dengan Google"** -- membuka browser default Windows ke
+halaman login Google, lalu otomatis tersambung kembali ke program ini
+begitu selesai. Lebih jarang gagal dibanding email/kata sandi manual.
+
+Butuh **satu setup sekali saja** sebelum tombol ini aktif (beda dari
+setup Google di Android -- Windows butuh jenis kredensial OAuth yang
+berbeda, "Desktop app", bukan "Web application"):
+
+1. Buka [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → pilih proyek **apk-maker-ceb1f** (proyek Firebase yang sama).
+2. **Create Credentials → OAuth client ID** → Application type: **Desktop app** → beri nama bebas (mis. "Remote Ctl Windows") → Create.
+3. Salin **Client ID** dan **Client secret** yang muncul.
+4. Di GitHub repo → Settings → Secrets and variables → Actions → tambah 2 secret:
+   - `REMOTECTL_GOOGLE_DESKTOP_CLIENT_ID` = Client ID dari langkah 3
+   - `REMOTECTL_GOOGLE_DESKTOP_CLIENT_SECRET` = Client secret dari langkah 3
+5. Pastikan provider **Google** sudah aktif di Firebase Console → Authentication → Sign-in method (langkah ini sama dengan setup Google di Android -- kalau sudah pernah diaktifkan untuk Android, tidak perlu diulang).
+6. Build ulang EXE lewat Actions seperti biasa -- kredensial otomatis terisi, tidak perlu edit kode.
+
+> Client secret OAuth tipe "Desktop app" memang tidak diperlakukan sebagai rahasia penuh oleh Google sendiri (ini didokumentasikan resmi di developers.google.com -- aplikasi desktop/instal tidak bisa menyembunyikan secret sepenuhnya), jadi aman disimpan sebagai GitHub secret biasa seperti ini.
+
 ## Hubungkan tanpa kode (akun + kata sandi)
 
 Sama seperti versi Android: aktifkan sekali, lalu komputer ini muncul

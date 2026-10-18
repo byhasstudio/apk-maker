@@ -37,6 +37,20 @@ jobs:
         run: |
           sed -i "s/CurrentVersion = \".*\";/CurrentVersion = \"${{ inputs.version }}\";/" UpdateChecker.cs
 
+      - name: Isi kredensial Login Google (opsional)
+        shell: bash
+        env:
+          GOOGLE_DESKTOP_CLIENT_ID: ${{ secrets.REMOTECTL_GOOGLE_DESKTOP_CLIENT_ID }}
+          GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.REMOTECTL_GOOGLE_DESKTOP_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -n "${GOOGLE_DESKTOP_CLIENT_ID:-}" ] && [ -n "${GOOGLE_DESKTOP_CLIENT_SECRET:-}" ]; then
+            sed -i "s/ISI_GOOGLE_DESKTOP_CLIENT_ID/${GOOGLE_DESKTOP_CLIENT_ID}/" GoogleAuth.cs
+            sed -i "s/ISI_GOOGLE_DESKTOP_CLIENT_SECRET/${GOOGLE_DESKTOP_CLIENT_SECRET}/" GoogleAuth.cs
+          else
+            echo "::warning::Secret REMOTECTL_GOOGLE_DESKTOP_CLIENT_ID/_SECRET belum diisi -- tombol 'Masuk dengan Google' akan nonaktif sampai diisi. Lihat README bagian 'Login Google'."
+          fi
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
