@@ -103,17 +103,13 @@ class RemoteAccessibilityService : AccessibilityService() {
     }
 
     private fun pressEnter() {
+    private fun pressEnter() {
         val node = findFocusedEditableNode() ?: return
-        // ACTION_IME_ENTER baru ada mulai Android 11 (API 30); di versi lebih
-        // lama, kolom input tunggal biasanya tetap bisa "selesai" lewat
-        // tombol Enter di keyboard host sendiri kalau keyboard-nya muncul.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            node.performAction(AccessibilityNodeInfo.ACTION_IME_ENTER)
-        }
+        // Memicu aksi Enter/Kirim dengan mengirimkan perintah klik aksi input
+        node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         node.recycle()
     }
 
-    private fun findFocusedEditableNode(): AccessibilityNodeInfo? =
         findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
 
     private fun dispatchTap(x: Float, y: Float) {
