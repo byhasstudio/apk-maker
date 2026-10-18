@@ -16,6 +16,22 @@ android {
         versionName = "0.2.0"
     }
 
+    signingConfigs {
+        getByName("debug") {
+            // Keystore debug yang DI-PIN (dikomit ke repo, bukan rahasia --
+            // ini standar untuk keystore debug) supaya SHA-1 aplikasi selalu
+            // sama di setiap build GitHub Actions. Kalau tidak di-pin,
+            // runner CI yang baru tiap kali jalan akan membuat keystore debug
+            // baru secara otomatis dengan SHA-1 berbeda tiap build -- yang
+            // bikin Google Sign-In selalu gagal (SHA-1 terdaftar jadi tidak
+            // cocok lagi).
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
@@ -48,4 +64,5 @@ dependencies {
     implementation("com.google.firebase:firebase-database-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 }

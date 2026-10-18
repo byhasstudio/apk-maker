@@ -47,6 +47,18 @@ jobs:
           fi
           echo "$GOOGLE_SERVICES_JSON_B64" | base64 -d > app/google-services.json
 
+      - name: Isi Web Client ID buat Login Google (opsional)
+        env:
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.REMOTECTL_GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -n "${GOOGLE_WEB_CLIENT_ID:-}" ]; then
+            sed -i "s/ISI_WEB_CLIENT_ID_DARI_FIREBASE_CONSOLE/${GOOGLE_WEB_CLIENT_ID}/" \
+              app/src/main/java/com/byhasstudio/remotectl/LoginActivity.kt
+          else
+            echo "::warning::Secret REMOTECTL_GOOGLE_WEB_CLIENT_ID belum diisi -- tombol 'Masuk dengan Google' akan gagal sampai diisi. Lihat README bagian 'Login Google'."
+          fi
+
       - name: Terapkan nomor versi ke proyek
         run: |
           set -euo pipefail

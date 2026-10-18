@@ -57,6 +57,30 @@ Buka tab **Actions** di GitHub repo → workflow **"Build Remote Control APK"** 
 
 Setiap kali aplikasi dibuka, ia mengecek rilis terbaru di GitHub Releases (repo publik, tidak perlu token). Kalau ada versi lebih baru, muncul pop-up dengan catatan perubahan dan tombol "Update Sekarang" -- APK baru diunduh otomatis, lalu Android membuka dialog pemasangan (cukup sekali ketuk "Install", ini batasan keamanan Android dan tidak bisa dilewati tanpa root).
 
+## Login Google (biar gak sering "error padahal udah benar")
+
+Login email/kata sandi manual rawan salah ketik tanpa disadari (spasi
+tersembunyi, Caps Lock, dll), jadi sekarang ada juga tombol **"🔵 Masuk
+dengan Google"** di halaman login -- lebih jarang gagal karena tidak
+ada yang diketik ulang.
+
+Supaya tombol ini berfungsi (sekali setup saja, aktif untuk semua
+build selanjutnya):
+
+1. Buka [Firebase Console](https://console.firebase.google.com/) → proyek `apk-maker-ceb1f` → **Authentication → Sign-in method**.
+2. Aktifkan provider **Google** (pilih email dukungan proyek lalu Simpan).
+3. Masih di halaman yang sama, klik provider Google tadi → salin nilai **"Web client ID"** (bentuknya seperti `xxxxx.apps.googleusercontent.com`).
+4. Buka **Project settings** (ikon gerigi) → scroll ke bagian "Your apps" → pilih app Android `com.byhasstudio.remotectl` → **Add fingerprint** → tempel SHA-1 ini:
+   ```
+   AE:B3:D4:51:AC:2A:09:37:56:24:73:76:63:C8:36:DE:99:DF:C1:4B
+   ```
+   (Ini SHA-1 keystore debug yang sudah di-pin di repo ini -- `app/debug.keystore` -- jadi nilainya tidak akan berubah-ubah tiap build CI. Tidak perlu generate ulang.)
+5. Di GitHub repo → Settings → Secrets and variables → Actions → **New repository secret**: nama `REMOTECTL_GOOGLE_WEB_CLIENT_ID`, isi value dengan Web client ID dari langkah 3.
+6. Build ulang APK seperti biasa lewat Actions -- workflow otomatis mengisi Web Client ID itu ke dalam aplikasi.
+
+Login email/kata sandi tetap ada sebagai cadangan buat yang tidak
+punya/tidak mau pakai akun Google.
+
 ## Hubungkan tanpa kode (akun + kata sandi)
 
 Sekarang aplikasi mewajibkan **login (email + kata sandi)** -- ini supaya fitur "perangkat tersimpan" hanya terlihat dan bisa diakses oleh akun yang sama (dikunci di aturan keamanan database, bukan cuma disaring di aplikasi).
