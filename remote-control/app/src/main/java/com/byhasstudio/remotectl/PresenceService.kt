@@ -74,6 +74,7 @@ class PresenceService : Service() {
         super.onCreate()
         startForeground(NOTIF_ID, buildNotification())
 
+        DeviceStore.registerAutoOffline(this)
         handler.post(heartbeatRunnable)
 
         listener = DeviceStore.listenIncomingRequest(this) { code, passwordHash ->

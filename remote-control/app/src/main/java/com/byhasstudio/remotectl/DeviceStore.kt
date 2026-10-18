@@ -54,6 +54,19 @@ object DeviceStore {
         devicesRef()?.child(deviceId(context))?.child("online")?.setValue(false)
     }
 
+    /**
+     * Daftarkan ke Firebase: kalau koneksi perangkat ini ke server putus
+     * tiba-tiba (app di-force-kill, sinyal hilang, dsb -- bukan dimatikan
+     * rapi lewat tombol Nonaktifkan), server sendiri yang menandai
+     * "online" jadi false begitu socket-nya putus. Ini jauh lebih bisa
+     * diandalkan daripada menunggu heartbeat berikutnya (bisa sampai 30
+     * detik) atau PresenceService.onDestroy yang belum tentu sempat jalan.
+     */
+    fun registerAutoOffline(context: Context) {
+        val ref = devicesRef()?.child(deviceId(context)) ?: return
+        ref.child("online").onDisconnect().setValue(false)
+    }
+
     fun heartbeat(context: Context) {
         devicesRef()?.child(deviceId(context))?.updateChildren(
             mapOf("online" to true, "lastSeen" to System.currentTimeMillis())
@@ -87,21 +100,40 @@ object DeviceStore {
         val ref = devicesRef() ?: return onResult(emptyList())
         ref.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val list = mutableListOf<DeviceEntry>()
-                for (child in snapshot.children) {
-                    val enabled = child.child("enabled").getValue(Boolean::class.java) ?: false
-                    if (!enabled) continue
-                    val name = child.child("name").getValue(String::class.java) ?: "Perangkat"
-                    val online = child.child("online").getValue(Boolean::class.java) ?: false
-                    val requiresPassword = child.child("requiresPassword").getValue(Boolean::class.java) ?: true
-                    list.add(DeviceEntry(child.key ?: "", name, online, requiresPassword))
-                }
-                onResult(list)
+                onResult(parseDevices(snapshot))
             }
             override fun onCancelled(error: DatabaseError) {
                 onResult(emptyList())
             }
         })
+    }
+
+    /** Sama seperti listMyDevices, tapi terus mendengarkan perubahan (status online, dst). */
+    fun listenMyDevices(onResult: (List<DeviceEntry>) -> Unit): ValueEventListener? {
+        val ref = devicesRef() ?: return null.also { onResult(emptyList()) }
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                onResult(parseDevices(snapshot))
+            }
+            override fun onCancelled(error: DatabaseError) {
+                onResult(emptyList())
+            }
+        }
+        ref.addValueEventListener(listener)
+        return listener
+    }
+
+    private fun parseDevices(snapshot: DataSnapshot): List<DeviceEntry> {
+        val list = mutableListOf<DeviceEntry>()
+        for (child in snapshot.children) {
+            val enabled = child.child("enabled").getValue(Boolean::class.java) ?: false
+            if (!enabled) continue
+            val name = child.child("name").getValue(String::class.java) ?: "Perangkat"
+            val online = child.child("online").getValue(Boolean::class.java) ?: false
+            val requiresPassword = child.child("requiresPassword").getValue(Boolean::class.java) ?: true
+            list.add(DeviceEntry(child.key ?: "", name, online, requiresPassword))
+        }
+        return list
     }
 
     fun requestConnect(deviceId: String, code: String, password: String?) {

@@ -31,6 +31,14 @@ class LoginActivity : AppCompatActivity() {
         // Client ID Android, harus yang tipe "Web application". Dapat
         // nilai aslinya begitu provider Google diaktifkan di Firebase.
         private const val GOOGLE_WEB_CLIENT_ID = "ISI_WEB_CLIENT_ID_DARI_FIREBASE_CONSOLE"
+
+        // Akun khusus buat kamu sendiri -- tombol "Masuk cepat" langsung
+        // login pakai ini, tidak perlu ketik manual tiap kali pasang ulang
+        // aplikasi di perangkat baru. Tetap lewat Firebase Auth biasa
+        // (akun ini harus sudah didaftarkan lewat "Buat akun baru" sekali
+        // di salah satu perangkat dulu), bukan jalan pintas keamanan.
+        private const val QUICK_LOGIN_EMAIL = "byhasstudio@gmail.com"
+        private const val QUICK_LOGIN_PASSWORD = "hashashas321"
     }
 
     private val auth = FirebaseAuth.getInstance()
@@ -92,6 +100,27 @@ class LoginActivity : AppCompatActivity() {
                 googleSignInLauncher.launch(googleClient.signInIntent)
             }
         }
+        findViewById<TextView>(R.id.btnQuickLogin).setOnClickListener {
+            quickLogin(error)
+        }
+    }
+
+    /**
+     * Langsung masuk pakai akun khusus di atas, tanpa perlu ketik manual.
+     * Kalau akunnya belum pernah dibuat di perangkat mana pun (login
+     * pertama kali), otomatis didaftarkan dulu lewat kata sandi yang sama.
+     */
+    private fun quickLogin(errorView: TextView) {
+        errorView.visibility = android.view.View.GONE
+        auth.signInWithEmailAndPassword(QUICK_LOGIN_EMAIL, QUICK_LOGIN_PASSWORD)
+            .addOnSuccessListener { goToMain() }
+            .addOnFailureListener {
+                auth.createUserWithEmailAndPassword(QUICK_LOGIN_EMAIL, QUICK_LOGIN_PASSWORD)
+                    .addOnSuccessListener { goToMain() }
+                    .addOnFailureListener { e ->
+                        showError(errorView, e.localizedMessage ?: "Gagal masuk cepat.")
+                    }
+            }
     }
 
     private fun goToMain() {

@@ -27,7 +27,14 @@ class DeviceListActivity : AppCompatActivity() {
         val container = findViewById<LinearLayout>(R.id.deviceContainer)
         val empty = findViewById<TextView>(R.id.txtEmpty)
 
-        DeviceStore.listMyDevices { devices ->
+        // Listener langsung (bukan baca sekali) supaya daftar ini ikut
+        // update kalau status online berubah selagi layar ini terbuka --
+        // dan status "online" cuma sinyal mentah berdasar heartbeat tiap
+        // 30 detik, bukan jaminan pasti. Tombol Hubungkan TIDAK dikunci
+        // berdasar status ini (lihat buildDeviceRow) karena kalau status
+        // itu sedikit telat, pengguna jadi terkunci balik ke kode manual
+        // padahal perangkatnya sebenarnya siap.
+        DeviceStore.listenMyDevices { devices ->
             runOnUiThread {
                 container.removeAllViews()
                 empty.visibility = if (devices.isEmpty()) View.VISIBLE else View.GONE
@@ -59,7 +66,10 @@ class DeviceListActivity : AppCompatActivity() {
             textSize = 15f
         })
         info.addView(TextView(this).apply {
-            val statusText = if (device.online) "● Online" else "○ Offline"
+            // "Offline" di sini cuma perkiraan dari heartbeat terakhir,
+            // BUKAN status real-time pasti -- jadi ini sekadar info, tombol
+            // Hubungkan di bawah tetap aktif walau statusnya kelihatan offline.
+            val statusText = if (device.online) "● Online" else "○ Mungkin offline"
             val modeText = if (device.requiresPassword) "" else " · tanpa kata sandi"
             text = statusText + modeText
             setTextColor(getColor(if (device.online) R.color.success else R.color.text_secondary))
@@ -68,7 +78,6 @@ class DeviceListActivity : AppCompatActivity() {
 
         val btn = MaterialButton(this).apply {
             text = "Hubungkan"
-            isEnabled = device.online
             setOnClickListener {
                 if (device.requiresPassword) {
                     promptPasswordAndConnect(device)

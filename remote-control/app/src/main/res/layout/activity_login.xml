@@ -109,4 +109,14 @@
         android:layout_height="wrap_content"
         android:text="🔵 Masuk dengan Google" />
 
+    <TextView
+        android:id="@+id/btnQuickLogin"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:padding="8dp"
+        android:text="⚡ Masuk cepat (akun admin)"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp" />
+
 </LinearLayout>
