@@ -34,6 +34,19 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, QuickConnectSettingsActivity::class.java))
         }
 
+        findViewById<android.widget.TextView>(R.id.txtAccount).text = "Masuk sebagai ${user.email ?: "akun ini"}"
+        findViewById<android.widget.TextView>(R.id.txtLogout).setOnClickListener {
+            // Matikan juga fitur hubungkan-tanpa-kode di perangkat ini supaya
+            // tidak ada layanan latar belakang yang masih jalan atas nama akun
+            // yang baru saja keluar.
+            QuickConnectPrefs.setEnabled(this, false)
+            stopService(Intent(this, PresenceService::class.java))
+            DeviceStore.disableQuickConnect(this)
+            FirebaseAuth.getInstance().signOut()
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+        }
+
         checkForUpdate()
     }
 

@@ -117,9 +117,7 @@ class LoginActivity : AppCompatActivity() {
             .addOnFailureListener {
                 auth.createUserWithEmailAndPassword(QUICK_LOGIN_EMAIL, QUICK_LOGIN_PASSWORD)
                     .addOnSuccessListener { goToMain() }
-                    .addOnFailureListener { e ->
-                        showError(errorView, e.localizedMessage ?: "Gagal masuk cepat.")
-                    }
+                    .addOnFailureListener { e -> showError(errorView, friendlyAuthError(e)) }
             }
     }
 
@@ -146,9 +144,27 @@ class LoginActivity : AppCompatActivity() {
 
         action(email, password)
             .addOnSuccessListener { goToMain() }
-            .addOnFailureListener { e ->
-                showError(errorView, e.localizedMessage ?: "Gagal masuk. Coba lagi.")
-            }
+            .addOnFailureListener { e -> showError(errorView, friendlyAuthError(e)) }
+    }
+
+    /**
+     * Kalau SEMUA cara login (Masuk, Daftar, Google, Masuk cepat) gagal
+     * sama-sama, penyebab yang paling sering adalah provider "Email/Password"
+     * belum diaktifkan di Firebase Console -- Authentication -> Sign-in
+     * method (beda dari provider Anonymous yang diaktifkan waktu setup
+     * awal, dan beda juga dari provider Google). Pesan error bawaan Firebase
+     * untuk kasus ini ("CONFIGURATION_NOT_FOUND" / "an internal error has
+     * occurred") membingungkan, jadi di sini diterjemahkan.
+     */
+    private fun friendlyAuthError(e: Exception): String {
+        val raw = e.message ?: ""
+        return when {
+            raw.contains("CONFIGURATION_NOT_FOUND") || raw.contains("operation-not-allowed", true) ->
+                "Provider Email/Password belum aktif di Firebase Console (Authentication -> Sign-in method). Lihat README bagian setup."
+            raw.contains("network error", true) ->
+                "Tidak ada koneksi internet. Coba lagi."
+            else -> e.localizedMessage ?: "Gagal masuk. Coba lagi."
+        }
     }
 
     private fun showError(view: TextView, message: String) {

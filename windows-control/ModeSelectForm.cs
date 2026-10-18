@@ -9,6 +9,7 @@ public class ModeSelectForm : Form
 {
     private readonly NotifyIcon _tray;
     private readonly Label _accountLabel;
+    private readonly Label _btnLogout;
     private bool _allowClose;
 
     public ModeSelectForm(bool startHidden = false)
@@ -84,6 +85,16 @@ public class ModeSelectForm : Form
         btnQuickConnect.SetBounds(32 + (Width - 100) / 2 + 16, 262, (Width - 100) / 2, 36);
         btnQuickConnect.Click += (_, _) => OpenQuickConnectSettings();
 
+        _btnLogout = new Label
+        {
+            Text = "🚪 Keluar",
+            Top = 304, Left = 32, Width = Width - 84, Height = 20,
+            ForeColor = UiTheme.Danger, Font = UiTheme.BodyFont,
+            TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand,
+            Visible = false
+        };
+        _btnLogout.Click += async (_, _) => await LogoutAsync();
+
         Controls.Add(title);
         Controls.Add(subtitle);
         Controls.Add(btnHost);
@@ -91,6 +102,7 @@ public class ModeSelectForm : Form
         Controls.Add(_accountLabel);
         Controls.Add(btnAccount);
         Controls.Add(btnQuickConnect);
+        Controls.Add(_btnLogout);
 
         Shown += async (_, _) => await CheckForUpdateAsync();
         FormClosing += (_, e) =>
@@ -133,9 +145,11 @@ public class ModeSelectForm : Form
 
     private void RefreshAccountLabel()
     {
-        _accountLabel.Text = FirebaseRest.Instance.IsSignedIn
+        var signedIn = FirebaseRest.Instance.IsSignedIn;
+        _accountLabel.Text = signedIn
             ? "Masuk"
             : "Belum masuk — perlu akun untuk \"hubungkan tanpa kode\"";
+        _btnLogout.Visible = signedIn;
     }
 
     private async Task OpenLoginAsync()
@@ -144,6 +158,20 @@ public class ModeSelectForm : Form
         login.ShowDialog(this);
         RefreshAccountLabel();
         await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Padanan tombol "🚪 Keluar" di versi Android -- matikan juga fitur
+    /// hubungkan-tanpa-kode di komputer ini supaya tidak ada layanan latar
+    /// belakang yang masih jalan atas nama akun yang baru saja keluar.
+    /// </summary>
+    private async Task LogoutAsync()
+    {
+        QuickConnectPrefs.Save(false, QuickConnectPrefs.RequiresPassword);
+        PresenceService.Instance.Stop();
+        await DeviceStore.DisableQuickConnectAsync();
+        FirebaseRest.Instance.SignOut();
+        RefreshAccountLabel();
     }
 
     private void OpenQuickConnectSettings()

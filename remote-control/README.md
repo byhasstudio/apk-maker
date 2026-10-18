@@ -35,6 +35,20 @@ beda dari aplikasi Pembuat APK, jadi perlu didaftarkan sebagai
 5. **Aktifkan Realtime Database** di proyek ini (menu Build → Realtime Database → Create database), kalau belum aktif.
 6. Di tab Rules Realtime Database, tempel isi file `database.rules.json` dari folder ini, lalu Publish.
 7. Di Authentication → Sign-in method, aktifkan **Anonymous**.
+8. **Di halaman yang sama, aktifkan juga provider Email/Password.** Ini
+   LANGKAH YANG SERING KELEWATAN -- kalau tidak diaktifkan, tombol
+   Masuk, Daftar akun baru, DAN Masuk cepat semuanya akan gagal dengan
+   error (biasanya "CONFIGURATION_NOT_FOUND" atau pesan error umum),
+   karena provider ini beda dari Anonymous dan beda juga dari Google
+   (lihat bagian "Login Google" di bawah -- itu provider ketiga yang
+   terpisah lagi).
+
+> **Kalau sebelumnya semua cara login selalu gagal** (Masuk, Daftar,
+> Masuk cepat -- bukan cuma salah satu), ini hampir pasti karena
+> langkah 8 di atas belum dilakukan. Buka Firebase Console sekarang,
+> cek provider Email/Password statusnya "Enabled" atau belum -- tidak
+> perlu build ulang APK setelah mengaktifkannya, cukup buka lagi
+> aplikasi yang sudah terpasang.
 
 ### 2. Masukkan google-services.json ke GitHub sebagai secret
 
@@ -56,6 +70,8 @@ Buka tab **Actions** di GitHub repo → workflow **"Build Remote Control APK"** 
 ## Update otomatis
 
 Setiap kali aplikasi dibuka, ia mengecek rilis terbaru di GitHub Releases (repo publik, tidak perlu token). Kalau ada versi lebih baru, muncul pop-up dengan catatan perubahan dan tombol "Update Sekarang" -- APK baru diunduh otomatis, lalu Android membuka dialog pemasangan (cukup sekali ketuk "Install", ini batasan keamanan Android dan tidak bisa dilewati tanpa root).
+
+> Pengecekan update ini baru jalan SETELAH berhasil login (ada di halaman utama, bukan halaman login). Kalau login masih gagal karena masalah di atas, update otomatis juga belum akan kelihatan -- begitu login beres, update otomatis ikut jalan lagi.
 
 ## Login Google (biar gak sering "error padahal udah benar")
 

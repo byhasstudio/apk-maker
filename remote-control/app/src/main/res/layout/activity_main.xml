@@ -49,4 +49,23 @@
         android:textColor="@color/text_secondary"
         android:textSize="13sp" />
 
+    <TextView
+        android:id="@+id/txtAccount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:padding="8dp"
+        android:text=""
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/txtLogout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        android:text="🚪 Keluar"
+        android:textColor="@color/danger"
+        android:textSize="13sp" />
+
 </LinearLayout>
