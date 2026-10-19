@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1e2531">
+<title>Survivor vs Killer — Prototipe Gerak</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1e2531; font-family: system-ui, sans-serif; color: #dfe7f1; user-select: none; -webkit-user-select: none; }
+  canvas { display: block; touch-action: none; }
+  #hud { position: fixed; left: 14px; top: 12px; pointer-events: none; font-size: 14px; line-height: 1.5; text-shadow: 0 1px 3px #000a; }
+  #hud b { font-size: 18px; }
+  #fl.ice { color: #8fd8ff; }
+  #warn { color: #ffb36b; font-weight: 600; }
+  #hint { color: #a9b6c6; font-size: 12px; margin-top: 4px; }
+  #panel { position: fixed; right: 12px; top: 10px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  select, button { font: inherit; font-size: 13px; color: #dfe7f1; background: #2b3545; border: 1px solid #435068; border-radius: 999px; padding: 6px 13px; cursor: pointer; }
+  button.on { background: #8fd8ff; color: #10202c; border-color: #8fd8ff; }
+  #stick { position: fixed; left: 22px; bottom: 26px; width: 130px; height: 130px; border-radius: 50%; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.2); display: none; touch-action: none; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(255,255,255,.35); }
+  @media (pointer: coarse) { #stick { display: block; } #hint-d { display: none; } }
+</style>
+</head>
+<body>
+<div id="hud">
+  <b>Lantai: <span id="fl">Normal</span></b><br>
+  Kecepatan: <span id="sp">0.0</span> m/s<br>
+  <span id="warn"></span>
+  <div id="hint"><span id="hint-d">WASD gerak · seret mouse putar kamera · F lantai licin · R ulang</span></div>
+</div>
+<div id="panel">
+  <select id="char" aria-label="Pilih karakter"></select>
+  <button id="slipBtn">Lantai Licin: OFF</button>
+  <button id="respawnBtn">Ulang (R)</button>
+</div>
+<div id="stick"><div id="knob"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="chibi.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
