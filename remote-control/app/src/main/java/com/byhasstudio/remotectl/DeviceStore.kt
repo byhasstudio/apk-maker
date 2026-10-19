@@ -3,6 +3,7 @@ package com.byhasstudio.remotectl
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -37,8 +38,25 @@ object DeviceStore {
     private fun devicesRef() =
         if (FirebaseAuth.getInstance().currentUser != null) db.child("sharedDevices") else null
 
-    fun enableQuickConnect(context: Context, requirePassword: Boolean, password: String?) {
-        val ref = devicesRef()?.child(deviceId(context)) ?: return
+    /**
+     * onResult diberi tahu hasil SUNGGUHAN dari server (bukan diasumsikan
+     * berhasil) -- supaya kalau tulisan ini ditolak server (mis. aturan
+     * keamanan database belum ter-publish dengan benar), pengguna
+     * langsung lihat pesan errornya alih-alih aplikasi bilang "Aktif"
+     * padahal diam-diam gagal dan perangkat tidak pernah benar-benar
+     * masuk daftar.
+     */
+    fun enableQuickConnect(
+        context: Context,
+        requirePassword: Boolean,
+        password: String?,
+        onResult: (success: Boolean, error: String?) -> Unit = { _, _ -> }
+    ) {
+        val ref = devicesRef()?.child(deviceId(context))
+        if (ref == null) {
+            onResult(false, "Belum login. Masuk dulu dengan akun sebelum mengaktifkan fitur ini.")
+            return
+        }
         ref.setValue(
             mapOf(
                 "name" to "${Build.MANUFACTURER} ${Build.MODEL}",
@@ -48,7 +66,12 @@ object DeviceStore {
                 "online" to true,
                 "lastSeen" to System.currentTimeMillis()
             )
-        )
+        ).addOnSuccessListener {
+            onResult(true, null)
+        }.addOnFailureListener { e ->
+            Log.e("DeviceStore", "Gagal enableQuickConnect", e)
+            onResult(false, e.message)
+        }
     }
 
     fun disableQuickConnect(context: Context) {
@@ -105,20 +128,31 @@ object DeviceStore {
                 onResult(parseDevices(snapshot))
             }
             override fun onCancelled(error: DatabaseError) {
+                Log.e("DeviceStore", "Gagal listMyDevices: ${error.message}")
                 onResult(emptyList())
             }
         })
     }
 
-    /** Sama seperti listMyDevices, tapi terus mendengarkan perubahan (status online, dst). */
-    fun listenMyDevices(onResult: (List<DeviceEntry>) -> Unit): ValueEventListener? {
+    /**
+     * Sama seperti listMyDevices, tapi terus mendengarkan perubahan (status
+     * online, dst). onError dipanggil kalau server menolak permintaan ini
+     * (mis. aturan keamanan database belum ter-publish dengan benar) --
+     * daftar kosong TANPA pesan error biasanya berarti ini penyebabnya.
+     */
+    fun listenMyDevices(
+        onResult: (List<DeviceEntry>) -> Unit,
+        onError: (String) -> Unit = {}
+    ): ValueEventListener? {
         val ref = devicesRef() ?: return null.also { onResult(emptyList()) }
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 onResult(parseDevices(snapshot))
             }
             override fun onCancelled(error: DatabaseError) {
+                Log.e("DeviceStore", "Gagal listenMyDevices: ${error.message}")
                 onResult(emptyList())
+                onError(error.message)
             }
         }
         ref.addValueEventListener(listener)

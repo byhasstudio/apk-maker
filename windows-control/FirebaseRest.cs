@@ -234,13 +234,26 @@ public class FirebaseRest
         _ => code
     };
 
-    public async Task PutAsync(string path, object value)
+    /// <summary>Hasil berupa pesan error (null kalau berhasil) -- supaya pemanggil
+    /// tahu PASTI kalau tulisan ini ditolak server (mis. aturan keamanan database
+    /// belum ter-publish dengan benar), bukan cuma diam-diam gagal tanpa jejak.</summary>
+    public async Task<string?> PutAsync(string path, object value)
     {
         await EnsureFreshTokenAsync();
-        if (_idToken == null) return;
+        if (_idToken == null) return "Belum login.";
         var content = new StringContent(
             JsonSerializer.Serialize(value), Encoding.UTF8, "application/json");
-        await _http.PutAsync($"{DatabaseUrl}/{path}.json?auth={_idToken}", content);
+        try
+        {
+            var resp = await _http.PutAsync($"{DatabaseUrl}/{path}.json?auth={_idToken}", content);
+            if (resp.IsSuccessStatusCode) return null;
+            var body = await resp.Content.ReadAsStringAsync();
+            return $"HTTP {(int)resp.StatusCode}: {body}";
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
     }
 
     /// <summary>Update sebagian field saja (padanan updateChildren() di Android), tidak menimpa field lain.</summary>

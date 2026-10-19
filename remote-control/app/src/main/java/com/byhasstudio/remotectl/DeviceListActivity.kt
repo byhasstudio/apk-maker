@@ -26,6 +26,7 @@ class DeviceListActivity : AppCompatActivity() {
 
         val container = findViewById<LinearLayout>(R.id.deviceContainer)
         val empty = findViewById<TextView>(R.id.txtEmpty)
+        val error = findViewById<TextView>(R.id.txtError)
 
         // Listener langsung (bukan baca sekali) supaya daftar ini ikut
         // update kalau status online berubah selagi layar ini terbuka --
@@ -34,15 +35,30 @@ class DeviceListActivity : AppCompatActivity() {
         // berdasar status ini (lihat buildDeviceRow) karena kalau status
         // itu sedikit telat, pengguna jadi terkunci balik ke kode manual
         // padahal perangkatnya sebenarnya siap.
-        DeviceStore.listenMyDevices { devices ->
-            runOnUiThread {
-                container.removeAllViews()
-                empty.visibility = if (devices.isEmpty()) View.VISIBLE else View.GONE
-                for (device in devices) {
-                    container.addView(buildDeviceRow(device))
+        DeviceStore.listenMyDevices(
+            onResult = { devices ->
+                runOnUiThread {
+                    container.removeAllViews()
+                    empty.visibility = if (devices.isEmpty()) View.VISIBLE else View.GONE
+                    for (device in devices) {
+                        container.addView(buildDeviceRow(device))
+                    }
+                }
+            },
+            onError = { message ->
+                // Daftar kosong TANPA pesan ini biasanya cuma berarti belum
+                // ada perangkat yang aktifkan fitur ini. Daftar kosong
+                // DENGAN pesan ini berarti server menolak permintaannya --
+                // hampir selalu karena database.rules.json belum ter-publish
+                // dengan benar di Firebase Console.
+                runOnUiThread {
+                    error.text = "Gagal memuat daftar perangkat dari server: $message\n\n" +
+                        "Kemungkinan besar aturan keamanan database (database.rules.json) " +
+                        "belum ter-publish dengan benar di Firebase Console -- lihat README."
+                    error.visibility = View.VISIBLE
                 }
             }
-        }
+        )
     }
 
     private fun buildDeviceRow(device: DeviceStore.DeviceEntry): View {

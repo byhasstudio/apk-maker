@@ -51,17 +51,16 @@ class QuickConnectSettingsActivity : AppCompatActivity() {
                         status.setTextColor(getColor(R.color.danger))
                         return@setOnClickListener
                     }
-                    DeviceStore.enableQuickConnect(this, true, pass)
+                    status.text = "Menyimpan..."
+                    status.setTextColor(getColor(R.color.text_secondary))
+                    DeviceStore.enableQuickConnect(this, true, pass) { ok, err -> onSaveResult(ok, err, true, status) }
                 } else {
-                    DeviceStore.enableQuickConnect(this, false, null)
+                    status.text = "Menyimpan..."
+                    status.setTextColor(getColor(R.color.text_secondary))
+                    DeviceStore.enableQuickConnect(this, false, null) { ok, err -> onSaveResult(ok, err, false, status) }
                 }
                 QuickConnectPrefs.setEnabled(this, true)
                 androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, PresenceService::class.java))
-                status.text = if (requiresPassword)
-                    "Aktif dengan kata sandi. Perangkat ini sekarang muncul di daftar perangkatmu."
-                else
-                    "Aktif tanpa kata sandi. Tinggal pilih perangkat ini dari daftar lalu Hubungkan, langsung konek."
-                status.setTextColor(getColor(R.color.success))
             } else {
                 QuickConnectPrefs.setEnabled(this, false)
                 DeviceStore.disableQuickConnect(this)
@@ -69,6 +68,28 @@ class QuickConnectSettingsActivity : AppCompatActivity() {
                 status.text = "Dinonaktifkan."
                 status.setTextColor(getColor(R.color.text_secondary))
             }
+        }
+    }
+
+    /**
+     * Dipanggil dengan hasil SUNGGUHAN dari server, bukan diasumsikan
+     * berhasil -- kalau gagal (mis. aturan keamanan database belum
+     * ter-publish dengan benar di Firebase Console), pengguna langsung
+     * lihat pesan errornya di sini alih-alih aplikasi diam-diam bilang
+     * "Aktif" padahal perangkat tidak pernah benar-benar masuk daftar.
+     */
+    private fun onSaveResult(success: Boolean, error: String?, requiresPassword: Boolean, status: TextView) {
+        if (success) {
+            status.text = if (requiresPassword)
+                "Aktif dengan kata sandi. Perangkat ini sekarang muncul di daftar perangkatmu."
+            else
+                "Aktif tanpa kata sandi. Tinggal pilih perangkat ini dari daftar lalu Hubungkan, langsung konek."
+            status.setTextColor(getColor(R.color.success))
+        } else {
+            status.text = "Gagal menyimpan ke server: ${error ?: "tidak diketahui"}. " +
+                "Kemungkinan besar aturan keamanan database (database.rules.json) belum ter-publish " +
+                "dengan benar di Firebase Console -- lihat README."
+            status.setTextColor(getColor(R.color.danger))
         }
     }
 }

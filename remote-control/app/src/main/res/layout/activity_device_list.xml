@@ -19,10 +19,19 @@
         android:id="@+id/txtEmpty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Belum ada perangkat. Aktifkan \'Hubungkan tanpa kode' di perangkat yang ingin kamu kontrol (dengan akun yang sama)."
+        android:text="Belum ada perangkat. Aktifkan \'Hubungkan tanpa kode' di perangkat yang ingin kamu kontrol."
         android:textColor="@color/text_secondary"
         android:textSize="13sp"
         android:layout_marginTop="16dp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/txtError"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/danger"
+        android:textSize="13sp"
+        android:layout_marginTop="10dp"
         android:visibility="gone" />
 
     <LinearLayout

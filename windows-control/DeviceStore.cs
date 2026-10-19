@@ -43,11 +43,15 @@ public static class DeviceStore
 
     private const string DevicesPath = "sharedDevices";
 
-    public static async Task EnableQuickConnectAsync(bool requirePassword, string? password)
+    /// <summary>Hasil berupa pesan error (null kalau berhasil) -- supaya kalau
+    /// penyimpanan ini ditolak server (mis. aturan keamanan database belum
+    /// ter-publish dengan benar), pengguna langsung lihat pesannya alih-alih
+    /// aplikasi diam-diam bilang "Aktif" padahal gagal tersimpan.</summary>
+    public static async Task<string?> EnableQuickConnectAsync(bool requirePassword, string? password)
     {
-        if (!Fb.IsSignedIn) return;
+        if (!Fb.IsSignedIn) return "Belum login.";
         var path = $"{DevicesPath}/{DeviceId()}";
-        await Fb.PutAsync(path, new
+        return await Fb.PutAsync(path, new
         {
             name = Environment.MachineName + " (Windows)",
             passwordHash = requirePassword && password != null ? Hash(password) : "",

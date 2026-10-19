@@ -132,8 +132,21 @@ public class QuickConnectForm : Form
 
         if (enabled)
         {
-            await DeviceStore.EnableQuickConnectAsync(
+            // Hasil SUNGGUHAN dari server, bukan diasumsikan berhasil --
+            // kalau ditolak (mis. aturan keamanan database belum
+            // ter-publish dengan benar di Firebase Console), pengguna
+            // langsung lihat pesan errornya di sini.
+            var error = await DeviceStore.EnableQuickConnectAsync(
                 requiresPassword, requiresPassword ? _passwordBox.Text : null);
+            if (error != null)
+            {
+                _statusLabel.ForeColor = UiTheme.Danger;
+                _statusLabel.Text = $"Gagal menyimpan ke server: {error}\n\n" +
+                    "Kemungkinan besar aturan keamanan database (database.rules.json) " +
+                    "belum ter-publish dengan benar di Firebase Console -- lihat README.";
+                _btnSave.Enabled = true;
+                return;
+            }
             QuickConnectPrefs.Save(true, requiresPassword);
             PresenceService.Instance.Start();
         }
