@@ -1,20 +1,17 @@
-# Game Asimetris 3D (1 Killer vs 4 Survivor) - Unity
+# Game Asimetris 3D (1 Killer vs 4 Survivor) - Web / Three.js
 
-Skrip ada di `Assets/Scripts/Survivor/`:
+Game web satu file (`index.html`) yang dibuat jadi APK (Android) dan EXE (Windows) lewat alur build GitHub apk-maker.
 
-- `SurvivorMovement.cs` - gerak Rigidbody WASD, mekanik Lantai Licin (`isSlippery`), jatuh 3 detik saat menabrak dinding.
-- `ThirdPersonCamera.cs` - kamera third-person (orbit mouse, anti tembus dinding).
-- `SlipperyZone.cs` - trigger area licin (set `isSlippery` otomatis).
-
-## Setup cepat
-1. Buat GameObject Survivor: tambahkan `Rigidbody` (Use Gravity on) + `CapsuleCollider` + `SurvivorMovement`.
-2. Buat 2 Physic Material: `Normal` (friction 0.6) dan `Slippery` (dynamic/static friction 0, Friction Combine = Minimum). Isi di `SurvivorMovement`.
-3. Pasang `ThirdPersonCamera` di Main Camera, isi `target` dengan Survivor.
-4. Buat lantai licin: objek dengan Collider (Is Trigger) + `SlipperyZone`. Atau cukup centang `isSlippery` manual di Inspector untuk tes.
-5. Dinding harus punya Collider.
-
-## Karakter
-Karakter chibi (Kai, Riku, Leo, Dani, Akira, Mika, Sora, Luna, Hana, Yuki) dibuat prosedural dengan Three.js di `chibi_characters.html`, jadi tidak bisa langsung dipakai Unity. Sementara pakai kapsul sebagai placeholder; model bisa diekspor ke glTF lalu diimpor ke Unity.
+## Yang sudah ada
+- Survivor dengan karakter chibi (10 karakter dari `chibi_characters.html`, ganti dengan tombol atau tombol C).
+- Kamera third-person (seret mouse / geser layar kanan, roda mouse untuk zoom).
+- Gerak WASD (PC) atau joystick virtual layar kiri (Android).
+- Mekanik **Lantai Licin** lewat variabel `S.isSlippery`:
+  - `false`: jalan normal, kecepatan standar.
+  - `true`: WASD jadi gaya dorong (momentum), friksi hampir nol, meluncur seperti es.
+  - Menabrak dinding saat licin: karakter jatuh, tidak bisa bergerak 3 detik, lalu bangun.
+- Area es = separuh timur arena. Tombol I / tombol "Paksa Licin" memaksa licin di mana saja untuk tes.
+- Semua angka (kecepatan, friksi, lama jatuh) ada di objek `CFG` di bagian game.
 
 ## Belum ada
-Sinkronisasi multiplayer (Netcode/Mirror/Photon), peran Killer, ragdoll tulang penuh (opsional lewat `ragdollBodies`).
+Peran Killer dan multiplayer (tinggal pilih Firebase atau WebSocket).
