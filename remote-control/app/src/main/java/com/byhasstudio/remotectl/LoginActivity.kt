@@ -4,100 +4,65 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.EditText
 import android.widget.TextView
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
 import com.google.android.material.button.MaterialButton
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.GoogleAuthProvider
 
 /**
- * Login email/kata sandi ATAU Google. Dipakai supaya daftar "perangkat
- * tersimpan" (fitur hubungkan tanpa kode) hanya kelihatan dan bisa
- * diakses oleh akun yang sama -- bukan sekadar disaring di aplikasi,
- * tapi memang dikunci di aturan keamanan database (lihat database.rules.json).
+ * Login username/kata sandi biasa (bebas ketik, bukan email Gmail).
+ * Dipakai supaya daftar "perangkat tersimpan" (fitur hubungkan tanpa
+ * kode) hanya kelihatan dan bisa diakses oleh akun yang sama -- bukan
+ * sekadar disaring di aplikasi, tapi memang dikunci di aturan keamanan
+ * database (lihat database.rules.json).
  *
- * Login Google butuh satu hal yang harus diisi manual sebelum build:
- * [GOOGLE_WEB_CLIENT_ID] di bawah -- lihat catatan di dekatnya.
+ * Firebase Auth di baliknya tetap jalan lewat email/password seperti
+ * biasa, tapi username yang diketik user diubah otomatis jadi alamat
+ * email palsu internal (mis. "hass" -> "hass@remotectl.local") supaya
+ * tidak perlu minta email Gmail asli sama sekali. Ini aman karena
+ * aturan database hanya mengecek "auth != null", bukan alamat emailnya.
  */
 class LoginActivity : AppCompatActivity() {
 
     companion object {
-        // Diisi dari Firebase Console -> Authentication -> Sign-in method
-        // -> Google -> "Web SDK configuration" -> Web client ID. BUKAN
-        // Client ID Android, harus yang tipe "Web application". Dapat
-        // nilai aslinya begitu provider Google diaktifkan di Firebase.
-        private const val GOOGLE_WEB_CLIENT_ID = "ISI_WEB_CLIENT_ID_DARI_FIREBASE_CONSOLE"
-
         // Akun khusus buat kamu sendiri -- tombol "Masuk cepat" langsung
         // login pakai ini, tidak perlu ketik manual tiap kali pasang ulang
         // aplikasi di perangkat baru. Tetap lewat Firebase Auth biasa
-        // (akun ini harus sudah didaftarkan lewat "Buat akun baru" sekali
-        // di salah satu perangkat dulu), bukan jalan pintas keamanan.
-        private const val QUICK_LOGIN_EMAIL = "byhasstudio@gmail.com"
+        // (akun ini otomatis didaftarkan kalau belum ada), bukan jalan
+        // pintas keamanan.
+        private const val QUICK_LOGIN_USERNAME = "admin"
         private const val QUICK_LOGIN_PASSWORD = "hashashas321"
+
+        // Domain palsu dipakai internal supaya Firebase Auth (yang
+        // sebetulnya berbasis email/password) bisa menerima username
+        // bebas tanpa minta email Gmail asli.
+        private const val FAKE_EMAIL_DOMAIN = "@remotectl.local"
+
+        /** Ubah username bebas jadi "email" internal yang valid buat Firebase. */
+        private fun usernameToFakeEmail(username: String): String {
+            val sanitized = username.trim().lowercase()
+                .replace(Regex("[^a-z0-9._-]"), "_")
+            return "$sanitized$FAKE_EMAIL_DOMAIN"
+        }
     }
 
     private val auth = FirebaseAuth.getInstance()
-    private lateinit var googleClient: GoogleSignInClient
-
-    private val googleSignInLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-        try {
-            val account = task.getResult(ApiException::class.java)
-            val credential = GoogleAuthProvider.getCredential(account.idToken, null)
-            auth.signInWithCredential(credential)
-                .addOnSuccessListener { goToMain() }
-                .addOnFailureListener { e ->
-                    showError(findViewById(R.id.txtError), e.localizedMessage ?: "Gagal masuk dengan Google.")
-                }
-        } catch (e: ApiException) {
-            // Kode 10 (DEVELOPER_ERROR) biasanya berarti SHA-1 aplikasi ini
-            // belum didaftarkan di Firebase Console, atau GOOGLE_WEB_CLIENT_ID
-            // di atas belum diisi/salah -- lihat README bagian "Login Google".
-            showError(
-                findViewById(R.id.txtError),
-                if (e.statusCode == 10) "Setup Google Sign-In belum lengkap (lihat README)."
-                else "Gagal masuk dengan Google (${e.statusCode})."
-            )
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        val email = findViewById<EditText>(R.id.editEmail)
+        val username = findViewById<EditText>(R.id.editUsername)
         val password = findViewById<EditText>(R.id.editPassword)
         val error = findViewById<TextView>(R.id.txtError)
 
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(GOOGLE_WEB_CLIENT_ID)
-            .requestEmail()
-            .build()
-        googleClient = GoogleSignIn.getClient(this, gso)
-
         findViewById<MaterialButton>(R.id.btnLogin).setOnClickListener {
-            doAuth(email.text.toString().trim(), password.text.toString(), error) { e, p ->
+            doAuth(username.text.toString(), password.text.toString(), error) { e, p ->
                 auth.signInWithEmailAndPassword(e, p)
             }
         }
         findViewById<MaterialButton>(R.id.btnRegister).setOnClickListener {
-            doAuth(email.text.toString().trim(), password.text.toString(), error) { e, p ->
+            doAuth(username.text.toString(), password.text.toString(), error) { e, p ->
                 auth.createUserWithEmailAndPassword(e, p)
-            }
-        }
-        findViewById<MaterialButton>(R.id.btnGoogle).setOnClickListener {
-            error.visibility = android.view.View.GONE
-            // Selalu minta pilih akun lagi (bukan auto pakai akun terakhir)
-            // supaya pengguna bisa ganti akun Google dengan mudah kalau perlu.
-            googleClient.signOut().addOnCompleteListener {
-                googleSignInLauncher.launch(googleClient.signInIntent)
             }
         }
         findViewById<TextView>(R.id.btnQuickLogin).setOnClickListener {
@@ -112,10 +77,11 @@ class LoginActivity : AppCompatActivity() {
      */
     private fun quickLogin(errorView: TextView) {
         errorView.visibility = android.view.View.GONE
-        auth.signInWithEmailAndPassword(QUICK_LOGIN_EMAIL, QUICK_LOGIN_PASSWORD)
+        val fakeEmail = usernameToFakeEmail(QUICK_LOGIN_USERNAME)
+        auth.signInWithEmailAndPassword(fakeEmail, QUICK_LOGIN_PASSWORD)
             .addOnSuccessListener { goToMain() }
             .addOnFailureListener {
-                auth.createUserWithEmailAndPassword(QUICK_LOGIN_EMAIL, QUICK_LOGIN_PASSWORD)
+                auth.createUserWithEmailAndPassword(fakeEmail, QUICK_LOGIN_PASSWORD)
                     .addOnSuccessListener { goToMain() }
                     .addOnFailureListener { e -> showError(errorView, friendlyAuthError(e)) }
             }
@@ -127,14 +93,14 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun doAuth(
-        email: String,
+        username: String,
         password: String,
         errorView: TextView,
         action: (String, String) -> com.google.android.gms.tasks.Task<com.google.firebase.auth.AuthResult>
     ) {
         errorView.visibility = android.view.View.GONE
-        if (email.isBlank() || !email.contains("@")) {
-            showError(errorView, "Masukkan email yang valid")
+        if (username.isBlank()) {
+            showError(errorView, "Masukkan username")
             return
         }
         if (password.length < 6) {
@@ -142,19 +108,19 @@ class LoginActivity : AppCompatActivity() {
             return
         }
 
-        action(email, password)
+        action(usernameToFakeEmail(username), password)
             .addOnSuccessListener { goToMain() }
             .addOnFailureListener { e -> showError(errorView, friendlyAuthError(e)) }
     }
 
     /**
-     * Kalau SEMUA cara login (Masuk, Daftar, Google, Masuk cepat) gagal
-     * sama-sama, penyebab yang paling sering adalah provider "Email/Password"
-     * belum diaktifkan di Firebase Console -- Authentication -> Sign-in
-     * method (beda dari provider Anonymous yang diaktifkan waktu setup
-     * awal, dan beda juga dari provider Google). Pesan error bawaan Firebase
-     * untuk kasus ini ("CONFIGURATION_NOT_FOUND" / "an internal error has
-     * occurred") membingungkan, jadi di sini diterjemahkan.
+     * Kalau SEMUA cara login (Masuk, Daftar, Masuk cepat) gagal sama-sama,
+     * penyebab yang paling sering adalah provider "Email/Password" belum
+     * diaktifkan di Firebase Console -- Authentication -> Sign-in method
+     * (beda dari provider Anonymous yang diaktifkan waktu setup awal).
+     * Pesan error bawaan Firebase untuk kasus ini ("CONFIGURATION_NOT_FOUND"
+     * / "an internal error has occurred") membingungkan, jadi di sini
+     * diterjemahkan.
      */
     private fun friendlyAuthError(e: Exception): String {
         val raw = e.message ?: ""
@@ -163,6 +129,8 @@ class LoginActivity : AppCompatActivity() {
                 "Provider Email/Password belum aktif di Firebase Console (Authentication -> Sign-in method). Lihat README bagian setup."
             raw.contains("network error", true) ->
                 "Tidak ada koneksi internet. Coba lagi."
+            raw.contains("badly formatted", true) || raw.contains("invalid-email", true) ->
+                "Username mengandung karakter yang tidak didukung. Coba username lain."
             else -> e.localizedMessage ?: "Gagal masuk. Coba lagi."
         }
     }
