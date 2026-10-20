@@ -12,14 +12,13 @@ import java.security.MessageDigest
 
 /**
  * Menyimpan & membaca daftar "perangkat tersimpan" untuk fitur
- * hubungkan-tanpa-kode. Disimpan di satu node bersama /sharedDevices/{deviceId}
- * yang bisa dibaca & ditulis oleh SIAPA PUN yang sudah login (akun apa
- * saja) -- supaya semua perangkat yang mengaktifkan fitur ini tetap
- * muncul di daftar, walaupun perangkat-perangkat itu login pakai akun
- * Firebase yang berbeda-beda (mis. satu pakai "Masuk cepat", satu pakai
- * akun lain). Keamanannya tetap terjaga lewat kata sandi per
- * perangkat (opsional) dan lewat kode sesi 6 digit sekali pakai yang
- * dibuat ulang setiap permintaan konek -- bukan lewat pemisahan akun.
+ * hubungkan-tanpa-kode. Disimpan di satu node bersama /sharedDevices/{deviceId}.
+ * Setiap perangkat (akun apa saja) boleh menulis/membaca node MILIKNYA
+ * sendiri, tapi DAFTAR seluruh perangkat hanya bisa dibaca akun admin
+ * ([ADMIN_EMAIL]) -- dijaga di dua lapis: aturan keamanan database
+ * (database.rules.json) dan pemeriksaan di aplikasi ([isAdmin]).
+ * Keamanan konek tetap ditambah kata sandi per perangkat (opsional) dan
+ * kode sesi 6 digit yang dibuat ulang setiap permintaan konek.
  */
 object DeviceStore {
 
@@ -31,9 +30,9 @@ object DeviceStore {
     // Nilainya adalah "email" internal hasil ubahan otomatis dari username
     // admin (lihat LoginActivity.usernameToFakeEmail) -- HARUS SAMA PERSIS
     // dengan hasil ubahan username admin di LoginActivity.kt (Android) dan
-    // LoginForm.cs (Windows), supaya akun admin yang login lewat username
-    // biasa tetap dikenali sebagai admin di kedua aplikasi. Username admin
-    // saat ini: "haerka949".
+    // LoginForm.cs (Windows), serta dengan email di database.rules.json,
+    // supaya akun admin yang login lewat username biasa tetap dikenali
+    // sebagai admin di semua tempat. Username admin saat ini: "haerka949".
     const val ADMIN_EMAIL = "haerka949@remotectl.local"
 
     data class DeviceEntry(
@@ -168,7 +167,9 @@ object DeviceStore {
         devicesRef()?.child(deviceId(context))?.child("incomingRequest")?.removeValue()
     }
 
+    /** Daftar semua perangkat -- HANYA untuk akun admin. Akun lain langsung dapat daftar kosong tanpa menyentuh server. */
     fun listMyDevices(onResult: (List<DeviceEntry>) -> Unit) {
+        if (!isAdmin()) return onResult(emptyList())
         val ref = devicesRef() ?: return onResult(emptyList())
         ref.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -183,14 +184,17 @@ object DeviceStore {
 
     /**
      * Sama seperti listMyDevices, tapi terus mendengarkan perubahan (status
-     * online, dst). onError dipanggil kalau server menolak permintaan ini
-     * (mis. aturan keamanan database belum ter-publish dengan benar) --
-     * daftar kosong TANPA pesan error biasanya berarti ini penyebabnya.
+     * online, dst). HANYA untuk akun admin; akun lain dapat daftar kosong
+     * dan tidak ada listener yang dipasang. onError dipanggil kalau server
+     * menolak permintaan ini (mis. aturan keamanan database belum
+     * ter-publish dengan benar) -- daftar kosong TANPA pesan error
+     * biasanya berarti ini penyebabnya.
      */
     fun listenMyDevices(
         onResult: (List<DeviceEntry>) -> Unit,
         onError: (String) -> Unit = {}
     ): ValueEventListener? {
+        if (!isAdmin()) return null.also { onResult(emptyList()) }
         val ref = devicesRef() ?: return null.also { onResult(emptyList()) }
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -208,13 +212,8 @@ object DeviceStore {
 
     /**
      * Daftar SEMUA perangkat yang sedang/pernah login (lepas dari apakah
-     * "hubungkan tanpa kode" diaktifkan) -- supaya akun admin bisa lihat
-     * dan konek ke perangkat mana pun. Untuk akun BUKAN admin, perangkat
-     * yang belum mengaktifkan fitur ini (quickConnectEnabled = false)
-     * tetap ditampilkan, tapi percobaan konek ke situ akan ditolak diam-diam
-     * di sisi perangkat tujuan (lihat PresenceService.handleRequest) --
-     * dibiarkan tampil apa adanya di versi pribadi ini, bukan disembunyikan,
-     * supaya pengguna tahu perangkat itu ada tapi belum "dibuka".
+     * "hubungkan tanpa kode" diaktifkan) -- dipakai akun admin untuk
+     * melihat dan konek ke perangkat mana pun.
      */
     private fun parseDevices(snapshot: DataSnapshot): List<DeviceEntry> {
         val list = mutableListOf<DeviceEntry>()
