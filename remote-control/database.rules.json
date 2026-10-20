@@ -2,8 +2,8 @@
   "rules": {
     "sessions": {
       "$code": {
-        ".read": "auth != null && auth.token.email == 'haerka949@remotectl.local'",
-        ".write": "auth != null && auth.token.email == 'haerka949@remotectl.local'",
+        ".read": "auth != null",
+        ".write": "auth != null",
         "meta": {
           ".validate": "newData.hasChildren(['width', 'height', 'createdAt'])"
         },

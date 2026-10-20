@@ -60,11 +60,11 @@ otomatis jadi "email" internal (`username@remotectl.local`) supaya tetap
 diterima provider Email/Password Firebase -- skemanya sama persis dengan
 Android, jadi akun yang sama bisa dipakai login di kedua platform.
 
-**Satu-satunya akun yang dipakai di proyek ini adalah akun admin,
-username `haerka949`** -- login pakai username ini (daftar dulu sekali
-lewat "Daftar baru" kalau belum pernah) di semua perangkat Windows/Android
-yang ingin dihubungkan satu sama lain. Aturan keamanan database
-(`database.rules.json`) membatasi akses hanya untuk akun ini.
+Siapa pun boleh Daftar/Masuk pakai username apa saja, dan tetap bisa
+pakai fitur inti remote control lewat **kode 6 digit** seperti biasa.
+Yang khusus hanya untuk username **`haerka949`** (akun admin) adalah
+fitur "hubungkan tanpa kode" di bawah -- lihat `remote-control/README.md`
+bagian "Akun & hubungkan tanpa kode" untuk detail lengkapnya.
 
 ## Hubungkan tanpa kode (akun admin)
 

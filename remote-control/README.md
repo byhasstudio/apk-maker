@@ -73,20 +73,27 @@ Setiap kali aplikasi dibuka, ia mengecek rilis terbaru di GitHub Releases (repo 
 
 > Pengecekan update ini baru jalan SETELAH berhasil login (ada di halaman utama, bukan halaman login). Kalau login masih gagal karena masalah di atas, update otomatis juga belum akan kelihatan -- begitu login beres, update otomatis ikut jalan lagi.
 
-## Hubungkan tanpa kode (akun admin)
+## Akun & hubungkan tanpa kode
 
-Login sekarang pakai **username bebas + kata sandi biasa** (bukan email Gmail asli) -- lihat halaman login di app. Di balik layar username itu diubah otomatis jadi "email" internal (`username@remotectl.local`) supaya tetap bisa dipakai provider Email/Password Firebase, tapi kamu cukup ketik username biasa.
+Login sekarang pakai **username bebas + kata sandi biasa** (bukan email Gmail asli) -- lihat halaman login di app. Di balik layar username itu diubah otomatis jadi "email" internal (`username@remotectl.local`) supaya tetap bisa dipakai provider Email/Password Firebase, tapi kamu cukup ketik username biasa. **Siapa pun boleh Daftar/Masuk pakai username apa saja** -- tapi yang bisa dipakai tiap akun beda, lihat di bawah.
+
+### Akun biasa (username apa saja selain `haerka949`)
+
+Bisa Daftar & Masuk bebas, dan tetap bisa pakai fitur inti remote control **lewat kode 6 digit** seperti biasa -- "Jadikan perangkat ini yang dikontrol" dapat kode, lalu dimasukkan manual di perangkat lain untuk tersambung. Ini tidak terikat akun tertentu, siapa pun yang tahu kodenya bisa menyambung.
+
+Yang TIDAK bisa dipakai akun biasa: fitur "hubungkan tanpa kode" / daftar "Perangkat tersimpan" -- toggle ini akan gagal disimpan (muncul pesan error), dan perangkat tidak akan muncul di daftar tersimpan milik siapa pun. Fitur ini memang sengaja dikunci hanya untuk akun admin di bawah.
 
 ### Akun admin (username `haerka949`)
 
-Satu-satunya akun yang dipakai di proyek ini sekarang adalah akun admin dengan **username `haerka949`** -- login pakai username ini (bikin akun baru kalau belum pernah, lewat tombol "Daftar") di SEMUA perangkat yang mau dihubungkan satu sama lain (Android maupun Windows).
+Username **`haerka949`** adalah **akun admin pribadi** -- login pakai username ini (bikin akun baru kalau belum pernah, lewat tombol "Daftar") di SEMUA perangkat yang mau dihubungkan satu sama lain tanpa kode (Android maupun Windows).
 
 Begitu login dengan akun ini di suatu perangkat:
 - Perangkat itu **selalu "terlihat"** di daftar "Perangkat tersimpan" begitu aplikasi dibuka sekali (Android) atau program dijalankan (Windows) -- notifikasi kecil "Remote Ctl aktif" akan selalu muncul selama masih login.
 - Perangkat itu **selalu bisa dihubungkan tanpa kode** dari perangkat lain yang juga login akun admin ini -- tidak perlu mengaktifkan toggle "hubungkan tanpa kode" secara manual dulu, dan tidak perlu kata sandi tambahan.
 - **Walau aplikasi/programnya tidak dibuka sama sekali** (asal pernah login sekali sebelumnya): di Android, `BootReceiver` menyalakan lagi layanan latar belakang otomatis setiap HP di-restart; di Windows, aktifkan "Nyalakan otomatis saat Windows start" di pengaturan supaya programnya langsung jalan diam-diam di tray begitu Windows menyala, tanpa perlu membuka jendela apa pun.
-- Aturan keamanan database (`database.rules.json`) sekarang membatasi **seluruh** akses baca/tulis (daftar perangkat maupun sesi layar) hanya untuk akun `haerka949@remotectl.local` -- akun lain, kalaupun ada, tidak bisa membaca/menulis apa pun di database ini sama sekali. Ini sengaja dibuat sangat ketat karena proyek ini dirancang untuk SATU akun pribadi, bukan multi-pengguna.
 - Dialog izin rekam layar bawaan Android/Windows (lihat batasan di bawah) **tetap muncul** untuk setiap permintaan konek -- ini pagar keamanan sistem operasi sendiri yang tidak bisa dilewati lewat kode aplikasi.
+
+> Teknisnya: `database.rules.json` membedakan dua node -- `sessions` (relay layar + kode 6 digit) terbuka untuk SIAPA PUN yang login (akun apa saja), sedangkan `sharedDevices` (daftar "Perangkat tersimpan" buat fitur tanpa kode) dikunci hanya untuk akun `haerka949@remotectl.local`.
 
 > **Kalau kamu sudah pernah Publish rules sebelum update ini**, WAJIB tempel ulang isi `database.rules.json` dan Publish lagi di Firebase Console -- kalau rules lama masih dipakai, fitur ini bisa gagal atau (lebih buruk) masih longgar ke akun lain.
 
