@@ -2,10 +2,14 @@ namespace RemoteCtlAgent;
 
 /// <summary>
 /// Jendela login username + kata sandi biasa (bebas ketik, bukan email
-/// Gmail) -- padanan LoginActivity di Android. Dipakai supaya daftar
-/// "perangkat tersimpan" (fitur hubungkan tanpa kode) hanya terlihat dan
-/// bisa diakses oleh akun yang sama, dikunci lewat aturan keamanan
-/// database, bukan cuma disaring di aplikasi.
+/// Gmail) -- padanan LoginActivity di Android. Satu jendela yang
+/// tampilannya berubah tergantung mode -- "Masuk" dan "Daftar" punya
+/// judul, teks tombol, dan link toggle yang beda, supaya kelihatan
+/// jelas lagi di mode mana.
+///
+/// Dipakai supaya daftar "perangkat tersimpan" (fitur hubungkan tanpa
+/// kode) hanya terlihat dan bisa diakses oleh akun yang sama, dikunci
+/// lewat aturan keamanan database, bukan cuma disaring di aplikasi.
 ///
 /// Firebase Auth di baliknya tetap jalan lewat email/password seperti
 /// biasa, tapi username yang diketik user diubah otomatis jadi alamat
@@ -32,73 +36,106 @@ public class LoginForm : Form
 
     public bool Success { get; private set; }
 
+    // Mode saat ini -- false = Masuk (login), true = Daftar (buat akun baru).
+    private bool _isRegisterMode;
+
+    private readonly Label _title;
+    private readonly Label _subtitle;
     private readonly TextBox _usernameBox;
     private readonly TextBox _passwordBox;
     private readonly Label _statusLabel;
-    private readonly Button _btnLogin;
-    private readonly Button _btnRegister;
+    private readonly Button _btnPrimary;
+    private readonly Label _txtToggleMode;
 
     public LoginForm()
     {
         Text = "Remote Ctl — Masuk";
         Width = 420;
-        Height = 340;
+        Height = 360;
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
         UiTheme.ApplyFormChrome(this);
 
-        var title = new Label
+        _title = new Label
         {
-            Text = "Masuk ke akunmu",
             Top = 24, Left = 24, Width = Width - 68,
             Font = UiTheme.TitleFont,
             ForeColor = UiTheme.TextPrimary
         };
-        var subtitle = new Label
+        _subtitle = new Label
         {
-            Text = "Pakai akun yang sama di semua perangkat supaya\nfitur \"hubungkan tanpa kode\" bisa dipakai.",
-            Top = 58, Left = 24, Width = Width - 68, Height = 40,
+            Top = 58, Left = 24, Width = Width - 68, Height = 44,
             Font = UiTheme.BodyFont,
             ForeColor = UiTheme.TextSecondary
         };
 
-        var usernameLabel = new Label { Text = "Username", Top = 108, Left = 24, Width = 150, ForeColor = UiTheme.TextSecondary };
-        _usernameBox = new TextBox { Top = 128, Left = 24, Width = Width - 68, Font = UiTheme.BodyFont };
+        var usernameLabel = new Label { Text = "Username", Top = 112, Left = 24, Width = 150, ForeColor = UiTheme.TextSecondary };
+        _usernameBox = new TextBox { Top = 132, Left = 24, Width = Width - 68, Font = UiTheme.BodyFont };
 
-        var passLabel = new Label { Text = "Kata sandi", Top = 158, Left = 24, Width = 150, ForeColor = UiTheme.TextSecondary };
+        var passLabel = new Label { Text = "Kata sandi", Top = 162, Left = 24, Width = 150, ForeColor = UiTheme.TextSecondary };
         _passwordBox = new TextBox
         {
-            Top = 178, Left = 24, Width = Width - 68, Font = UiTheme.BodyFont,
+            Top = 182, Left = 24, Width = Width - 68, Font = UiTheme.BodyFont,
             UseSystemPasswordChar = true
         };
 
         _statusLabel = new Label
         {
-            Top = 210, Left = 24, Width = Width - 68, Height = 36,
+            Top = 214, Left = 24, Width = Width - 68, Height = 36,
             ForeColor = UiTheme.Danger, Font = UiTheme.BodyFont
         };
 
-        _btnLogin = UiTheme.MakeButton("Masuk", UiTheme.Primary);
-        _btnLogin.SetBounds(24, 248, (Width - 80) / 2, 40);
-        _btnLogin.Click += async (_, _) => await SubmitAsync(signUp: false);
+        _btnPrimary = UiTheme.MakeButton("Masuk", UiTheme.Primary);
+        _btnPrimary.SetBounds(24, 252, Width - 68, 40);
+        _btnPrimary.Click += async (_, _) => await SubmitAsync();
 
-        _btnRegister = UiTheme.MakeButton("Daftar baru", UiTheme.Surface);
-        _btnRegister.SetBounds(24 + (Width - 80) / 2 + 8, 248, (Width - 80) / 2, 40);
-        _btnRegister.Click += async (_, _) => await SubmitAsync(signUp: true);
+        _txtToggleMode = new Label
+        {
+            Top = 302, Left = 24, Width = Width - 68, Height = 24,
+            ForeColor = UiTheme.TextSecondary, Font = UiTheme.BodyFont,
+            TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand
+        };
+        _txtToggleMode.Click += (_, _) =>
+        {
+            _isRegisterMode = !_isRegisterMode;
+            _statusLabel.Text = "";
+            ApplyModeToControls();
+        };
 
-        Controls.Add(title);
-        Controls.Add(subtitle);
+        ApplyModeToControls();
+
+        Controls.Add(_title);
+        Controls.Add(_subtitle);
         Controls.Add(usernameLabel);
         Controls.Add(_usernameBox);
         Controls.Add(passLabel);
         Controls.Add(_passwordBox);
         Controls.Add(_statusLabel);
-        Controls.Add(_btnLogin);
-        Controls.Add(_btnRegister);
+        Controls.Add(_btnPrimary);
+        Controls.Add(_txtToggleMode);
     }
 
-    private async Task SubmitAsync(bool signUp)
+    /// <summary>Ganti judul, subjudul, teks tombol, dan link toggle sesuai mode saat ini.</summary>
+    private void ApplyModeToControls()
+    {
+        if (_isRegisterMode)
+        {
+            _title.Text = "Buat akun baru";
+            _subtitle.Text = "Satu akun ini dipakai di semua perangkatmu supaya\nfitur \"hubungkan tanpa kode\" bisa jalan.";
+            _btnPrimary.Text = "Daftar";
+            _txtToggleMode.Text = "Sudah punya akun? Masuk";
+        }
+        else
+        {
+            _title.Text = "Masuk ke akunmu";
+            _subtitle.Text = "Pakai akun yang sama di semua perangkat supaya\nfitur \"hubungkan tanpa kode\" bisa dipakai.";
+            _btnPrimary.Text = "Masuk";
+            _txtToggleMode.Text = "Belum punya akun? Daftar";
+        }
+    }
+
+    private async Task SubmitAsync()
     {
         var username = _usernameBox.Text.Trim();
         var password = _passwordBox.Text;
@@ -114,13 +151,13 @@ public class LoginForm : Form
             return;
         }
 
-        _btnLogin.Enabled = false;
-        _btnRegister.Enabled = false;
+        _btnPrimary.Enabled = false;
+        _txtToggleMode.Enabled = false;
         _statusLabel.ForeColor = UiTheme.TextSecondary;
-        _statusLabel.Text = signUp ? "Mendaftarkan akun..." : "Masuk...";
+        _statusLabel.Text = _isRegisterMode ? "Mendaftarkan akun..." : "Masuk...";
 
         var fakeEmail = UsernameToFakeEmail(username);
-        var error = signUp
+        var error = _isRegisterMode
             ? await FirebaseRest.Instance.SignUpEmailAsync(fakeEmail, password)
             : await FirebaseRest.Instance.SignInEmailAsync(fakeEmail, password);
 
@@ -134,7 +171,7 @@ public class LoginForm : Form
 
         _statusLabel.ForeColor = UiTheme.Danger;
         _statusLabel.Text = error;
-        _btnLogin.Enabled = true;
-        _btnRegister.Enabled = true;
+        _btnPrimary.Enabled = true;
+        _txtToggleMode.Enabled = true;
     }
 }

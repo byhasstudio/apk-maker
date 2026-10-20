@@ -10,6 +10,10 @@ import com.google.firebase.auth.FirebaseAuth
 
 /**
  * Login username/kata sandi biasa (bebas ketik, bukan email Gmail).
+ * Satu layar yang tampilannya berubah tergantung mode -- "Masuk" dan
+ * "Daftar" punya judul, teks tombol, dan link toggle yang beda, supaya
+ * kelihatan jelas lagi di mode mana, tanpa perlu dua layout terpisah.
+ *
  * Dipakai supaya daftar "perangkat tersimpan" (fitur hubungkan tanpa
  * kode) hanya kelihatan dan bisa diakses oleh akun yang sama -- bukan
  * sekadar disaring di aplikasi, tapi memang dikunci di aturan keamanan
@@ -39,23 +43,53 @@ class LoginActivity : AppCompatActivity() {
 
     private val auth = FirebaseAuth.getInstance()
 
+    // Mode saat ini -- false = Masuk (login), true = Daftar (buat akun baru).
+    private var isRegisterMode = false
+
+    private lateinit var txtTitle: TextView
+    private lateinit var txtSubtitle: TextView
+    private lateinit var editUsername: EditText
+    private lateinit var editPassword: EditText
+    private lateinit var txtError: TextView
+    private lateinit var btnPrimary: MaterialButton
+    private lateinit var txtToggleMode: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        val username = findViewById<EditText>(R.id.editUsername)
-        val password = findViewById<EditText>(R.id.editPassword)
-        val error = findViewById<TextView>(R.id.txtError)
+        txtTitle = findViewById(R.id.txtTitle)
+        txtSubtitle = findViewById(R.id.txtSubtitle)
+        editUsername = findViewById(R.id.editUsername)
+        editPassword = findViewById(R.id.editPassword)
+        txtError = findViewById(R.id.txtError)
+        btnPrimary = findViewById(R.id.btnPrimary)
+        txtToggleMode = findViewById(R.id.txtToggleMode)
 
-        findViewById<MaterialButton>(R.id.btnLogin).setOnClickListener {
-            doAuth(username.text.toString(), password.text.toString(), error) { e, p ->
-                auth.signInWithEmailAndPassword(e, p)
-            }
+        applyModeToViews()
+
+        btnPrimary.setOnClickListener {
+            doAuth(editUsername.text.toString(), editPassword.text.toString())
         }
-        findViewById<MaterialButton>(R.id.btnRegister).setOnClickListener {
-            doAuth(username.text.toString(), password.text.toString(), error) { e, p ->
-                auth.createUserWithEmailAndPassword(e, p)
-            }
+        txtToggleMode.setOnClickListener {
+            isRegisterMode = !isRegisterMode
+            txtError.visibility = android.view.View.GONE
+            applyModeToViews()
+        }
+    }
+
+    /** Ganti judul, subjudul, teks tombol, dan link toggle sesuai mode saat ini. */
+    private fun applyModeToViews() {
+        if (isRegisterMode) {
+            txtTitle.text = "Buat akun baru"
+            txtSubtitle.text = "Satu akun ini dipakai di semua perangkatmu supaya fitur \"hubungkan tanpa kode\" bisa jalan"
+            btnPrimary.text = "Daftar"
+            txtToggleMode.text = "Sudah punya akun? Masuk"
+        } else {
+            txtTitle.text = "Masuk ke akun"
+            txtSubtitle.text = "Dipakai supaya daftar perangkatmu hanya terlihat olehmu sendiri"
+            btnPrimary.text = "Masuk"
+            txtToggleMode.text = "Belum punya akun? Daftar"
         }
     }
 
@@ -64,25 +98,25 @@ class LoginActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun doAuth(
-        username: String,
-        password: String,
-        errorView: TextView,
-        action: (String, String) -> com.google.android.gms.tasks.Task<com.google.firebase.auth.AuthResult>
-    ) {
-        errorView.visibility = android.view.View.GONE
+    private fun doAuth(username: String, password: String) {
+        txtError.visibility = android.view.View.GONE
         if (username.isBlank()) {
-            showError(errorView, "Masukkan username")
+            showError("Masukkan username")
             return
         }
         if (password.length < 6) {
-            showError(errorView, "Kata sandi minimal 6 karakter")
+            showError("Kata sandi minimal 6 karakter")
             return
         }
 
-        action(usernameToFakeEmail(username), password)
-            .addOnSuccessListener { goToMain() }
-            .addOnFailureListener { e -> showError(errorView, friendlyAuthError(e)) }
+        val fakeEmail = usernameToFakeEmail(username)
+        val task = if (isRegisterMode) {
+            auth.createUserWithEmailAndPassword(fakeEmail, password)
+        } else {
+            auth.signInWithEmailAndPassword(fakeEmail, password)
+        }
+        task.addOnSuccessListener { goToMain() }
+            .addOnFailureListener { e -> showError(friendlyAuthError(e)) }
     }
 
     /**
@@ -107,8 +141,8 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    private fun showError(view: TextView, message: String) {
-        view.text = message
-        view.visibility = android.view.View.VISIBLE
+    private fun showError(message: String) {
+        txtError.text = message
+        txtError.visibility = android.view.View.VISIBLE
     }
 }
