@@ -69,9 +69,9 @@ public class FirebaseRest
             // juga dipakai instance FirebaseRest sementara yang anonim (lihat
             // ControlForm), jadi tidak boleh menimpa sesi akun asli yang
             // tersimpan. Token akun asli sudah disimpan ulang tiap login
-            // manual/otomatis lewat EmailAuthAsync/SignInWithGoogleIdTokenAsync/
-            // TryRestoreSessionAsync -- cukup, karena refresh token Firebase
-            // pada praktiknya jarang berubah antar-refresh.
+            // manual/otomatis lewat EmailAuthAsync/TryRestoreSessionAsync --
+            // cukup, karena refresh token Firebase pada praktiknya jarang
+            // berubah antar-refresh.
         }
         catch
         {
@@ -160,7 +160,7 @@ public class FirebaseRest
             // EnsureFreshTokenAsync bisa memperbarui sesi anonim ini sendiri
             // kalau sesi kontrol (lihat/sentuh layar) berlangsung lebih dari
             // 1 jam -- sesi anonim ini sengaja tidak dipulihkan lagi setelah
-            // program ditutup/dibuka ulang, beda dari akun email/Google.
+            // program ditutup/dibuka ulang, beda dari akun email biasa.
             _refreshToken = json.TryGetProperty("refreshToken", out var rt) ? rt.GetString() : null;
             _idTokenIssuedAt = DateTime.UtcNow;
             return _idToken != null;
@@ -199,45 +199,6 @@ public class FirebaseRest
             _idToken = json.GetProperty("idToken").GetString();
             Uid = json.GetProperty("localId").GetString();
             Email = json.TryGetProperty("email", out var em) ? em.GetString() : email;
-            _refreshToken = json.TryGetProperty("refreshToken", out var rt) ? rt.GetString() : null;
-            _idTokenIssuedAt = DateTime.UtcNow;
-            if (_refreshToken != null) SecureTokenStore.Save(_refreshToken);
-            return null;
-        }
-        catch (Exception ex)
-        {
-            return ex.Message;
-        }
-    }
-
-    /// <summary>Tukar ID token Google (dari GoogleAuth.SignInAsync) jadi sesi Firebase. Hasil = pesan error, null kalau berhasil.</summary>
-    public async Task<string?> SignInWithGoogleIdTokenAsync(string googleIdToken)
-    {
-        try
-        {
-            var resp = await _http.PostAsJsonAsync(
-                $"https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key={ApiKey}",
-                new
-                {
-                    postBody = $"id_token={googleIdToken}&providerId=google.com",
-                    requestUri = "http://localhost",
-                    returnIdpCredential = true,
-                    returnSecureToken = true
-                });
-
-            if (!resp.IsSuccessStatusCode)
-            {
-                var errJson = await resp.Content.ReadFromJsonAsync<JsonElement>();
-                var message = errJson.TryGetProperty("error", out var err) &&
-                              err.TryGetProperty("message", out var msg)
-                    ? msg.GetString() : "Gagal masuk dengan Google.";
-                return TranslateError(message ?? "Gagal masuk dengan Google.");
-            }
-
-            var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
-            _idToken = json.GetProperty("idToken").GetString();
-            Uid = json.GetProperty("localId").GetString();
-            Email = json.TryGetProperty("email", out var em) ? em.GetString() : null;
             _refreshToken = json.TryGetProperty("refreshToken", out var rt) ? rt.GetString() : null;
             _idTokenIssuedAt = DateTime.UtcNow;
             if (_refreshToken != null) SecureTokenStore.Save(_refreshToken);
