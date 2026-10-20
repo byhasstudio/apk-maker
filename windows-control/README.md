@@ -51,45 +51,42 @@ Setiap kali dijalankan, program mengecek rilis terbaru di GitHub Releases. Kalau
 3. Di HP, buka aplikasi Remote Ctl, pilih "Kontrol perangkat lain",
    masukkan kode itu, lalu Sambung.
 
-## Login Google
+## Login (username bebas + kata sandi)
 
-Sama seperti versi Android, jendela "Masuk dengan akun" punya tombol
-**"🔵 Masuk dengan Google"** -- membuka browser default Windows ke
-halaman login Google, lalu otomatis tersambung kembali ke program ini
-begitu selesai. Lebih jarang gagal dibanding email/kata sandi manual.
+Jendela "Masuk dengan akun" cukup minta **username bebas** (tidak perlu
+format email, tidak pakai akun Google/Gmail) dan **kata sandi** (minimal
+6 karakter, batasan dari Firebase). Di balik layar username itu diubah
+otomatis jadi "email" internal (`username@remotectl.local`) supaya tetap
+diterima provider Email/Password Firebase -- skemanya sama persis dengan
+Android, jadi akun yang sama bisa dipakai login di kedua platform.
 
-Butuh **satu setup sekali saja** sebelum tombol ini aktif (beda dari
-setup Google di Android -- Windows butuh jenis kredensial OAuth yang
-berbeda, "Desktop app", bukan "Web application"):
+**Satu-satunya akun yang dipakai di proyek ini adalah akun admin,
+username `haerka949`** -- login pakai username ini (daftar dulu sekali
+lewat "Daftar baru" kalau belum pernah) di semua perangkat Windows/Android
+yang ingin dihubungkan satu sama lain. Aturan keamanan database
+(`database.rules.json`) membatasi akses hanya untuk akun ini.
 
-1. Buka [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → pilih proyek **apk-maker-ceb1f** (proyek Firebase yang sama).
-2. **Create Credentials → OAuth client ID** → Application type: **Desktop app** → beri nama bebas (mis. "Remote Ctl Windows") → Create.
-3. Salin **Client ID** dan **Client secret** yang muncul.
-4. Di GitHub repo → Settings → Secrets and variables → Actions → tambah 2 secret:
-   - `REMOTECTL_GOOGLE_DESKTOP_CLIENT_ID` = Client ID dari langkah 3
-   - `REMOTECTL_GOOGLE_DESKTOP_CLIENT_SECRET` = Client secret dari langkah 3
-5. Pastikan provider **Google** sudah aktif di Firebase Console → Authentication → Sign-in method (langkah ini sama dengan setup Google di Android -- kalau sudah pernah diaktifkan untuk Android, tidak perlu diulang).
-6. Build ulang EXE lewat Actions seperti biasa -- kredensial otomatis terisi, tidak perlu edit kode.
+## Hubungkan tanpa kode (akun admin)
 
-> Client secret OAuth tipe "Desktop app" memang tidak diperlakukan sebagai rahasia penuh oleh Google sendiri (ini didokumentasikan resmi di developers.google.com -- aplikasi desktop/instal tidak bisa menyembunyikan secret sepenuhnya), jadi aman disimpan sebagai GitHub secret biasa seperti ini.
-
-## Hubungkan tanpa kode (akun + kata sandi)
-
-Sama seperti versi Android: aktifkan sekali, lalu komputer ini muncul
-di daftar "Perangkat tersimpan" milik akun yang sama, tanpa perlu
-menyalin kode 6 digit tiap kali.
+Begitu login pakai akun admin (`haerka949`) di komputer ini, komputer
+ini **otomatis muncul & bisa langsung dihubungkan tanpa kode** dari
+perangkat lain yang login akun yang sama -- tidak perlu lagi
+mengaktifkan toggle "hubungkan tanpa kode" secara manual atau memasang
+kata sandi tambahan (walau opsi itu tetap ada kalau mau dipakai untuk
+alasan lain).
 
 Cara pakai:
-1. Dari jendela utama, klik **"Masuk dengan akun"** -- pakai email +
-   kata sandi yang sama di semua perangkat (Android maupun Windows)
-   yang ingin dihubungkan.
-2. Klik **"⚙ Hubungkan tanpa kode"**, aktifkan, pilih mode tanpa kata
-   sandi atau pakai kata sandi tambahan (minimal 6 karakter), centang
-   "Nyalakan otomatis saat Windows start" (disarankan), lalu Simpan.
-3. Dari perangkat lain (HP atau Windows lain, akun yang sama): buka
-   "Kontrol perangkat lain" -> "📱 Perangkat tersimpan" -> pilih
-   komputer ini -> masukkan kata sandi kalau diminta -> langsung
-   tersambung.
+1. Dari jendela utama, klik **"Masuk dengan akun"** -- login/daftar
+   pakai username `haerka949` + kata sandi yang sama di semua perangkat
+   (Android maupun Windows) yang ingin dihubungkan.
+2. (Opsional) Klik **"⚙ Hubungkan tanpa kode"** kalau mau mengatur kata
+   sandi tambahan khusus komputer ini, lalu centang "Nyalakan otomatis
+   saat Windows start" (disarankan) supaya komputer ini tetap bisa
+   diakses walau programnya tidak dibuka manual lagi setelah Windows
+   restart -- lalu Simpan.
+3. Dari perangkat lain (HP atau Windows lain, login akun admin yang
+   sama): buka "Kontrol perangkat lain" -> "📱 Perangkat tersimpan" ->
+   pilih komputer ini -> langsung tersambung.
 
 Catatan:
 - Menutup jendela utama (tombol X) hanya menyembunyikannya ke **system

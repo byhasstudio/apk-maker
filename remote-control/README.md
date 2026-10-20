@@ -41,9 +41,7 @@ beda dari aplikasi Pembuat APK, jadi perlu didaftarkan sebagai
    LANGKAH YANG SERING KELEWATAN -- kalau tidak diaktifkan, tombol
    Masuk, Daftar akun baru, DAN Masuk cepat semuanya akan gagal dengan
    error (biasanya "CONFIGURATION_NOT_FOUND" atau pesan error umum),
-   karena provider ini beda dari Anonymous dan beda juga dari Google
-   (lihat bagian "Login Google" di bawah -- itu provider ketiga yang
-   terpisah lagi).
+   karena provider ini beda dari Anonymous.
 
 > **Kalau sebelumnya semua cara login selalu gagal** (Masuk, Daftar,
 > Masuk cepat -- bukan cuma salah satu), ini hampir pasti karena
@@ -75,46 +73,22 @@ Setiap kali aplikasi dibuka, ia mengecek rilis terbaru di GitHub Releases (repo 
 
 > Pengecekan update ini baru jalan SETELAH berhasil login (ada di halaman utama, bukan halaman login). Kalau login masih gagal karena masalah di atas, update otomatis juga belum akan kelihatan -- begitu login beres, update otomatis ikut jalan lagi.
 
-## Login Google (biar gak sering "error padahal udah benar")
+## Hubungkan tanpa kode (akun admin)
 
-Login email/kata sandi manual rawan salah ketik tanpa disadari (spasi
-tersembunyi, Caps Lock, dll), jadi sekarang ada juga tombol **"🔵 Masuk
-dengan Google"** di halaman login -- lebih jarang gagal karena tidak
-ada yang diketik ulang.
+Login sekarang pakai **username bebas + kata sandi biasa** (bukan email Gmail asli) -- lihat halaman login di app. Di balik layar username itu diubah otomatis jadi "email" internal (`username@remotectl.local`) supaya tetap bisa dipakai provider Email/Password Firebase, tapi kamu cukup ketik username biasa.
 
-Supaya tombol ini berfungsi (sekali setup saja, aktif untuk semua
-build selanjutnya):
+### Akun admin (username `haerka949`)
 
-1. Buka [Firebase Console](https://console.firebase.google.com/) → proyek `apk-maker-ceb1f` → **Authentication → Sign-in method**.
-2. Aktifkan provider **Google** (pilih email dukungan proyek lalu Simpan).
-3. Masih di halaman yang sama, klik provider Google tadi → salin nilai **"Web client ID"** (bentuknya seperti `xxxxx.apps.googleusercontent.com`).
-4. Buka **Project settings** (ikon gerigi) → scroll ke bagian "Your apps" → pilih app Android `com.byhasstudio.remotectl` → **Add fingerprint** → tempel SHA-1 ini:
-   ```
-   AE:B3:D4:51:AC:2A:09:37:56:24:73:76:63:C8:36:DE:99:DF:C1:4B
-   ```
-   (Ini SHA-1 keystore debug yang sudah di-pin di repo ini -- `app/debug.keystore` -- jadi nilainya tidak akan berubah-ubah tiap build CI. Tidak perlu generate ulang.)
-5. Di GitHub repo → Settings → Secrets and variables → Actions → **New repository secret**: nama `REMOTECTL_GOOGLE_WEB_CLIENT_ID`, isi value dengan Web client ID dari langkah 3.
-6. Build ulang APK seperti biasa lewat Actions -- workflow otomatis mengisi Web Client ID itu ke dalam aplikasi.
+Satu-satunya akun yang dipakai di proyek ini sekarang adalah akun admin dengan **username `haerka949`** -- login pakai username ini (bikin akun baru kalau belum pernah, lewat tombol "Daftar") di SEMUA perangkat yang mau dihubungkan satu sama lain (Android maupun Windows).
 
-Login email/kata sandi tetap ada sebagai cadangan buat yang tidak
-punya/tidak mau pakai akun Google.
+Begitu login dengan akun ini di suatu perangkat:
+- Perangkat itu **selalu "terlihat"** di daftar "Perangkat tersimpan" begitu aplikasi dibuka sekali (Android) atau program dijalankan (Windows) -- notifikasi kecil "Remote Ctl aktif" akan selalu muncul selama masih login.
+- Perangkat itu **selalu bisa dihubungkan tanpa kode** dari perangkat lain yang juga login akun admin ini -- tidak perlu mengaktifkan toggle "hubungkan tanpa kode" secara manual dulu, dan tidak perlu kata sandi tambahan.
+- **Walau aplikasi/programnya tidak dibuka sama sekali** (asal pernah login sekali sebelumnya): di Android, `BootReceiver` menyalakan lagi layanan latar belakang otomatis setiap HP di-restart; di Windows, aktifkan "Nyalakan otomatis saat Windows start" di pengaturan supaya programnya langsung jalan diam-diam di tray begitu Windows menyala, tanpa perlu membuka jendela apa pun.
+- Aturan keamanan database (`database.rules.json`) sekarang membatasi **seluruh** akses baca/tulis (daftar perangkat maupun sesi layar) hanya untuk akun `haerka949@remotectl.local` -- akun lain, kalaupun ada, tidak bisa membaca/menulis apa pun di database ini sama sekali. Ini sengaja dibuat sangat ketat karena proyek ini dirancang untuk SATU akun pribadi, bukan multi-pengguna.
+- Dialog izin rekam layar bawaan Android/Windows (lihat batasan di bawah) **tetap muncul** untuk setiap permintaan konek -- ini pagar keamanan sistem operasi sendiri yang tidak bisa dilewati lewat kode aplikasi.
 
-## Hubungkan tanpa kode (akun + kata sandi)
-
-Sekarang aplikasi mewajibkan **login (email + kata sandi, Google, atau "Masuk cepat")** -- bukan supaya dikunci per akun, tapi supaya setiap permintaan konek bisa dicatat dengan jelas siapa yang terhubung.
-
-### Akun admin (`byhasstudio@gmail.com`)
-
-Akun "Masuk cepat" (`byhasstudio@gmail.com`) adalah **akun admin pribadi**. Begitu login pakai akun ini, kamu bisa melihat & langsung menghubungkan ke **SEMUA perangkat yang sedang/pernah login** (Android maupun Windows) -- walau perangkat itu belum pernah mengaktifkan "hubungkan tanpa kode" sama sekali, dan walau perangkat itu dipasangi kata sandi. Tidak ada kata sandi yang diminta untuk akun ini.
-
-Supaya ini bisa terjadi, **setiap perangkat yang login (akun apa saja) sekarang selalu "terlihat"** di daftar perangkat begitu aplikasi dibuka -- bukan cuma yang mengaktifkan fitur ini secara eksplisit lagi. Efeknya:
-- Notifikasi kecil "Remote Ctl aktif" sekarang **selalu muncul begitu login** di HP/laptop manapun, bukan cuma saat "hubungkan tanpa kode" diaktifkan secara manual. Ini supaya perangkat itu tetap bisa diakses akun admin kapan saja.
-- Untuk akun BUKAN admin, aturan lama tetap berlaku: perangkat tujuan harus sudah mengaktifkan "hubungkan tanpa kode" dan (kalau dipasangi) kata sandinya harus cocok, kalau tidak permintaan konek ditolak diam-diam (layar pengontrol akan terus menunggu tanpa pesan error, karena perangkat tujuan memang sengaja tidak merespons).
-- Dialog izin rekam layar bawaan Android/Windows (lihat batasan di bawah) **tetap muncul** untuk setiap permintaan konek, termasuk dari akun admin -- ini pagar keamanan sistem operasi sendiri yang tidak bisa dilewati lewat kode aplikasi.
-
-> **Batasan yang perlu kamu tahu**: ini bukan keamanan tingkat perusahaan -- email pengirim permintaan konek (`requesterEmail`) ditulis sendiri oleh aplikasi pengontrol dan dipercaya begitu saja oleh perangkat tujuan (tidak diverifikasi oleh server). Cukup aman untuk pemakaian pribadi (mengontrol perangkat milikmu sendiri), tapi siapa pun yang mengubah kode aplikasinya sendiri bisa mengaku-aku sebagai akun admin. Jangan jadikan ini satu-satunya penjaga untuk perangkat yang menyimpan data sensitif.
-
-**Perangkat yang mengaktifkan fitur ini akan tetap muncul di daftar "Perangkat tersimpan", DI PERANGKAT MANA PUN dan LOGIN PAKAI AKUN APA PUN** -- tidak perlu akun yang sama persis di semua perangkat. Ini sengaja diubah supaya kamu tidak kejebak kalau salah satu perangkat login pakai "Masuk cepat" dan perangkat lain login manual/Google -- semuanya tetap satu daftar yang sama. Yang menjaga keamanannya adalah kata sandi per perangkat (kalau diaktifkan) dan kode sesi 6 digit sekali pakai, bukan lagi pemisahan akun.
+> **Kalau kamu sudah pernah Publish rules sebelum update ini**, WAJIB tempel ulang isi `database.rules.json` dan Publish lagi di Firebase Console -- kalau rules lama masih dipakai, fitur ini bisa gagal atau (lebih buruk) masih longgar ke akun lain.
 
 Cara pakai:
 1. Login (akun apa saja, tidak harus sama) di semua perangkat yang mau dihubungkan.
