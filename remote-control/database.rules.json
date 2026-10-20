@@ -16,9 +16,10 @@
       }
     },
     "sharedDevices": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": "auth != null && auth.token.email == 'haerka949@remotectl.local'",
       "$deviceId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
         ".validate": "newData.hasChildren(['name'])"
       }
     }
