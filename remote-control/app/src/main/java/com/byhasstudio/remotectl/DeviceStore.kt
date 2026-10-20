@@ -23,12 +23,29 @@ import java.security.MessageDigest
  */
 object DeviceStore {
 
-    data class DeviceEntry(val id: String, val name: String, val online: Boolean, val requiresPassword: Boolean)
+    // Akun khusus ini bisa melihat & menghubungkan ke SEMUA perangkat yang
+    // sedang login -- walau perangkat itu belum mengaktifkan "hubungkan
+    // tanpa kode" sama sekali dan walau dipasangi kata sandi. Ini sengaja
+    // dibuat sebagai akun admin pribadi (bukan fitur multi-pengguna), jadi
+    // dicocokkan dari email akun yang sedang login, bukan dari sesuatu yang
+    // bisa dipalsukan pihak lain -- tetap diingat batasannya di README.
+    const val ADMIN_EMAIL = "byhasstudio@gmail.com"
+
+    data class DeviceEntry(
+        val id: String,
+        val name: String,
+        val online: Boolean,
+        val requiresPassword: Boolean,
+        val quickConnectEnabled: Boolean
+    )
 
     private val db get() = SessionRelay.sessionRef("").database.reference
 
     fun deviceId(context: Context): String =
         Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
+
+    fun isAdmin(): Boolean =
+        FirebaseAuth.getInstance().currentUser?.email.equals(ADMIN_EMAIL, ignoreCase = true)
 
     fun hash(text: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray())
@@ -75,8 +92,32 @@ object DeviceStore {
     }
 
     fun disableQuickConnect(context: Context) {
+        // Cuma matikan akses "siapa saja boleh konek" -- TIDAK menandai
+        // offline, karena presensi (registerPresence) sekarang berjalan
+        // terus selama login, lepas dari toggle ini.
         devicesRef()?.child(deviceId(context))?.child("enabled")?.setValue(false)
-        devicesRef()?.child(deviceId(context))?.child("online")?.setValue(false)
+    }
+
+    /**
+     * Daftarkan perangkat ini supaya TERLIHAT di daftar (nama + status
+     * online), lepas dari apakah "hubungkan tanpa kode" sudah diaktifkan
+     * atau belum -- supaya akun admin ([ADMIN_EMAIL]) selalu bisa melihat
+     * dan menghubungkan ke perangkat ini kapan pun sedang login, walau
+     * pemilik perangkat belum sempat/mau mengaktifkan fitur itu untuk
+     * akun lain. Dipakai dari MainActivity setiap kali dibuka saat sudah
+     * login, bukan cuma dari menu Pengaturan. Pakai updateChildren (bukan
+     * setValue) supaya tidak menimpa requiresPassword/passwordHash/enabled
+     * yang mungkin sudah diset dari menu Pengaturan.
+     */
+    fun registerPresence(context: Context) {
+        val ref = devicesRef()?.child(deviceId(context)) ?: return
+        ref.updateChildren(
+            mapOf(
+                "name" to "${Build.MANUFACTURER} ${Build.MODEL}",
+                "online" to true,
+                "lastSeen" to System.currentTimeMillis()
+            )
+        )
     }
 
     /**
@@ -102,14 +143,15 @@ object DeviceStore {
         devicesRef()?.child(deviceId(context))?.child("online")?.setValue(false)
     }
 
-    /** onRequest memberi tahu code yang diminta dan passwordHash (kosong "" kalau mode tanpa kata sandi). */
-    fun listenIncomingRequest(context: Context, onRequest: (code: String, passwordHash: String) -> Unit): ValueEventListener? {
+    /** onRequest memberi tahu code yang diminta, passwordHash (kosong "" kalau mode tanpa kata sandi), dan email akun yang minta konek (buat cek bypass admin). */
+    fun listenIncomingRequest(context: Context, onRequest: (code: String, passwordHash: String, requesterEmail: String) -> Unit): ValueEventListener? {
         val ref = devicesRef()?.child(deviceId(context))?.child("incomingRequest") ?: return null
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val code = snapshot.child("code").getValue(String::class.java) ?: return
                 val hash = snapshot.child("passwordHash").getValue(String::class.java) ?: ""
-                onRequest(code, hash)
+                val requesterEmail = snapshot.child("requesterEmail").getValue(String::class.java) ?: ""
+                onRequest(code, hash, requesterEmail)
             }
             override fun onCancelled(error: DatabaseError) {}
         }
@@ -159,15 +201,24 @@ object DeviceStore {
         return listener
     }
 
+    /**
+     * Daftar SEMUA perangkat yang sedang/pernah login (lepas dari apakah
+     * "hubungkan tanpa kode" diaktifkan) -- supaya akun admin bisa lihat
+     * dan konek ke perangkat mana pun. Untuk akun BUKAN admin, perangkat
+     * yang belum mengaktifkan fitur ini (quickConnectEnabled = false)
+     * tetap ditampilkan, tapi percobaan konek ke situ akan ditolak diam-diam
+     * di sisi perangkat tujuan (lihat PresenceService.handleRequest) --
+     * dibiarkan tampil apa adanya di versi pribadi ini, bukan disembunyikan,
+     * supaya pengguna tahu perangkat itu ada tapi belum "dibuka".
+     */
     private fun parseDevices(snapshot: DataSnapshot): List<DeviceEntry> {
         val list = mutableListOf<DeviceEntry>()
         for (child in snapshot.children) {
-            val enabled = child.child("enabled").getValue(Boolean::class.java) ?: false
-            if (!enabled) continue
             val name = child.child("name").getValue(String::class.java) ?: "Perangkat"
             val online = child.child("online").getValue(Boolean::class.java) ?: false
             val requiresPassword = child.child("requiresPassword").getValue(Boolean::class.java) ?: true
-            list.add(DeviceEntry(child.key ?: "", name, online, requiresPassword))
+            val quickConnectEnabled = child.child("enabled").getValue(Boolean::class.java) ?: false
+            list.add(DeviceEntry(child.key ?: "", name, online, requiresPassword, quickConnectEnabled))
         }
         return list
     }
@@ -178,6 +229,7 @@ object DeviceStore {
             mapOf(
                 "code" to code,
                 "passwordHash" to if (password != null) hash(password) else "",
+                "requesterEmail" to (FirebaseAuth.getInstance().currentUser?.email ?: ""),
                 "ts" to System.currentTimeMillis()
             )
         )

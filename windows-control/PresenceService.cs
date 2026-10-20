@@ -52,14 +52,18 @@ public sealed class PresenceService
 
                 if ((DateTime.UtcNow - lastHeartbeat).TotalSeconds >= 30)
                 {
-                    await DeviceStore.HeartbeatAsync();
+                    // RegisterPresenceAsync (bukan cuma HeartbeatAsync) supaya
+                    // "name" selalu terisi -- komputer ini jadi selalu
+                    // TERLIHAT di daftar perangkat, lepas dari apakah
+                    // "hubungkan tanpa kode" sudah diaktifkan atau belum.
+                    await DeviceStore.RegisterPresenceAsync();
                     lastHeartbeat = DateTime.UtcNow;
                 }
 
                 var request = await DeviceStore.PollIncomingRequestAsync();
                 if (request != null)
                 {
-                    await HandleIncomingRequestAsync(request.Value.code, request.Value.passwordHash);
+                    await HandleIncomingRequestAsync(request.Value.code, request.Value.passwordHash, request.Value.requesterEmail);
                 }
             }
             catch
@@ -71,15 +75,24 @@ public sealed class PresenceService
         }
     }
 
-    private async Task HandleIncomingRequestAsync(string code, string passwordHash)
+    private async Task HandleIncomingRequestAsync(string code, string passwordHash, string requesterEmail)
     {
         await DeviceStore.ClearIncomingRequestAsync();
 
-        var requiresPassword = QuickConnectPrefs.RequiresPassword;
-        if (requiresPassword)
+        // Akun admin (DeviceStore.AdminEmail) selalu diizinkan langsung,
+        // walau "hubungkan tanpa kode" belum diaktifkan di komputer ini
+        // sama sekali. Untuk akun lain, berlaku aturan biasa: harus sudah
+        // diaktifkan (QuickConnectPrefs.IsEnabled) dan kata sandinya cocok
+        // (kalau dipasangi kata sandi).
+        var isAdmin = string.Equals(requesterEmail, DeviceStore.AdminEmail, StringComparison.OrdinalIgnoreCase);
+        if (!isAdmin)
         {
-            var storedHash = await DeviceStore.GetMyStoredPasswordHashAsync();
-            if (string.IsNullOrEmpty(storedHash) || storedHash != passwordHash) return;
+            if (!QuickConnectPrefs.IsEnabled) return;
+            if (QuickConnectPrefs.RequiresPassword)
+            {
+                var storedHash = await DeviceStore.GetMyStoredPasswordHashAsync();
+                if (string.IsNullOrEmpty(storedHash) || storedHash != passwordHash) return;
+            }
         }
 
         _activeSession?.Stop();

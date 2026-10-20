@@ -14,7 +14,15 @@ namespace RemoteCtlAgent;
 /// </summary>
 public static class DeviceStore
 {
-    public record DeviceEntry(string Id, string Name, bool Online, bool RequiresPassword);
+    // Sama persis dengan DeviceStore.ADMIN_EMAIL di Android -- akun khusus
+    // ini bisa melihat & menghubungkan ke SEMUA perangkat yang sedang
+    // login, walau belum mengaktifkan "hubungkan tanpa kode".
+    public const string AdminEmail = "byhasstudio@gmail.com";
+
+    public static bool IsAdmin =>
+        string.Equals(FirebaseRest.Instance.Email, AdminEmail, StringComparison.OrdinalIgnoreCase);
+
+    public record DeviceEntry(string Id, string Name, bool Online, bool RequiresPassword, bool QuickConnectEnabled);
 
     private static FirebaseRest Fb => FirebaseRest.Instance;
 
@@ -66,7 +74,30 @@ public static class DeviceStore
     {
         if (!Fb.IsSignedIn) return;
         var path = $"{DevicesPath}/{DeviceId()}";
-        await Fb.PatchAsync(path, new { enabled = false, online = false });
+        // Cuma matikan akses "siapa saja boleh konek" -- TIDAK menandai
+        // offline, karena presensi (RegisterPresenceAsync) berjalan terus
+        // selama login, lepas dari toggle ini (supaya akun admin tetap
+        // bisa lihat & konek).
+        await Fb.PatchAsync(path, new { enabled = false });
+    }
+
+    /// <summary>
+    /// Daftarkan komputer ini supaya TERLIHAT di daftar (nama + status
+    /// online), lepas dari apakah "hubungkan tanpa kode" sudah diaktifkan
+    /// -- supaya akun admin (AdminEmail) selalu bisa melihat & konek ke
+    /// komputer ini kapan pun sedang login. Dipanggil terus-menerus lewat
+    /// PresenceService, bukan cuma dari menu Pengaturan.
+    /// </summary>
+    public static async Task RegisterPresenceAsync()
+    {
+        if (!Fb.IsSignedIn) return;
+        var path = $"{DevicesPath}/{DeviceId()}";
+        await Fb.PatchAsync(path, new
+        {
+            name = Environment.MachineName + " (Windows)",
+            online = true,
+            lastSeen = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        });
     }
 
     public static async Task HeartbeatAsync()
@@ -87,8 +118,8 @@ public static class DeviceStore
         await Fb.PatchAsync(path, new { online = false });
     }
 
-    /// <summary>Hasil (code, passwordHash) kalau ada permintaan konek masuk, null kalau tidak ada.</summary>
-    public static async Task<(string code, string passwordHash)?> PollIncomingRequestAsync()
+    /// <summary>Hasil (code, passwordHash, requesterEmail) kalau ada permintaan konek masuk, null kalau tidak ada.</summary>
+    public static async Task<(string code, string passwordHash, string requesterEmail)?> PollIncomingRequestAsync()
     {
         if (!Fb.IsSignedIn) return null;
         var path = $"{DevicesPath}/{DeviceId()}/incomingRequest";
@@ -98,7 +129,8 @@ public static class DeviceStore
         var code = codeEl.GetString();
         if (string.IsNullOrEmpty(code)) return null;
         var hash = el.TryGetProperty("passwordHash", out var h) ? h.GetString() ?? "" : "";
-        return (code, hash);
+        var requesterEmail = el.TryGetProperty("requesterEmail", out var re) ? re.GetString() ?? "" : "";
+        return (code, hash, requesterEmail);
     }
 
     public static async Task ClearIncomingRequestAsync()
@@ -118,6 +150,13 @@ public static class DeviceStore
         return el.GetString();
     }
 
+    /// <summary>
+    /// Daftar SEMUA perangkat yang sedang/pernah login (lepas dari apakah
+    /// "hubungkan tanpa kode" diaktifkan) -- supaya akun admin bisa lihat
+    /// dan konek ke perangkat mana pun. Untuk akun bukan admin, percobaan
+    /// konek ke perangkat yang QuickConnectEnabled-nya false akan ditolak
+    /// diam-diam di sisi perangkat tujuan.
+    /// </summary>
     public static async Task<List<DeviceEntry>> ListMyDevicesAsync()
     {
         var result = new List<DeviceEntry>();
@@ -128,13 +167,12 @@ public static class DeviceStore
         foreach (var prop in el.EnumerateObject())
         {
             var dev = prop.Value;
-            var enabled = dev.TryGetProperty("enabled", out var en) && en.ValueKind == JsonValueKind.True;
-            if (!enabled) continue;
             var name = dev.TryGetProperty("name", out var n) ? n.GetString() ?? "Perangkat" : "Perangkat";
             var online = dev.TryGetProperty("online", out var o) && o.ValueKind == JsonValueKind.True;
             var requiresPassword = !dev.TryGetProperty("requiresPassword", out var rp) ||
                                     rp.ValueKind != JsonValueKind.False;
-            result.Add(new DeviceEntry(prop.Name, name, online, requiresPassword));
+            var quickConnectEnabled = dev.TryGetProperty("enabled", out var en) && en.ValueKind == JsonValueKind.True;
+            result.Add(new DeviceEntry(prop.Name, name, online, requiresPassword, quickConnectEnabled));
         }
 
         return result;
@@ -148,6 +186,7 @@ public static class DeviceStore
         {
             code,
             passwordHash = password != null ? Hash(password) : "",
+            requesterEmail = Fb.Email ?? "",
             ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         });
     }

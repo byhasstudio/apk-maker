@@ -34,6 +34,7 @@ public class FirebaseRest
     private DateTime _idTokenIssuedAt = DateTime.MinValue;
 
     public string? Uid { get; private set; }
+    public string? Email { get; private set; }
     public bool IsSignedIn => _idToken != null && Uid != null;
 
     /// <summary>
@@ -107,11 +108,40 @@ public class FirebaseRest
             Uid = json.GetProperty("user_id").GetString();
             _idTokenIssuedAt = DateTime.UtcNow;
             if (_refreshToken != null) SecureTokenStore.Save(_refreshToken);
+            // Endpoint refresh-token ini tidak mengembalikan email secara
+            // langsung -- ambil terpisah supaya Email tetap terisi setelah
+            // sesi dipulihkan otomatis (dibutuhkan untuk cek bypass admin,
+            // lihat DeviceStore.ADMIN_EMAIL).
+            await FetchEmailAsync();
             return _idToken != null;
         }
         catch
         {
             return false;
+        }
+    }
+
+    /// <summary>Ambil email akun yang sedang login dari server -- dipanggil setelah TryRestoreSessionAsync karena endpoint refresh-token-nya sendiri tidak menyertakan email.</summary>
+    private async Task FetchEmailAsync()
+    {
+        if (_idToken == null) return;
+        try
+        {
+            var resp = await _http.PostAsJsonAsync(
+                $"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={ApiKey}",
+                new { idToken = _idToken });
+            if (!resp.IsSuccessStatusCode) return;
+            var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
+            if (json.TryGetProperty("users", out var users) && users.GetArrayLength() > 0 &&
+                users[0].TryGetProperty("email", out var email))
+            {
+                Email = email.GetString();
+            }
+        }
+        catch
+        {
+            // Gagal ambil email bukan error fatal -- bypass admin cuma tidak
+            // aktif sampai berhasil, fitur lain tetap jalan seperti biasa.
         }
     }
 
@@ -168,6 +198,7 @@ public class FirebaseRest
             var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
             _idToken = json.GetProperty("idToken").GetString();
             Uid = json.GetProperty("localId").GetString();
+            Email = json.TryGetProperty("email", out var em) ? em.GetString() : email;
             _refreshToken = json.TryGetProperty("refreshToken", out var rt) ? rt.GetString() : null;
             _idTokenIssuedAt = DateTime.UtcNow;
             if (_refreshToken != null) SecureTokenStore.Save(_refreshToken);
@@ -206,6 +237,7 @@ public class FirebaseRest
             var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
             _idToken = json.GetProperty("idToken").GetString();
             Uid = json.GetProperty("localId").GetString();
+            Email = json.TryGetProperty("email", out var em) ? em.GetString() : null;
             _refreshToken = json.TryGetProperty("refreshToken", out var rt) ? rt.GetString() : null;
             _idTokenIssuedAt = DateTime.UtcNow;
             if (_refreshToken != null) SecureTokenStore.Save(_refreshToken);
@@ -222,6 +254,7 @@ public class FirebaseRest
         _idToken = null;
         _refreshToken = null;
         Uid = null;
+        Email = null;
         _idTokenIssuedAt = DateTime.MinValue;
         SecureTokenStore.Clear();
     }

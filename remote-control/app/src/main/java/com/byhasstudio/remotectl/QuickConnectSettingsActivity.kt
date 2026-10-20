@@ -62,10 +62,15 @@ class QuickConnectSettingsActivity : AppCompatActivity() {
                 QuickConnectPrefs.setEnabled(this, true)
                 androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, PresenceService::class.java))
             } else {
+                // Cuma matikan akses "siapa saja boleh konek" -- layanan
+                // presensinya TIDAK dimatikan, karena perangkat ini masih
+                // harus tetap terlihat & bisa diakses akun admin
+                // (DeviceStore.ADMIN_EMAIL) selama masih login. Layanan ini
+                // cuma berhenti total kalau menekan "🚪 Keluar" di halaman
+                // utama.
                 QuickConnectPrefs.setEnabled(this, false)
                 DeviceStore.disableQuickConnect(this)
-                stopService(Intent(this, PresenceService::class.java))
-                status.text = "Dinonaktifkan."
+                status.text = "Dinonaktifkan untuk akun lain (akun admin tetap bisa konek)."
                 status.setTextColor(getColor(R.color.text_secondary))
             }
         }

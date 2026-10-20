@@ -152,9 +152,13 @@ public class QuickConnectForm : Form
         }
         else
         {
+            // Cuma matikan akses "siapa saja boleh konek" -- PresenceService
+            // TETAP jalan, karena komputer ini masih harus terlihat & bisa
+            // diakses akun admin (DeviceStore.AdminEmail) selama masih
+            // login. Layanan ini cuma berhenti total lewat tombol "🚪
+            // Keluar" di jendela utama.
             await DeviceStore.DisableQuickConnectAsync();
             QuickConnectPrefs.Save(false, requiresPassword);
-            PresenceService.Instance.Stop();
         }
 
         if (_chkAutostart.Checked) StartupManager.Enable();

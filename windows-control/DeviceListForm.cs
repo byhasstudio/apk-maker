@@ -40,7 +40,7 @@ public class DeviceListForm : Form
 
         _empty = new Label
         {
-            Text = "Belum ada perangkat. Aktifkan \"Hubungkan tanpa kode\" di perangkat yang ingin kamu kontrol (dengan akun yang sama).",
+            Text = "Belum ada perangkat yang pernah login. Buka & login dulu di perangkat yang ingin kamu kontrol.",
             Top = 60, Left = 24, Width = Width - 68, Height = 60,
             ForeColor = UiTheme.TextSecondary, Font = UiTheme.BodyFont,
             Visible = false
@@ -102,10 +102,13 @@ public class DeviceListForm : Form
             Font = new Font("Segoe UI", 11, FontStyle.Bold),
             ForeColor = UiTheme.TextPrimary
         };
+        var isAdmin = DeviceStore.IsAdmin;
+        var modeText = isAdmin && !device.QuickConnectEnabled
+            ? " · belum aktifkan fitur ini (akses admin)"
+            : device.RequiresPassword ? "" : " · tanpa kata sandi";
         var status = new Label
         {
-            Text = (device.Online ? "Online" : "Offline") +
-                   (device.RequiresPassword ? "" : " · tanpa kata sandi"),
+            Text = (device.Online ? "Online" : "Offline") + modeText,
             Top = 34, Left = 34, Width = row.Width - 150,
             ForeColor = UiTheme.TextSecondary, Font = UiTheme.BodyFont
         };
@@ -123,8 +126,12 @@ public class DeviceListForm : Form
 
     private async Task ConnectAsync(DeviceStore.DeviceEntry device)
     {
+        // Akun admin selalu langsung konek tanpa diminta kata sandi sama
+        // sekali -- perangkat tujuan yang memutuskan izinkan atau tidak
+        // berdasarkan email akun ini (lihat PresenceService.HandleIncomingRequestAsync
+        // di perangkat tujuan).
         string? password = null;
-        if (device.RequiresPassword)
+        if (device.RequiresPassword && !DeviceStore.IsAdmin)
         {
             using var prompt = new PasswordPromptForm(device.Name);
             if (prompt.ShowDialog(this) != DialogResult.OK) return;

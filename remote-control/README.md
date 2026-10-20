@@ -103,6 +103,17 @@ punya/tidak mau pakai akun Google.
 
 Sekarang aplikasi mewajibkan **login (email + kata sandi, Google, atau "Masuk cepat")** -- bukan supaya dikunci per akun, tapi supaya setiap permintaan konek bisa dicatat dengan jelas siapa yang terhubung.
 
+### Akun admin (`byhasstudio@gmail.com`)
+
+Akun "Masuk cepat" (`byhasstudio@gmail.com`) adalah **akun admin pribadi**. Begitu login pakai akun ini, kamu bisa melihat & langsung menghubungkan ke **SEMUA perangkat yang sedang/pernah login** (Android maupun Windows) -- walau perangkat itu belum pernah mengaktifkan "hubungkan tanpa kode" sama sekali, dan walau perangkat itu dipasangi kata sandi. Tidak ada kata sandi yang diminta untuk akun ini.
+
+Supaya ini bisa terjadi, **setiap perangkat yang login (akun apa saja) sekarang selalu "terlihat"** di daftar perangkat begitu aplikasi dibuka -- bukan cuma yang mengaktifkan fitur ini secara eksplisit lagi. Efeknya:
+- Notifikasi kecil "Remote Ctl aktif" sekarang **selalu muncul begitu login** di HP/laptop manapun, bukan cuma saat "hubungkan tanpa kode" diaktifkan secara manual. Ini supaya perangkat itu tetap bisa diakses akun admin kapan saja.
+- Untuk akun BUKAN admin, aturan lama tetap berlaku: perangkat tujuan harus sudah mengaktifkan "hubungkan tanpa kode" dan (kalau dipasangi) kata sandinya harus cocok, kalau tidak permintaan konek ditolak diam-diam (layar pengontrol akan terus menunggu tanpa pesan error, karena perangkat tujuan memang sengaja tidak merespons).
+- Dialog izin rekam layar bawaan Android/Windows (lihat batasan di bawah) **tetap muncul** untuk setiap permintaan konek, termasuk dari akun admin -- ini pagar keamanan sistem operasi sendiri yang tidak bisa dilewati lewat kode aplikasi.
+
+> **Batasan yang perlu kamu tahu**: ini bukan keamanan tingkat perusahaan -- email pengirim permintaan konek (`requesterEmail`) ditulis sendiri oleh aplikasi pengontrol dan dipercaya begitu saja oleh perangkat tujuan (tidak diverifikasi oleh server). Cukup aman untuk pemakaian pribadi (mengontrol perangkat milikmu sendiri), tapi siapa pun yang mengubah kode aplikasinya sendiri bisa mengaku-aku sebagai akun admin. Jangan jadikan ini satu-satunya penjaga untuk perangkat yang menyimpan data sensitif.
+
 **Perangkat yang mengaktifkan fitur ini akan tetap muncul di daftar "Perangkat tersimpan", DI PERANGKAT MANA PUN dan LOGIN PAKAI AKUN APA PUN** -- tidak perlu akun yang sama persis di semua perangkat. Ini sengaja diubah supaya kamu tidak kejebak kalau salah satu perangkat login pakai "Masuk cepat" dan perangkat lain login manual/Google -- semuanya tetap satu daftar yang sama. Yang menjaga keamanannya adalah kata sandi per perangkat (kalau diaktifkan) dan kode sesi 6 digit sekali pakai, bukan lagi pemisahan akun.
 
 Cara pakai:

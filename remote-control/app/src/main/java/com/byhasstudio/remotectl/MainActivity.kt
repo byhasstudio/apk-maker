@@ -24,6 +24,14 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
+        // Jalankan layanan presensi SELALU begitu login -- bukan cuma
+        // kalau "hubungkan tanpa kode" sudah diaktifkan -- supaya akun
+        // admin (DeviceStore.ADMIN_EMAIL) selalu bisa melihat & konek ke
+        // perangkat ini kapan pun, walau fitur itu belum diaktifkan untuk
+        // akun lain. Notifikasi "Remote Ctl aktif" karena itu sekarang
+        // selalu muncul begitu login, bukan cuma saat fitur diaktifkan.
+        androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, PresenceService::class.java))
+
         findViewById<android.widget.Button>(R.id.btnHost).setOnClickListener {
             startActivity(Intent(this, HostActivity::class.java))
         }

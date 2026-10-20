@@ -81,12 +81,17 @@ class DeviceListActivity : AppCompatActivity() {
             setTextColor(getColor(R.color.text_primary))
             textSize = 15f
         })
+        val isAdmin = DeviceStore.isAdmin()
         info.addView(TextView(this).apply {
             // "Offline" di sini cuma perkiraan dari heartbeat terakhir,
             // BUKAN status real-time pasti -- jadi ini sekadar info, tombol
             // Hubungkan di bawah tetap aktif walau statusnya kelihatan offline.
             val statusText = if (device.online) "● Online" else "○ Mungkin offline"
-            val modeText = if (device.requiresPassword) "" else " · tanpa kata sandi"
+            val modeText = when {
+                isAdmin && !device.quickConnectEnabled -> " · belum aktifkan fitur ini (akses admin)"
+                device.requiresPassword -> ""
+                else -> " · tanpa kata sandi"
+            }
             text = statusText + modeText
             setTextColor(getColor(if (device.online) R.color.success else R.color.text_secondary))
             textSize = 12f
@@ -95,7 +100,11 @@ class DeviceListActivity : AppCompatActivity() {
         val btn = MaterialButton(this).apply {
             text = "Hubungkan"
             setOnClickListener {
-                if (device.requiresPassword) {
+                // Akun admin selalu langsung konek tanpa diminta kata sandi
+                // sama sekali -- perangkat tujuan yang memutuskan izinkan
+                // atau tidak berdasarkan email akun ini (lihat
+                // PresenceService.handleRequest di perangkat tujuan).
+                if (device.requiresPassword && !isAdmin) {
                     promptPasswordAndConnect(device)
                 } else {
                     connectNow(device.id, null)

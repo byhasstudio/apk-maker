@@ -132,7 +132,12 @@ public class ModeSelectForm : Form
             if (!FirebaseRest.Instance.IsSignedIn)
                 await FirebaseRest.Instance.TryRestoreSessionAsync();
             RefreshAccountLabel();
-            if (FirebaseRest.Instance.IsSignedIn && QuickConnectPrefs.IsEnabled)
+            // Jalankan PresenceService SELALU begitu login -- bukan cuma
+            // kalau "hubungkan tanpa kode" sudah diaktifkan -- supaya akun
+            // admin (DeviceStore.AdminEmail) selalu bisa melihat & konek ke
+            // komputer ini kapan pun, walau fitur itu belum diaktifkan
+            // untuk akun lain.
+            if (FirebaseRest.Instance.IsSignedIn)
                 PresenceService.Instance.Start();
         };
     }

@@ -53,9 +53,11 @@ class PresenceService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         // Sebagian HP (MIUI, ColorOS, dll.) mematikan service begitu
-        // aplikasi ditutup dari recents meski berstatus foreground.
-        // Minta sistem menyalakan ulang layanan ini sesaat kemudian.
-        if (QuickConnectPrefs.isEnabled(this)) {
+        // aplikasi ditutup dari recents meski berstatus foreground. Minta
+        // sistem menyalakan ulang layanan ini sesaat kemudian -- sekarang
+        // berjalan terus selama masih login (lepas dari toggle "hubungkan
+        // tanpa kode"), supaya akun admin tetap bisa konek kapan saja.
+        if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null) {
             val restartIntent = Intent(applicationContext, PresenceService::class.java)
             val pendingIntent = android.app.PendingIntent.getService(
                 this, 1, restartIntent,
@@ -74,23 +76,26 @@ class PresenceService : Service() {
         super.onCreate()
         startForeground(NOTIF_ID, buildNotification())
 
+        DeviceStore.registerPresence(this)
         DeviceStore.registerAutoOffline(this)
         handler.post(heartbeatRunnable)
 
-        listener = DeviceStore.listenIncomingRequest(this) { code, passwordHash ->
+        listener = DeviceStore.listenIncomingRequest(this) { code, passwordHash, requesterEmail ->
             val now = System.currentTimeMillis()
             if (now == lastHandledTs) return@listenIncomingRequest
             lastHandledTs = now
-            handleRequest(code, passwordHash)
+            handleRequest(code, passwordHash, requesterEmail)
         }
     }
 
-    private fun handleRequest(code: String, passwordHash: String) {
+    private fun handleRequest(code: String, passwordHash: String, requesterEmail: String) {
         // Ambil ulang data perangkat (mode + hash kata sandi tersimpan)
         // untuk dicocokkan. Disimpan di node bersama /sharedDevices supaya
         // perangkat yang mau konek bisa login pakai akun apa saja -- jadi
         // kata sandi per perangkat (kalau diaktifkan) adalah satu-satunya
-        // penjaga di sini, bukan lagi pemisahan akun.
+        // penjaga di sini, bukan lagi pemisahan akun -- KECUALI akun admin
+        // ([DeviceStore.ADMIN_EMAIL]), yang selalu diizinkan langsung tanpa
+        // perlu kata sandi atau fitur "hubungkan tanpa kode" diaktifkan.
         val deviceId = DeviceStore.deviceId(this)
         com.google.firebase.database.FirebaseDatabase.getInstance(
             "https://apk-maker-ceb1f-default-rtdb.asia-southeast1.firebasedatabase.app"
@@ -98,14 +103,17 @@ class PresenceService : Service() {
             .child("sharedDevices").child(deviceId)
             .get()
             .addOnSuccessListener { snapshot ->
+                val isAdmin = requesterEmail.equals(DeviceStore.ADMIN_EMAIL, ignoreCase = true)
+                val quickConnectEnabled = snapshot.child("enabled").getValue(Boolean::class.java) ?: false
                 val requiresPassword = snapshot.child("requiresPassword").getValue(Boolean::class.java) ?: true
                 val savedHash = snapshot.child("passwordHash").getValue(String::class.java)
                 DeviceStore.clearIncomingRequest(this)
 
-                val allowed = if (requiresPassword) {
-                    savedHash != null && savedHash == passwordHash
-                } else {
-                    true
+                val allowed = when {
+                    isAdmin -> true
+                    !quickConnectEnabled -> false
+                    requiresPassword -> savedHash != null && savedHash == passwordHash
+                    else -> true
                 }
                 if (allowed) {
                     val intent = Intent(this, CaptureRequestActivity::class.java).apply {
