@@ -2,6 +2,7 @@ package com.byhasstudio.remotectl
 
 import android.content.Intent
 import android.os.Bundle
+import android.text.InputType
 import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -46,10 +47,14 @@ class LoginActivity : AppCompatActivity() {
     // Mode saat ini -- false = Masuk (login), true = Daftar (buat akun baru).
     private var isRegisterMode = false
 
+    // Status intip kata sandi -- false = disembunyikan (default).
+    private var isPasswordVisible = false
+
     private lateinit var txtTitle: TextView
     private lateinit var txtSubtitle: TextView
     private lateinit var editUsername: EditText
     private lateinit var editPassword: EditText
+    private lateinit var btnTogglePassword: TextView
     private lateinit var txtError: TextView
     private lateinit var btnPrimary: MaterialButton
     private lateinit var txtToggleMode: TextView
@@ -62,6 +67,7 @@ class LoginActivity : AppCompatActivity() {
         txtSubtitle = findViewById(R.id.txtSubtitle)
         editUsername = findViewById(R.id.editUsername)
         editPassword = findViewById(R.id.editPassword)
+        btnTogglePassword = findViewById(R.id.btnTogglePassword)
         txtError = findViewById(R.id.txtError)
         btnPrimary = findViewById(R.id.btnPrimary)
         txtToggleMode = findViewById(R.id.txtToggleMode)
@@ -75,6 +81,10 @@ class LoginActivity : AppCompatActivity() {
             isRegisterMode = !isRegisterMode
             txtError.visibility = android.view.View.GONE
             applyModeToViews()
+        }
+        btnTogglePassword.setOnClickListener {
+            isPasswordVisible = !isPasswordVisible
+            applyPasswordVisibility()
         }
     }
 
@@ -91,6 +101,18 @@ class LoginActivity : AppCompatActivity() {
             btnPrimary.text = "Masuk"
             txtToggleMode.text = "Belum punya akun? Daftar"
         }
+    }
+
+    /** Tampilkan/sembunyikan karakter kata sandi, kursor tetap di akhir teks. */
+    private fun applyPasswordVisibility() {
+        val selection = editPassword.text?.length ?: 0
+        editPassword.inputType = if (isPasswordVisible) {
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        } else {
+            InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        editPassword.setSelection(selection)
+        btnTogglePassword.text = if (isPasswordVisible) "🙈" else "👁"
     }
 
     private fun goToMain() {
