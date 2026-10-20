@@ -24,14 +24,6 @@ import com.google.firebase.auth.FirebaseAuth
 class LoginActivity : AppCompatActivity() {
 
     companion object {
-        // Akun khusus buat kamu sendiri -- tombol "Masuk cepat" langsung
-        // login pakai ini, tidak perlu ketik manual tiap kali pasang ulang
-        // aplikasi di perangkat baru. Tetap lewat Firebase Auth biasa
-        // (akun ini otomatis didaftarkan kalau belum ada), bukan jalan
-        // pintas keamanan.
-        private const val QUICK_LOGIN_USERNAME = "haerka949"
-        private const val QUICK_LOGIN_PASSWORD = "haerka555"
-
         // Domain palsu dipakai internal supaya Firebase Auth (yang
         // sebetulnya berbasis email/password) bisa menerima username
         // bebas tanpa minta email Gmail asli.
@@ -65,26 +57,6 @@ class LoginActivity : AppCompatActivity() {
                 auth.createUserWithEmailAndPassword(e, p)
             }
         }
-        findViewById<TextView>(R.id.btnQuickLogin).setOnClickListener {
-            quickLogin(error)
-        }
-    }
-
-    /**
-     * Langsung masuk pakai akun khusus di atas, tanpa perlu ketik manual.
-     * Kalau akunnya belum pernah dibuat di perangkat mana pun (login
-     * pertama kali), otomatis didaftarkan dulu lewat kata sandi yang sama.
-     */
-    private fun quickLogin(errorView: TextView) {
-        errorView.visibility = android.view.View.GONE
-        val fakeEmail = usernameToFakeEmail(QUICK_LOGIN_USERNAME)
-        auth.signInWithEmailAndPassword(fakeEmail, QUICK_LOGIN_PASSWORD)
-            .addOnSuccessListener { goToMain() }
-            .addOnFailureListener {
-                auth.createUserWithEmailAndPassword(fakeEmail, QUICK_LOGIN_PASSWORD)
-                    .addOnSuccessListener { goToMain() }
-                    .addOnFailureListener { e -> showError(errorView, friendlyAuthError(e)) }
-            }
     }
 
     private fun goToMain() {
@@ -114,7 +86,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     /**
-     * Kalau SEMUA cara login (Masuk, Daftar, Masuk cepat) gagal sama-sama,
+     * Kalau SEMUA cara login (Masuk, Daftar) gagal sama-sama,
      * penyebab yang paling sering adalah provider "Email/Password" belum
      * diaktifkan di Firebase Console -- Authentication -> Sign-in method
      * (beda dari provider Anonymous yang diaktifkan waktu setup awal).
