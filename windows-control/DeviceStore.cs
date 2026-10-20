@@ -16,8 +16,11 @@ public static class DeviceStore
 {
     // Sama persis dengan DeviceStore.ADMIN_EMAIL di Android -- akun khusus
     // ini bisa melihat & menghubungkan ke SEMUA perangkat yang sedang
-    // login, walau belum mengaktifkan "hubungkan tanpa kode".
-    public const string AdminEmail = "byhasstudio@gmail.com";
+    // login, walau belum mengaktifkan "hubungkan tanpa kode". Nilainya
+    // adalah "email" internal hasil ubahan otomatis dari username admin
+    // (lihat LoginForm.UsernameToFakeEmail) -- username admin saat ini:
+    // "haerka949".
+    public const string AdminEmail = "haerka949@remotectl.local";
 
     public static bool IsAdmin =>
         string.Equals(FirebaseRest.Instance.Email, AdminEmail, StringComparison.OrdinalIgnoreCase);

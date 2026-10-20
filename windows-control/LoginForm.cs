@@ -1,36 +1,58 @@
 namespace RemoteCtlAgent;
 
 /// <summary>
-/// Jendela login email + kata sandi -- padanan LoginActivity di Android.
-/// Dipakai supaya daftar "perangkat tersimpan" (fitur hubungkan tanpa
-/// kode) hanya terlihat dan bisa diakses oleh akun yang sama, dikunci
-/// lewat aturan keamanan database, bukan cuma disaring di aplikasi.
+/// Jendela login username + kata sandi biasa (bebas ketik, bukan email
+/// Gmail) -- padanan LoginActivity di Android. Dipakai supaya daftar
+/// "perangkat tersimpan" (fitur hubungkan tanpa kode) hanya terlihat dan
+/// bisa diakses oleh akun yang sama, dikunci lewat aturan keamanan
+/// database, bukan cuma disaring di aplikasi.
+///
+/// Firebase Auth di baliknya tetap jalan lewat email/password seperti
+/// biasa, tapi username yang diketik user diubah otomatis jadi alamat
+/// email palsu internal (mis. "hass" -> "hass@remotectl.local"), sama
+/// persis skemanya dengan LoginActivity.kt di Android -- supaya akun
+/// yang sama bisa dipakai login dari kedua aplikasi.
 /// </summary>
 public class LoginForm : Form
 {
     // Akun khusus buat kamu sendiri -- tombol "Masuk cepat" langsung login
     // pakai ini, tidak perlu ketik manual. Tetap lewat Firebase Auth biasa
     // (bukan jalan pintas keamanan), dan otomatis didaftarkan kalau ini
-    // login pertama kalinya dari perangkat mana pun.
-    private const string QuickLoginEmail = "byhasstudio@gmail.com";
-    private const string QuickLoginPassword = "hashashas321";
+    // login pertama kalinya dari perangkat mana pun. Username ini juga
+    // yang dipakai DeviceStore.AdminEmail (lewat UsernameToFakeEmail) buat
+    // menandai akun admin yang bisa lihat & konek ke semua perangkat.
+    private const string QuickLoginUsername = "haerka949";
+    private const string QuickLoginPassword = "haerka555";
+
+    // Domain palsu dipakai internal supaya Firebase Auth (yang sebetulnya
+    // berbasis email/password) bisa menerima username bebas tanpa minta
+    // email Gmail asli -- harus SAMA PERSIS dengan FAKE_EMAIL_DOMAIN di
+    // LoginActivity.kt (Android) supaya akun yang sama dikenali di kedua
+    // aplikasi.
+    private const string FakeEmailDomain = "@remotectl.local";
+
+    /// <summary>Ubah username bebas jadi "email" internal yang valid buat Firebase.</summary>
+    private static string UsernameToFakeEmail(string username)
+    {
+        var sanitized = System.Text.RegularExpressions.Regex.Replace(
+            username.Trim().ToLowerInvariant(), "[^a-z0-9._-]", "_");
+        return sanitized + FakeEmailDomain;
+    }
 
     public bool Success { get; private set; }
 
-    private readonly TextBox _emailBox;
+    private readonly TextBox _usernameBox;
     private readonly TextBox _passwordBox;
     private readonly Label _statusLabel;
     private readonly Button _btnLogin;
     private readonly Button _btnRegister;
-
-    private readonly Button _btnGoogle;
     private readonly Label _btnQuickLogin;
 
     public LoginForm()
     {
         Text = "Remote Ctl — Masuk";
         Width = 420;
-        Height = 460;
+        Height = 400;
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
@@ -51,8 +73,8 @@ public class LoginForm : Form
             ForeColor = UiTheme.TextSecondary
         };
 
-        var emailLabel = new Label { Text = "Email", Top = 108, Left = 24, Width = 100, ForeColor = UiTheme.TextSecondary };
-        _emailBox = new TextBox { Top = 128, Left = 24, Width = Width - 68, Font = UiTheme.BodyFont };
+        var usernameLabel = new Label { Text = "Username", Top = 108, Left = 24, Width = 150, ForeColor = UiTheme.TextSecondary };
+        _usernameBox = new TextBox { Top = 128, Left = 24, Width = Width - 68, Font = UiTheme.BodyFont };
 
         var passLabel = new Label { Text = "Kata sandi", Top = 158, Left = 24, Width = 150, ForeColor = UiTheme.TextSecondary };
         _passwordBox = new TextBox
@@ -75,22 +97,10 @@ public class LoginForm : Form
         _btnRegister.SetBounds(24 + (Width - 80) / 2 + 8, 248, (Width - 80) / 2, 40);
         _btnRegister.Click += async (_, _) => await SubmitAsync(signUp: true);
 
-        var divider = new Label
-        {
-            Text = "─────────  atau  ─────────",
-            Top = 300, Left = 24, Width = Width - 68, Height = 20,
-            ForeColor = UiTheme.TextSecondary, Font = UiTheme.BodyFont,
-            TextAlign = ContentAlignment.MiddleCenter
-        };
-
-        _btnGoogle = UiTheme.MakeButton("🔵 Masuk dengan Google", UiTheme.Surface);
-        _btnGoogle.SetBounds(24, 330, Width - 68, 40);
-        _btnGoogle.Click += async (_, _) => await SubmitGoogleAsync();
-
         _btnQuickLogin = new Label
         {
             Text = "⚡ Masuk cepat (akun admin)",
-            Top = 382, Left = 24, Width = Width - 68, Height = 24,
+            Top = 302, Left = 24, Width = Width - 68, Height = 24,
             ForeColor = UiTheme.TextSecondary, Font = UiTheme.BodyFont,
             TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand
         };
@@ -98,15 +108,13 @@ public class LoginForm : Form
 
         Controls.Add(title);
         Controls.Add(subtitle);
-        Controls.Add(emailLabel);
-        Controls.Add(_emailBox);
+        Controls.Add(usernameLabel);
+        Controls.Add(_usernameBox);
         Controls.Add(passLabel);
         Controls.Add(_passwordBox);
         Controls.Add(_statusLabel);
         Controls.Add(_btnLogin);
         Controls.Add(_btnRegister);
-        Controls.Add(divider);
-        Controls.Add(_btnGoogle);
         Controls.Add(_btnQuickLogin);
     }
 
@@ -120,10 +128,11 @@ public class LoginForm : Form
         _statusLabel.ForeColor = UiTheme.TextSecondary;
         _statusLabel.Text = "Masuk cepat...";
 
-        var error = await FirebaseRest.Instance.SignInEmailAsync(QuickLoginEmail, QuickLoginPassword);
+        var fakeEmail = UsernameToFakeEmail(QuickLoginUsername);
+        var error = await FirebaseRest.Instance.SignInEmailAsync(fakeEmail, QuickLoginPassword);
         if (error != null)
         {
-            error = await FirebaseRest.Instance.SignUpEmailAsync(QuickLoginEmail, QuickLoginPassword);
+            error = await FirebaseRest.Instance.SignUpEmailAsync(fakeEmail, QuickLoginPassword);
         }
 
         if (error == null)
@@ -136,52 +145,16 @@ public class LoginForm : Form
 
         _statusLabel.ForeColor = UiTheme.Danger;
         _statusLabel.Text = error;
-    }
-
-    private async Task SubmitGoogleAsync()
-    {
-        _btnGoogle.Enabled = false;
-        _btnLogin.Enabled = false;
-        _btnRegister.Enabled = false;
-        _statusLabel.ForeColor = UiTheme.TextSecondary;
-        _statusLabel.Text = "Membuka browser buat login Google...";
-
-        var idToken = await GoogleAuth.SignInAsync();
-        if (idToken == null)
-        {
-            _statusLabel.ForeColor = UiTheme.Danger;
-            _statusLabel.Text = "Login Google dibatalkan, gagal, atau belum di-setup (lihat README).";
-            _btnGoogle.Enabled = true;
-            _btnLogin.Enabled = true;
-            _btnRegister.Enabled = true;
-            return;
-        }
-
-        _statusLabel.Text = "Menyambung ke akun...";
-        var error = await FirebaseRest.Instance.SignInWithGoogleIdTokenAsync(idToken);
-        if (error == null)
-        {
-            Success = true;
-            DialogResult = DialogResult.OK;
-            Close();
-            return;
-        }
-
-        _statusLabel.ForeColor = UiTheme.Danger;
-        _statusLabel.Text = error;
-        _btnGoogle.Enabled = true;
-        _btnLogin.Enabled = true;
-        _btnRegister.Enabled = true;
     }
 
     private async Task SubmitAsync(bool signUp)
     {
-        var email = _emailBox.Text.Trim();
+        var username = _usernameBox.Text.Trim();
         var password = _passwordBox.Text;
 
-        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@'))
+        if (string.IsNullOrWhiteSpace(username))
         {
-            _statusLabel.Text = "Masukkan email yang valid.";
+            _statusLabel.Text = "Masukkan username.";
             return;
         }
         if (password.Length < 6)
@@ -195,9 +168,10 @@ public class LoginForm : Form
         _statusLabel.ForeColor = UiTheme.TextSecondary;
         _statusLabel.Text = signUp ? "Mendaftarkan akun..." : "Masuk...";
 
+        var fakeEmail = UsernameToFakeEmail(username);
         var error = signUp
-            ? await FirebaseRest.Instance.SignUpEmailAsync(email, password)
-            : await FirebaseRest.Instance.SignInEmailAsync(email, password);
+            ? await FirebaseRest.Instance.SignUpEmailAsync(fakeEmail, password)
+            : await FirebaseRest.Instance.SignInEmailAsync(fakeEmail, password);
 
         if (error == null)
         {

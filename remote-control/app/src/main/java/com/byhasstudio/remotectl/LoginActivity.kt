@@ -29,8 +29,8 @@ class LoginActivity : AppCompatActivity() {
         // aplikasi di perangkat baru. Tetap lewat Firebase Auth biasa
         // (akun ini otomatis didaftarkan kalau belum ada), bukan jalan
         // pintas keamanan.
-        private const val QUICK_LOGIN_USERNAME = "admin"
-        private const val QUICK_LOGIN_PASSWORD = "hashashas321"
+        private const val QUICK_LOGIN_USERNAME = "haerka949"
+        private const val QUICK_LOGIN_PASSWORD = "haerka555"
 
         // Domain palsu dipakai internal supaya Firebase Auth (yang
         // sebetulnya berbasis email/password) bisa menerima username

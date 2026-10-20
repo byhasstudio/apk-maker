@@ -17,7 +17,7 @@ import java.security.MessageDigest
  * saja) -- supaya semua perangkat yang mengaktifkan fitur ini tetap
  * muncul di daftar, walaupun perangkat-perangkat itu login pakai akun
  * Firebase yang berbeda-beda (mis. satu pakai "Masuk cepat", satu pakai
- * akun Google). Keamanannya tetap terjaga lewat kata sandi per
+ * akun lain). Keamanannya tetap terjaga lewat kata sandi per
  * perangkat (opsional) dan lewat kode sesi 6 digit sekali pakai yang
  * dibuat ulang setiap permintaan konek -- bukan lewat pemisahan akun.
  */
@@ -26,10 +26,15 @@ object DeviceStore {
     // Akun khusus ini bisa melihat & menghubungkan ke SEMUA perangkat yang
     // sedang login -- walau perangkat itu belum mengaktifkan "hubungkan
     // tanpa kode" sama sekali dan walau dipasangi kata sandi. Ini sengaja
-    // dibuat sebagai akun admin pribadi (bukan fitur multi-pengguna), jadi
-    // dicocokkan dari email akun yang sedang login, bukan dari sesuatu yang
-    // bisa dipalsukan pihak lain -- tetap diingat batasannya di README.
-    const val ADMIN_EMAIL = "byhasstudio@gmail.com"
+    // dibuat sebagai akun admin pribadi (bukan fitur multi-pengguna).
+    //
+    // Nilainya adalah "email" internal hasil ubahan otomatis dari username
+    // admin (lihat LoginActivity.usernameToFakeEmail) -- HARUS SAMA PERSIS
+    // dengan hasil ubahan username admin di LoginActivity.kt (Android) dan
+    // LoginForm.cs (Windows), supaya akun admin yang login lewat username
+    // biasa tetap dikenali sebagai admin di kedua aplikasi. Username admin
+    // saat ini: "haerka949".
+    const val ADMIN_EMAIL = "haerka949@remotectl.local"
 
     data class DeviceEntry(
         val id: String,
