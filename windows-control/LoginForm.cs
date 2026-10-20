@@ -43,6 +43,7 @@ public class LoginForm : Form
     private readonly Label _subtitle;
     private readonly TextBox _usernameBox;
     private readonly TextBox _passwordBox;
+    private readonly Button _btnTogglePassword;
     private readonly Label _statusLabel;
     private readonly Button _btnPrimary;
     private readonly Label _txtToggleMode;
@@ -74,10 +75,30 @@ public class LoginForm : Form
         _usernameBox = new TextBox { Top = 132, Left = 24, Width = Width - 68, Font = UiTheme.BodyFont };
 
         var passLabel = new Label { Text = "Kata sandi", Top = 162, Left = 24, Width = 150, ForeColor = UiTheme.TextSecondary };
+
+        // Kolom kata sandi dipersempit supaya ada tempat buat tombol "lihat"
+        // di sebelah kanannya.
+        const int togglePasswordWidth = 40;
         _passwordBox = new TextBox
         {
-            Top = 182, Left = 24, Width = Width - 68, Font = UiTheme.BodyFont,
+            Top = 182, Left = 24, Width = Width - 68 - togglePasswordWidth - 8, Font = UiTheme.BodyFont,
             UseSystemPasswordChar = true
+        };
+
+        // Tombol mata buat intip/sembunyikan kata sandi yang lagi diketik,
+        // supaya user bisa mastiin benar sebelum submit.
+        _btnTogglePassword = new Button
+        {
+            Top = 180, Left = _passwordBox.Left + _passwordBox.Width + 8, Width = togglePasswordWidth, Height = 26,
+            Text = "👁", Font = UiTheme.BodyFont,
+            FlatStyle = FlatStyle.Flat, TabStop = false,
+            ForeColor = UiTheme.TextSecondary
+        };
+        _btnTogglePassword.FlatAppearance.BorderSize = 0;
+        _btnTogglePassword.Click += (_, _) =>
+        {
+            _passwordBox.UseSystemPasswordChar = !_passwordBox.UseSystemPasswordChar;
+            _btnTogglePassword.Text = _passwordBox.UseSystemPasswordChar ? "👁" : "🙈";
         };
 
         _statusLabel = new Label
@@ -111,6 +132,7 @@ public class LoginForm : Form
         Controls.Add(_usernameBox);
         Controls.Add(passLabel);
         Controls.Add(_passwordBox);
+        Controls.Add(_btnTogglePassword);
         Controls.Add(_statusLabel);
         Controls.Add(_btnPrimary);
         Controls.Add(_txtToggleMode);
