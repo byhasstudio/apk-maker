@@ -12,8 +12,18 @@ public class ModeSelectForm : Form
     private readonly Label _btnLogout;
     private bool _allowClose;
 
+    // Dipakai bareng SetVisibleCore di bawah supaya jendela ini BENAR-BENAR
+    // tidak pernah tampil ke layar sama sekali kalau dinyalakan otomatis
+    // lewat Windows startup -- murni jalan diam-diam di tray, bukan sempat
+    // kebuka sekilas lalu disembunyikan lagi (yang sebelumnya terjadi kalau
+    // Hide() dipanggil setelah jendelanya sempat ditampilkan).
+    private readonly bool _startHidden;
+    private bool _everAllowedToShow;
+
     public ModeSelectForm(bool startHidden = false)
     {
+        _startHidden = startHidden;
+        _everAllowedToShow = !startHidden;
         Text = "Remote Ctl";
         Width = 440;
         Height = 380;
@@ -104,7 +114,6 @@ public class ModeSelectForm : Form
         Controls.Add(btnQuickConnect);
         Controls.Add(_btnLogout);
 
-        Shown += async (_, _) => await CheckForUpdateAsync();
         FormClosing += (_, e) =>
         {
             if (_allowClose) return;
@@ -115,19 +124,23 @@ public class ModeSelectForm : Form
         };
         RefreshAccountLabel();
 
-        if (startHidden)
-        {
-            Load += (_, _) => BeginInvoke(Hide);
-        }
+        // PENTING: pakai Load, bukan Shown -- Load tetap jalan walau
+        // jendelanya tidak pernah benar-benar ditampilkan ke layar (lihat
+        // SetVisibleCore di bawah), sedangkan Shown cuma jalan kalau
+        // jendelanya benar-benar tampil. Kalau ini dipasang ke Shown,
+        // program yang dinyalakan otomatis lewat Windows startup TIDAK
+        // AKAN pernah login ulang / menyalakan PresenceService, karena
+        // jendelanya memang sengaja tidak pernah ditampilkan.
+        Load += async (_, _) => await CheckForUpdateAsync();
 
         // Coba masuk lagi otomatis pakai sesi tersimpan (refresh token,
         // tanpa minta kata sandi lagi) setiap kali program dibuka --
         // supaya "Masuk dengan akun" terasa seperti login SEKALI SAJA,
         // bukan harus diulang tiap buka program. Sesi ini baru dihapus
         // kalau pengguna sendiri menekan tombol "🚪 Keluar" (lihat
-        // LogoutAsync). Dulu ini cuma jalan kalau fitur "hubungkan tanpa
-        // kode" aktif -- sekarang jalan selalu, tidak terkait fitur itu.
-        Shown += async (_, _) =>
+        // LogoutAsync). Jalan selalu begitu program dimulai -- baik
+        // dibuka manual maupun otomatis lewat Windows startup.
+        Load += async (_, _) =>
         {
             if (!FirebaseRest.Instance.IsSignedIn)
                 await FirebaseRest.Instance.TryRestoreSessionAsync();
@@ -144,9 +157,35 @@ public class ModeSelectForm : Form
 
     private void ShowFromTray()
     {
+        _everAllowedToShow = true;
         Show();
         WindowState = FormWindowState.Normal;
         Activate();
+    }
+
+    /// <summary>
+    /// Dipanggil WinForms setiap kali ada yang mencoba mengubah visibilitas
+    /// jendela ini (termasuk Application.Run yang otomatis memanggil Show()
+    /// di awal). Kalau program baru dinyalakan otomatis lewat Windows
+    /// startup DAN belum pernah diizinkan tampil (lewat ShowFromTray),
+    /// permintaan "tampilkan" ditolak di sini -- jendelanya tidak pernah
+    /// benar-benar dirender ke layar (tidak ada flash kebuka sekilas),
+    /// cuma handle-nya dipaksa dibuat (CreateControl) supaya Load tetap
+    /// jalan dan NotifyIcon + logika latar belakang lainnya tetap aktif.
+    /// </summary>
+    protected override void SetVisibleCore(bool value)
+    {
+        if (value && _startHidden && !_everAllowedToShow)
+        {
+            if (!IsHandleCreated)
+            {
+                CreateHandle();
+                CreateControl();
+            }
+            base.SetVisibleCore(false);
+            return;
+        }
+        base.SetVisibleCore(value);
     }
 
     private void RefreshAccountLabel()
