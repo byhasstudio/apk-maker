@@ -21,9 +21,10 @@ on:
         required: true
         type: string
       version:
-        description: "versi aplikasi, contoh 1.0.0"
-        required: true
+        description: "Versi, contoh 1.0.1. KOSONGKAN = otomatis naik 1 patch dari versi terakhir job ini (1.0.0 kalau belum ada)"
+        required: false
         type: string
+        default: ""
       catatan:
         description: "Catatan update (tampil di dialog auto update dan di Release)"
         required: false
@@ -47,7 +48,41 @@ permissions:
   contents: write
 
 jobs:
+  ver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - name: Tentukan versi
+        id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_ID: ${{ inputs.job_id }}
+          IN_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$JOB_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "::error::job_id tidak valid"; exit 1; }
+          if [ -z "$IN_VERSION" ] || [ "$IN_VERSION" = "auto" ]; then
+            LAST=""
+            if gh release download "job-$JOB_ID" --repo "$GITHUB_REPOSITORY" --pattern version.json --output prev.json >/dev/null 2>&1; then
+              LAST=$(node -e 'try{process.stdout.write(String(JSON.parse(require("fs").readFileSync("prev.json","utf8")).version||""))}catch(e){}')
+            fi
+            if [[ "$LAST" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]]; then
+              V="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+              echo "Versi terakhir $LAST -> otomatis $V"
+            else
+              V="1.0.0"
+              echo "::warning::Versi sebelumnya tidak ditemukan untuk job ini, memakai $V"
+            fi
+          else
+            V="$IN_VERSION"
+          fi
+          [[ "$V" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || { echo "::error::versi tidak valid: $V"; exit 1; }
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: ver
     runs-on: windows-latest
     timeout-minutes: 30
     defaults:
@@ -59,7 +94,7 @@ jobs:
       SITE_URL: ${{ inputs.url }}
       APP_NAME: ${{ inputs.app_name }}
       HAS_ICON: ${{ inputs.has_icon }}
-      VERSION: ${{ inputs.version }}
+      VERSION: ${{ needs.ver.outputs.version }}
       CATATAN: ${{ inputs.catatan }}
       TRAY: ${{ inputs.tray }}
       FX: ${{ inputs.fx }}
@@ -477,7 +512,7 @@ jobs:
           [ -n "$SAFE" ] || SAFE=app
           mkdir -p out
           cp app/dist/app.exe "out/$SAFE.exe"
-          # version.json dibaca aplikasi untuk auto update (versi, catatan, nama file, sha256)
+          # version.json dibaca aplikasi untuk auto update (versi, catatan, nama file, sha256) dan oleh build berikutnya untuk menentukan versi otomatis
           SUM=$(node -e 'process.stdout.write(require("crypto").createHash("sha256").update(require("fs").readFileSync(process.argv[1])).digest("hex"))' "out/$SAFE.exe")
           FILE="$SAFE.exe" SUM="$SUM" node -e 'const fs=require("fs");const e=process.env;fs.writeFileSync("out/version.json",JSON.stringify({version:e.VERSION,notes:e.CATATAN||"",file:e.FILE,sha256:e.SUM}))'
           NOTE_TXT="EXE dibuat otomatis oleh pengguna. Tidak bertanda tangan digital; pakai dengan risiko sendiri."
