@@ -24,6 +24,11 @@ on:
         description: "versi aplikasi, contoh 1.0.0"
         required: true
         type: string
+      catatan:
+        description: "Catatan update (tampil di dialog auto update dan di Release)"
+        required: false
+        type: string
+        default: ""
       has_icon:
         required: true
         type: string
@@ -55,6 +60,7 @@ jobs:
       APP_NAME: ${{ inputs.app_name }}
       HAS_ICON: ${{ inputs.has_icon }}
       VERSION: ${{ inputs.version }}
+      CATATAN: ${{ inputs.catatan }}
       TRAY: ${{ inputs.tray }}
       FX: ${{ inputs.fx }}
       VT_API_KEY: ${{ secrets.VT_API_KEY }}
@@ -227,7 +233,7 @@ jobs:
             if (u.protocol !== "https:") throw new Error("URL harus https");
             url = u.href;
           }
-          fs.writeFileSync("app-config.json", JSON.stringify({ name, url, version: e.VERSION || "", tray: e.TRAY === "true" || e.FX === "true", fx: e.FX === "true", jobId: e.JOB_ID || "", api: (e.WORKER_URL || "").replace(/\/+$/, "") }));
+          fs.writeFileSync("app-config.json", JSON.stringify({ name, url, version: e.VERSION || "", tray: e.TRAY === "true" || e.FX === "true", fx: e.FX === "true", jobId: e.JOB_ID || "", api: (e.WORKER_URL || "").replace(/\/+$/, ""), repo: e.GITHUB_REPOSITORY || "" }));
           const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
           Object.assign(pkg, {
             name: "app", version: e.VERSION || "1.0.0", main: "main.js", description: name, author: name,
@@ -299,6 +305,53 @@ jobs:
             try { fs.writeFileSync(f, st.mid); } catch (_) {}
             dialog.showMessageBox(win, { type: "info", title: cfg.name, message: String(st.message) });
           }
+          // Auto update: cek version.json di Release job-<jobId> repo pembuat. Versi lebih baru -> tanya, unduh, cek sha256, pasang diam-diam.
+          let updating = false;
+          const vnum = s => String(s || "").split(".").map(x => parseInt(x, 10) || 0);
+          function isNewer(a, b) { const x = vnum(a), y = vnum(b); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; }
+          async function checkUpdate() {
+            if (updating || !win || !win.isVisible() || blocked || forced || !cfg.repo || !cfg.jobId) return;
+            if (!/^[A-Za-z0-9._-]+[/][A-Za-z0-9._-]+$/.test(cfg.repo)) return;
+            let started = false;
+            try {
+              const base = "https://github.com/" + cfg.repo + "/releases/download/job-" + cfg.jobId + "/";
+              const ctl = new AbortController();
+              const t = setTimeout(() => ctl.abort(), 8000);
+              const r = await fetch(base + "version.json", { signal: ctl.signal, cache: "no-store" });
+              clearTimeout(t);
+              if (!r.ok) return;
+              const v = await r.json();
+              if (!v || !/^[0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,3}$/.test(String(v.version)) || !isNewer(v.version, cfg.version)) return;
+              if (!/^[A-Za-z0-9._-]+[.]exe$/i.test(String(v.file)) || !/^[0-9a-f]{64}$/.test(String(v.sha256))) return;
+              updating = true;
+              const ask = await dialog.showMessageBox(win, { type: "info", title: cfg.name, message: "Versi baru tersedia: v" + v.version, detail: String(v.notes || "").slice(0, 1000), buttons: ["Perbarui sekarang", "Nanti"], defaultId: 0, cancelId: 1 });
+              if (ask.response !== 0) { updating = false; return; }
+              started = true;
+              const rr = await fetch(base + v.file, { cache: "no-store" });
+              if (!rr.ok || !rr.body) throw new Error("unduh gagal");
+              const total = parseInt(rr.headers.get("content-length") || "0", 10);
+              const rd = rr.body.getReader();
+              const chunks = []; let got = 0;
+              for (;;) {
+                const c = await rd.read();
+                if (c.done) break;
+                chunks.push(Buffer.from(c.value)); got += c.value.length;
+                if (total) win.setProgressBar(Math.min(got / total, 1));
+              }
+              win.setProgressBar(-1);
+              const buf = Buffer.concat(chunks);
+              if (require("crypto").createHash("sha256").update(buf).digest("hex") !== String(v.sha256)) throw new Error("sha256 tidak cocok");
+              const f = path.join(app.getPath("temp"), "update-" + cfg.jobId + ".exe");
+              fs.writeFileSync(f, buf);
+              quitting = true;
+              require("child_process").spawn(f, ["/S", "--force-run"], { detached: true, stdio: "ignore" }).unref();
+              app.quit();
+            } catch (_) {
+              updating = false;
+              try { win.setProgressBar(-1); } catch (__) {}
+              if (started) dialog.showMessageBox(win, { type: "error", title: cfg.name, message: "Pembaruan gagal. Coba lagi nanti." });
+            }
+          }
           async function applyState(st) {
             st = st || {};
             if (st.blocked) { if (!blocked) { blocked = true; showBlocked(); } return; }
@@ -351,6 +404,9 @@ jobs:
             if (!blocked && !forced) loadContent();
             // cek ulang tiap 10 menit: kalau diblokir/dibuka saat aplikasi berjalan, langsung berlaku
             setInterval(async () => { applyState(await checkBlocked()); }, 600000);
+            // auto update: cek 20 detik setelah dibuka, lalu tiap 6 jam
+            setTimeout(checkUpdate, 20000);
+            setInterval(checkUpdate, 6 * 3600 * 1000);
           }
           if (!app.requestSingleInstanceLock()) { app.quit(); } else {
             app.on("second-instance", () => { if (win) { if (!win.isVisible()) win.show(); if (win.isMinimized()) win.restore(); win.focus(); } });
@@ -421,11 +477,16 @@ jobs:
           [ -n "$SAFE" ] || SAFE=app
           mkdir -p out
           cp app/dist/app.exe "out/$SAFE.exe"
+          # version.json dibaca aplikasi untuk auto update (versi, catatan, nama file, sha256)
+          SUM=$(node -e 'process.stdout.write(require("crypto").createHash("sha256").update(require("fs").readFileSync(process.argv[1])).digest("hex"))' "out/$SAFE.exe")
+          FILE="$SAFE.exe" SUM="$SUM" node -e 'const fs=require("fs");const e=process.env;fs.writeFileSync("out/version.json",JSON.stringify({version:e.VERSION,notes:e.CATATAN||"",file:e.FILE,sha256:e.SUM}))'
+          NOTE_TXT="EXE dibuat otomatis oleh pengguna. Tidak bertanda tangan digital; pakai dengan risiko sendiri."
+          if [ -n "${CATATAN:-}" ]; then NOTE_TXT="$CATATAN"$'\n\n'"$NOTE_TXT"; fi
           gh release delete "job-$JOB_ID" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag >/dev/null 2>&1 || true
-          gh release create "job-$JOB_ID" "out/$SAFE.exe" \
+          gh release create "job-$JOB_ID" "out/$SAFE.exe" "out/version.json" \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "EXE $SAFE" \
-            --notes "EXE dibuat otomatis oleh pengguna. Tidak bertanda tangan digital; pakai dengan risiko sendiri."
+            --title "EXE $SAFE v$VERSION" \
+            --notes "$NOTE_TXT"
           echo "APK_URL=https://github.com/$GITHUB_REPOSITORY/releases/download/job-$JOB_ID/$SAFE.exe" >> "$GITHUB_ENV"
 
       - name: Pindai VirusTotal (opsional)
