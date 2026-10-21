@@ -193,4 +193,47 @@ public static class DeviceStore
             ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         });
     }
+
+    /// <summary>
+    /// Kirim perintah jarak jauh (matikan/restart/dst) ke perangkat lain --
+    /// tidak butuh sesi kontrol aktif, cuma butuh perangkat tujuan masih
+    /// login & PresenceService-nya jalan (lihat PollRemoteCommandAsync di
+    /// PresenceService.cs / listenRemoteCommand di PresenceService.kt).
+    /// Hanya berguna kalau pengirimnya akun admin (haerka949) -- akun lain
+    /// tidak punya akses baca/tulis ke node sharedDevices sama sekali
+    /// (lihat database.rules.json), jadi tombol ini di UI memang cuma
+    /// ditampilkan untuk admin.
+    /// </summary>
+    public static async Task<string?> SendRemoteCommandAsync(string deviceId, string type, string? text = null)
+    {
+        if (!Fb.IsSignedIn) return "Belum login.";
+        var path = $"{DevicesPath}/{deviceId}/remoteCommand";
+        return await Fb.PutAsync(path, new
+        {
+            type,
+            text = text ?? "",
+            ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        });
+    }
+
+    /// <summary>Hasil (type, text) kalau ada perintah jarak jauh masuk buat perangkat ini sendiri, null kalau tidak ada.</summary>
+    public static async Task<(string type, string text)?> PollRemoteCommandAsync()
+    {
+        if (!Fb.IsSignedIn) return null;
+        var path = $"{DevicesPath}/{DeviceId()}/remoteCommand";
+        var data = await Fb.GetAsync(path);
+        if (data is not JsonElement el || el.ValueKind != JsonValueKind.Object) return null;
+        if (!el.TryGetProperty("type", out var typeEl)) return null;
+        var type = typeEl.GetString();
+        if (string.IsNullOrEmpty(type)) return null;
+        var text = el.TryGetProperty("text", out var t) ? t.GetString() ?? "" : "";
+        return (type, text);
+    }
+
+    public static async Task ClearRemoteCommandAsync()
+    {
+        if (!Fb.IsSignedIn) return;
+        var path = $"{DevicesPath}/{DeviceId()}/remoteCommand";
+        await Fb.DeleteAsync(path);
+    }
 }

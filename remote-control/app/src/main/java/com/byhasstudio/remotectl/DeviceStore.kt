@@ -239,4 +239,48 @@ object DeviceStore {
             )
         )
     }
+
+    /**
+     * Kirim perintah jarak jauh (tidur/matikan/restart/teks) ke perangkat
+     * lain -- tidak butuh sesi kontrol layar aktif sama sekali, cuma butuh
+     * perangkat tujuan masih login & PresenceService-nya jalan (lihat
+     * listenRemoteCommand di PresenceService.kt). Cuma berguna dipanggil
+     * dari akun admin -- akun lain tidak punya akses baca/tulis ke node
+     * sharedDevices sama sekali (lihat database.rules.json).
+     */
+    fun sendRemoteCommand(
+        deviceId: String,
+        type: String,
+        text: String = "",
+        onResult: (success: Boolean, error: String?) -> Unit = { _, _ -> }
+    ) {
+        val ref = devicesRef()?.child(deviceId)?.child("remoteCommand")
+        if (ref == null) {
+            onResult(false, "Belum login.")
+            return
+        }
+        ref.setValue(
+            mapOf("type" to type, "text" to text, "ts" to System.currentTimeMillis())
+        ).addOnSuccessListener { onResult(true, null) }
+            .addOnFailureListener { e -> onResult(false, e.message) }
+    }
+
+    /** onCommand memberi tahu type + text perintah jarak jauh yang masuk buat perangkat ini sendiri. */
+    fun listenRemoteCommand(context: Context, onCommand: (type: String, text: String) -> Unit): ValueEventListener? {
+        val ref = devicesRef()?.child(deviceId(context))?.child("remoteCommand") ?: return null
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val type = snapshot.child("type").getValue(String::class.java) ?: return
+                val text = snapshot.child("text").getValue(String::class.java) ?: ""
+                onCommand(type, text)
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        }
+        ref.addValueEventListener(listener)
+        return listener
+    }
+
+    fun clearRemoteCommand(context: Context) {
+        devicesRef()?.child(deviceId(context))?.child("remoteCommand")?.removeValue()
+    }
 }

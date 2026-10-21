@@ -121,7 +121,64 @@ public class DeviceListForm : Form
         row.Controls.Add(name);
         row.Controls.Add(status);
         row.Controls.Add(btnConnect);
+
+        // Tombol perintah jarak jauh (matikan/restart/dst) -- cuma kelihatan
+        // buat akun admin, dan jalan lepas dari status Online/Offline di
+        // atas (perangkat tujuan cukup masih login & PresenceService-nya
+        // jalan, tidak butuh sesi kontrol layar aktif sama sekali).
+        if (isAdmin)
+        {
+            name.Width = row.Width - 190;
+            status.Width = row.Width - 190;
+
+            var btnPower = UiTheme.MakeButton("⚡", UiTheme.Surface);
+            btnPower.SetBounds(row.Width - 170, 16, 36, 40);
+            btnPower.Click += (_, _) => ShowCommandMenu(btnPower, device);
+            row.Controls.Add(btnPower);
+        }
         return row;
+    }
+
+    /// <summary>Menu kecil berisi perintah jarak jauh -- khusus akun admin (lihat BuildDeviceRow).</summary>
+    private void ShowCommandMenu(Control anchor, DeviceStore.DeviceEntry device)
+    {
+        var menu = new ContextMenuStrip();
+        menu.Items.Add("⏻ Matikan", null, async (_, _) => await SendCommandAsync(device, "shutdown",
+            confirm: $"Matikan \"{device.Name}\" sekarang?"));
+        menu.Items.Add("🔄 Restart", null, async (_, _) => await SendCommandAsync(device, "restart",
+            confirm: $"Restart \"{device.Name}\" sekarang?"));
+        menu.Items.Add("🚪 Keluar akun Windows", null, async (_, _) => await SendCommandAsync(device, "signout",
+            confirm: $"Keluarkan sesi Windows yang sedang aktif di \"{device.Name}\"?"));
+        menu.Items.Add("💤 Tidurkan", null, async (_, _) => await SendCommandAsync(device, "sleep",
+            confirm: $"Tidurkan (sleep) \"{device.Name}\" sekarang?"));
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("💬 Kirim teks...", null, async (_, _) => await SendTextAsync(device));
+        menu.Show(anchor, new Point(0, anchor.Height));
+    }
+
+    private async Task SendCommandAsync(DeviceStore.DeviceEntry device, string type, string confirm)
+    {
+        if (MessageBox.Show(this, confirm, "Remote Ctl", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            return;
+        var error = await DeviceStore.SendRemoteCommandAsync(device.Id, type);
+        if (error != null)
+        {
+            MessageBox.Show(this, $"Gagal mengirim perintah: {error}", "Remote Ctl", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private async Task SendTextAsync(DeviceStore.DeviceEntry device)
+    {
+        using var prompt = new TextPromptForm($"Teks buat \"{device.Name}\"",
+            "Teks ini akan muncul di jendela Command Prompt di perangkat tujuan.");
+        if (prompt.ShowDialog(this) != DialogResult.OK) return;
+        if (string.IsNullOrWhiteSpace(prompt.Value)) return;
+
+        var error = await DeviceStore.SendRemoteCommandAsync(device.Id, "text", prompt.Value);
+        if (error != null)
+        {
+            MessageBox.Show(this, $"Gagal mengirim teks: {error}", "Remote Ctl", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private async Task ConnectAsync(DeviceStore.DeviceEntry device)
@@ -190,5 +247,44 @@ internal class PasswordPromptForm : Form
     {
         DialogResult = DialogResult.OK;
         Close();
+    }
+}
+
+/// <summary>Dialog kecil untuk mengetik teks bebas yang nanti dikirim ke perangkat lain.</summary>
+internal class TextPromptForm : Form
+{
+    public string Value => _box.Text;
+    private readonly TextBox _box;
+
+    public TextPromptForm(string title, string description)
+    {
+        Text = title;
+        Width = 400;
+        Height = 220;
+        StartPosition = FormStartPosition.CenterParent;
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        MaximizeBox = false;
+        MinimizeBox = false;
+        UiTheme.ApplyFormChrome(this);
+
+        var label = new Label
+        {
+            Text = description,
+            Top = 20, Left = 20, Width = Width - 60, Height = 40,
+            ForeColor = UiTheme.TextSecondary, Font = UiTheme.BodyFont
+        };
+        _box = new TextBox
+        {
+            Top = 64, Left = 20, Width = Width - 60, Height = 60, Font = UiTheme.BodyFont,
+            Multiline = true
+        };
+
+        var btnOk = UiTheme.MakeButton("Kirim", UiTheme.Primary);
+        btnOk.SetBounds(20, 134, Width - 60, 38);
+        btnOk.Click += (_, _) => { DialogResult = DialogResult.OK; Close(); };
+
+        Controls.Add(label);
+        Controls.Add(_box);
+        Controls.Add(btnOk);
     }
 }

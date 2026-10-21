@@ -111,6 +111,22 @@ keyboard fisiknya. Tombol **⏎ Enter** dan **⌫** mengirim tombol itu
 secara langsung, dan **A-/A+** mengubah ukuran huruf kolom ketik ini
 (cuma tampilan lokal).
 
+## Perintah jarak jauh (⚡, khusus akun admin)
+
+Di jendela "📱 Perangkat tersimpan", **akun admin (`haerka949`)** melihat
+tombol **⚡** di tiap baris perangkat -- diklik, muncul menu perintah
+yang langsung dikirim ke perangkat itu **tanpa perlu tersambung dulu**
+(tidak butuh sesi kontrol layar aktif, cukup perangkat tujuan masih
+login & programnya masih jalan di latar belakang):
+
+- **⏻ Matikan** -- `shutdown /s`
+- **🔄 Restart** -- `shutdown /r`
+- **🚪 Keluar akun Windows** -- log off sesi yang sedang aktif
+- **💤 Tidurkan** -- sleep lewat `powrprof.dll`
+- **💬 Kirim teks...** -- buka jendela Command Prompt di komputer tujuan menampilkan teks yang kamu ketik
+
+Perintah matikan/restart/keluar akun diminta konfirmasi dulu (dialog Ya/Tidak) sebelum dikirim, karena efeknya langsung dan tidak bisa dibatalkan.
+
 ## Batasan versi pertama ini
 
 - Komputer dengan banyak monitor hanya memakai monitor utama (primary).

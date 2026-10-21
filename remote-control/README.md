@@ -108,6 +108,20 @@ Catatan penting:
 - Saat ada permintaan konek masuk, Android **tetap akan menampilkan satu dialog sistem singkat** ("Mulai merekam atau mentransmisikan?") di perangkat yang dikontrol -- ini pagar keamanan Android sendiri dan tidak bisa dilewati tanpa root, jadi bukan 100% tanpa sentuhan sama sekali, tapi jauh lebih singkat dibanding buka aplikasi dan salin kode manual.
 - Fitur ini sekarang juga ada di versi Windows (`windows-control/`) -- daftar perangkatnya sama (bersama), jadi HP dan laptop langsung saling lihat begitu sama-sama mengaktifkan fitur ini, tanpa perlu akun yang sama.
 
+## Perintah jarak jauh (⚡, khusus akun admin)
+
+Di layar "Perangkat tersimpan", **akun admin (`haerka949`)** melihat
+tombol **⚡** di tiap baris perangkat -- diketuk, muncul menu perintah
+yang langsung dikirim ke perangkat itu **tanpa perlu tersambung dulu**
+(tidak butuh sesi kontrol layar aktif, cukup HP tujuan masih login &
+layanan latar belakangnya masih jalan):
+
+- **💤 Tidurkan** -- kunci layar lewat Accessibility Service, berfungsi di HP mana pun tanpa root.
+- **💬 Kirim teks...** -- tampilkan teks yang kamu ketik sebagai notifikasi singkat (Toast) di layar HP tujuan.
+- **⏻ Matikan** / **🔄 Restart** -- **cuma berhasil kalau HP tujuan sudah di-root**. Android (beda dari Windows) memang tidak mengizinkan aplikasi biasa mematikan/restart perangkat tanpa akses root -- ini batasan sistem operasi Android sendiri, bukan sesuatu yang bisa dilewati lewat kode aplikasi. Di HP normal (tidak di-root), kedua perintah ini akan gagal diam-diam tanpa efek apa pun.
+
+Semua perintah ini diminta konfirmasi dulu (dialog Ya/Batal) kecuali kirim teks, karena beberapa di antaranya langsung berefek dan tidak bisa dibatalkan.
+
 ## Batasan versi pertama ini (sengaja disederhanakan)
 
 - Hanya Android ↔ Android (belum ke komputer Windows/Mac/Linux — itu

@@ -7,7 +7,9 @@ import android.view.Gravity
 import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
 
@@ -113,8 +115,80 @@ class DeviceListActivity : AppCompatActivity() {
         }
 
         row.addView(info)
+
+        // Tombol perintah jarak jauh (tidur/matikan/restart/teks) -- cuma
+        // kelihatan buat akun admin, dan jalan lepas dari status
+        // Online/Mungkin offline di atas (perangkat tujuan cukup masih
+        // login & PresenceService-nya jalan, tidak butuh sesi kontrol
+        // layar aktif sama sekali).
+        if (isAdmin) {
+            val btnPower = MaterialButton(this).apply {
+                text = "⚡"
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { marginEnd = 12 }
+                setOnClickListener { showCommandMenu(this, device) }
+            }
+            row.addView(btnPower)
+        }
+
         row.addView(btn)
         return row
+    }
+
+    /** Menu kecil berisi perintah jarak jauh -- khusus akun admin (lihat buildDeviceRow). */
+    private fun showCommandMenu(anchor: View, device: DeviceStore.DeviceEntry) {
+        val menu = PopupMenu(this, anchor)
+        menu.menu.add("💤 Tidurkan (kunci layar)")
+        menu.menu.add("⏻ Matikan (butuh root)")
+        menu.menu.add("🔄 Restart (butuh root)")
+        menu.menu.add("💬 Kirim teks...")
+        menu.setOnMenuItemClickListener { item ->
+            when (item.title) {
+                "💤 Tidurkan (kunci layar)" -> confirmAndSend(device, "sleep", "Kunci layar \"${device.name}\" sekarang?")
+                "⏻ Matikan (butuh root)" -> confirmAndSend(device, "poweroff", "Matikan \"${device.name}\" sekarang? Cuma berhasil kalau perangkat itu sudah di-root.")
+                "🔄 Restart (butuh root)" -> confirmAndSend(device, "restart", "Restart \"${device.name}\" sekarang? Cuma berhasil kalau perangkat itu sudah di-root.")
+                "💬 Kirim teks..." -> promptTextAndSend(device)
+            }
+            true
+        }
+        menu.show()
+    }
+
+    private fun confirmAndSend(device: DeviceStore.DeviceEntry, type: String, message: String) {
+        AlertDialog.Builder(this)
+            .setTitle(device.name)
+            .setMessage(message)
+            .setPositiveButton("Ya") { _, _ ->
+                DeviceStore.sendRemoteCommand(device.id, type) { success, error ->
+                    if (!success) runOnUiThread {
+                        Toast.makeText(this, "Gagal mengirim perintah: $error", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun promptTextAndSend(device: DeviceStore.DeviceEntry) {
+        val input = EditText(this).apply {
+            hint = "Teks buat ${device.name}"
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Kirim teks ke ${device.name}")
+            .setMessage("Teks ini akan muncul sebagai notifikasi singkat di layar perangkat tujuan.")
+            .setView(input)
+            .setPositiveButton("Kirim") { _, _ ->
+                val text = input.text.toString()
+                if (text.isBlank()) return@setPositiveButton
+                DeviceStore.sendRemoteCommand(device.id, "text", text) { success, error ->
+                    if (!success) runOnUiThread {
+                        Toast.makeText(this, "Gagal mengirim teks: $error", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+            .setNegativeButton("Batal", null)
+            .show()
     }
 
     private fun promptPasswordAndConnect(device: DeviceStore.DeviceEntry) {

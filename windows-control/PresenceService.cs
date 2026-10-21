@@ -65,6 +65,19 @@ public sealed class PresenceService
                 {
                     await HandleIncomingRequestAsync(request.Value.code, request.Value.passwordHash, request.Value.requesterEmail);
                 }
+
+                // Perintah jarak jauh (matikan/restart/keluar/tidur/teks) --
+                // tidak butuh sesi kontrol aktif sama sekali, cuma butuh
+                // komputer ini masih login & layanan ini masih jalan. Node
+                // sharedDevices cuma bisa ditulis akun admin (lihat
+                // database.rules.json), jadi perintah ini otomatis cuma bisa
+                // dikirim akun admin, tidak perlu dicek ulang di sini.
+                var command = await DeviceStore.PollRemoteCommandAsync();
+                if (command != null)
+                {
+                    await DeviceStore.ClearRemoteCommandAsync();
+                    RemoteCommandRunner.Run(command.Value.type, command.Value.text);
+                }
             }
             catch
             {

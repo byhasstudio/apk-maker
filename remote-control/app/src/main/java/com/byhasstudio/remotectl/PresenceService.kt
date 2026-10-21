@@ -31,8 +31,10 @@ class PresenceService : Service() {
     }
 
     private var listener: ValueEventListener? = null
+    private var commandListener: ValueEventListener? = null
     private val handler = Handler(Looper.getMainLooper())
     private var lastHandledTs = 0L
+    private var lastHandledCommandTs = 0L
 
     private val heartbeatRunnable = object : Runnable {
         override fun run() {
@@ -85,6 +87,19 @@ class PresenceService : Service() {
             if (now == lastHandledTs) return@listenIncomingRequest
             lastHandledTs = now
             handleRequest(code, passwordHash, requesterEmail)
+        }
+
+        // Perintah jarak jauh (tidur/matikan/restart/teks) -- tidak butuh
+        // sesi kontrol layar aktif sama sekali, cuma butuh layanan ini
+        // masih jalan. Node sharedDevices cuma bisa ditulis akun admin
+        // (lihat database.rules.json), jadi perintah ini otomatis cuma
+        // bisa dikirim akun admin, tidak perlu dicek ulang di sini.
+        commandListener = DeviceStore.listenRemoteCommand(this) { type, text ->
+            val now = System.currentTimeMillis()
+            if (now == lastHandledCommandTs) return@listenRemoteCommand
+            lastHandledCommandTs = now
+            DeviceStore.clearRemoteCommand(this)
+            RemoteCommandRunner.run(this, type, text)
         }
     }
 
