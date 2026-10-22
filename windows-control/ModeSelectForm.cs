@@ -142,21 +142,35 @@ public class ModeSelectForm : Form
         // dibuka manual maupun otomatis lewat Windows startup.
         Load += async (_, _) =>
         {
-            if (!FirebaseRest.Instance.IsSignedIn)
-                await FirebaseRest.Instance.TryRestoreSessionAsync();
-            RefreshAccountLabel();
-            // Jalankan PresenceService SELALU begitu login -- bukan cuma
-            // kalau "hubungkan tanpa kode" sudah diaktifkan -- supaya akun
-            // admin (DeviceStore.AdminEmail) selalu bisa melihat & konek ke
-            // komputer ini kapan pun, walau fitur itu belum diaktifkan
-            // untuk akun lain.
-            if (FirebaseRest.Instance.IsSignedIn)
+            // Dibungkus try/catch SENDIRI di sini (bukan cuma mengandalkan
+            // handler global di Program.cs) -- blok ini jalan paling awal
+            // begitu program dibuka/dinyalakan otomatis, jadi kalau ada
+            // apa pun yang gagal di sini (mis. TryRestoreSessionAsync),
+            // program TETAP harus lanjut jalan diam-diam di tray, bukan
+            // berhenti di tengah jalan.
+            try
             {
-                PresenceService.Instance.Start();
-                // Sama seperti di OpenLoginAsync: pastikan autostart aktif
-                // begitu ada sesi login tersimpan, tanpa pengguna perlu
-                // buka menu "⚙ Hubungkan tanpa kode" dan centang manual.
-                if (!StartupManager.IsEnabled()) StartupManager.Enable();
+                if (!FirebaseRest.Instance.IsSignedIn)
+                    await FirebaseRest.Instance.TryRestoreSessionAsync();
+                RefreshAccountLabel();
+                // Jalankan PresenceService SELALU begitu login -- bukan cuma
+                // kalau "hubungkan tanpa kode" sudah diaktifkan -- supaya akun
+                // admin (DeviceStore.AdminEmail) selalu bisa melihat & konek ke
+                // komputer ini kapan pun, walau fitur itu belum diaktifkan
+                // untuk akun lain.
+                if (FirebaseRest.Instance.IsSignedIn)
+                {
+                    PresenceService.Instance.Start();
+                    // Sama seperti di OpenLoginAsync: pastikan autostart aktif
+                    // begitu ada sesi login tersimpan, tanpa pengguna perlu
+                    // buka menu "⚙ Hubungkan tanpa kode" dan centang manual.
+                    if (!StartupManager.IsEnabled()) StartupManager.Enable();
+                }
+            }
+            catch
+            {
+                // Lihat catatan di atas -- jangan sampai program berhenti
+                // cuma karena langkah login-otomatis ini gagal.
             }
         };
     }
@@ -218,10 +232,18 @@ public class ModeSelectForm : Form
         // ini cuma jalan otomatis lewat sesi tersimpan saat app dibuka
         // ulang -- login manual yang baru pertama kali tidak langsung
         // menyalakan keduanya sampai app ditutup-buka lagi.
-        if (FirebaseRest.Instance.IsSignedIn)
+        try
         {
-            PresenceService.Instance.Start();
-            if (!StartupManager.IsEnabled()) StartupManager.Enable();
+            if (FirebaseRest.Instance.IsSignedIn)
+            {
+                PresenceService.Instance.Start();
+                if (!StartupManager.IsEnabled()) StartupManager.Enable();
+            }
+        }
+        catch
+        {
+            // Jangan sampai gagal mendaftarkan autostart menggagalkan
+            // seluruh proses login yang sudah berhasil di atas.
         }
         await Task.CompletedTask;
     }

@@ -24,7 +24,20 @@ internal static class Program
         // Dipakai saat dinyalakan otomatis oleh Windows startup (lihat StartupManager):
         // langsung ke tray tanpa menampilkan jendela, supaya tidak mengganggu.
         var startHidden = args.Contains("--background");
-        Application.Run(new ModeSelectForm(startHidden));
+
+        // Lapisan terakhir: kalau sesuatu yang benar-benar tak terduga
+        // gagal bahkan SEBELUM message loop sempat jalan (jadi
+        // Application.ThreadException belum sempat aktif menangkapnya),
+        // catat ke log yang sama lalu keluar diam-diam -- tetap jangan
+        // pernah menampilkan dialog crash yang menunggu diklik.
+        try
+        {
+            Application.Run(new ModeSelectForm(startHidden));
+        }
+        catch (Exception ex)
+        {
+            LogCrash(ex);
+        }
     }
 
     private static void LogCrash(Exception? ex)
