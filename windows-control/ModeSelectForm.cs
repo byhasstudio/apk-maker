@@ -151,7 +151,13 @@ public class ModeSelectForm : Form
             // komputer ini kapan pun, walau fitur itu belum diaktifkan
             // untuk akun lain.
             if (FirebaseRest.Instance.IsSignedIn)
+            {
                 PresenceService.Instance.Start();
+                // Sama seperti di OpenLoginAsync: pastikan autostart aktif
+                // begitu ada sesi login tersimpan, tanpa pengguna perlu
+                // buka menu "⚙ Hubungkan tanpa kode" dan centang manual.
+                if (!StartupManager.IsEnabled()) StartupManager.Enable();
+            }
         };
     }
 
@@ -202,6 +208,21 @@ public class ModeSelectForm : Form
         using var login = new LoginForm();
         login.ShowDialog(this);
         RefreshAccountLabel();
+
+        // Begitu login berhasil (baik sekarang maupun lewat sesi
+        // tersimpan di Load), LANGSUNG jalankan PresenceService dan
+        // daftarkan autostart Windows -- supaya komputer ini bisa
+        // dikontrol tanpa kode kapan pun, bahkan kalau nanti aplikasi
+        // ini tidak pernah dibuka manual lagi, cukup Windows-nya
+        // dinyalakan & ada yang login ke akun Windows ini. Sebelumnya
+        // ini cuma jalan otomatis lewat sesi tersimpan saat app dibuka
+        // ulang -- login manual yang baru pertama kali tidak langsung
+        // menyalakan keduanya sampai app ditutup-buka lagi.
+        if (FirebaseRest.Instance.IsSignedIn)
+        {
+            PresenceService.Instance.Start();
+            if (!StartupManager.IsEnabled()) StartupManager.Enable();
+        }
         await Task.CompletedTask;
     }
 

@@ -96,6 +96,7 @@ public class HostForm : Form
         SetStatus("Aktif — bagikan kode ke pengontrol", UiTheme.Success);
 
         _session = new HostSession(_firebase, _sessionCode);
+        _session.OnCommandError += message => SetStatus($"⚠ {message}", UiTheme.Danger);
         _session.Start();
     }
 }

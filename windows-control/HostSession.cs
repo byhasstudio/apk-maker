@@ -23,6 +23,16 @@ public class HostSession
     // AccessibilityService di Android).
     private string _lastTypedText = "";
 
+    /// <summary>
+    /// Dipanggil kalau menjalankan satu perintah (tap/swipe/key/teks) gagal
+    /// -- dulu kegagalan ini DITELAN diam-diam di CommandLoopAsync, jadi
+    /// dari sisi pengguna rasanya "diklik tapi tidak ngefek apa-apa" tanpa
+    /// penjelasan sama sekali. Sekarang dilaporkan lewat event ini supaya
+    /// HostForm bisa menampilkannya di status (lihat InputSimulator.Send
+    /// untuk penyebab paling umum: UIPI karena ada jendela Administrator aktif).
+    /// </summary>
+    public event Action<string>? OnCommandError;
+
     public HostSession(FirebaseRest firebase, string sessionCode)
     {
         _firebase = firebase;
@@ -85,13 +95,25 @@ public class HostSession
                     if (ts > _lastCommandTs)
                     {
                         _lastCommandTs = ts;
-                        await HandleCommandAsync(el);
+                        try
+                        {
+                            await HandleCommandAsync(el);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Perintah ini sendiri gagal dijalankan (lihat
+                            // InputSimulator.Send) -- laporkan, tapi JANGAN
+                            // hentikan loop supaya perintah berikutnya tetap dicoba.
+                            OnCommandError?.Invoke(ex.Message);
+                        }
                     }
                 }
             }
             catch
             {
-                // Lewati, coba lagi di putaran berikutnya.
+                // Gagal mengambil/membaca perintahnya sendiri (mis. jaringan
+                // putus sesaat) -- bukan kegagalan menjalankan perintah,
+                // cukup dicoba lagi di putaran berikutnya.
             }
 
             try { await Task.Delay(80, token); } catch (TaskCanceledException) { break; }
