@@ -447,48 +447,26 @@ public class ControlForm : Form
         if (error != null) SetStatus($"⚠ Gagal mengirim klik: {error}", UiTheme.Danger);
     }
 
-    private async void Screen_MouseUp(object? sender, MouseEventArgs e)
-    {
-        if (_sessionCode == null || _remoteWidth == 0 || _screen.Image == null) return;
-
-        var (dx1, dy1) = ToRemoteCoords(_downPoint);
-        var (dx2, dy2) = ToRemoteCoords(e.Location);
-        var durationMs = (int)(DateTime.UtcNow - _downTime).TotalMilliseconds;
-        var moved = Math.Sqrt(Math.Pow(dx2 - dx1, 2) + Math.Pow(dy2 - dy1, 2));
-
-        object cmd = moved < 10
-            ? new { type = "tap", x = dx1, y = dy1 }
-            : new
-            {
-                type = "swipe",
-                x = dx1, y = dy1, x2 = dx2, y2 = dy2,
-                durationMs = Math.Max(50, durationMs)
-            };
-
-        await _firebase.PutAsync($"sessions/{_sessionCode}/cmd", cmd);
-    }
-
-    private async void Screen_MouseUp(object? sender, MouseEventArgs e)
-    {
-        if (_sessionCode == null || _remoteWidth == 0 || _screen.Image == null) return;
-
-        var (dx1, dy1) = ToRemoteCoords(_downPoint);
-        var (dx2, dy2) = ToRemoteCoords(e.Location);
-        var durationMs = (int)(DateTime.UtcNow - _downTime).TotalMilliseconds;
-        var moved = Math.Sqrt(Math.Pow(dx2 - dx1, 2) + Math.Pow(dy2 - dy1, 2));
-
-        object cmd = moved < 10
-            ? new { type = "tap", x = dx1, y = dy1 }
-            : new
-            {
-                type = "swipe",
-                x = dx1, y = dy1, x2 = dx2, y2 = dy2,
-                durationMs = Math.Max(50, durationMs)
-            };
-
-        await _firebase.PutAsync($"sessions/{_sessionCode}/cmd", cmd);
-    }
-
     /// <summary>
-    /// Oh wait, this content block accidentally included duplicate methods and must not be pushed this way - abort.
+    /// PictureBox memakai mode Zoom (gambar diperkecil dan diberi letterbox
+    /// supaya proporsinya tetap benar) -- jadi koordinat klik di layar
+    /// jendela harus dihitung ulang ke koordinat asli perangkat jarak jauh.
     /// </summary>
+    private (double x, double y) ToRemoteCoords(Point p)
+    {
+        var img = _screen.Image!;
+        var boxW = (double)_screen.Width;
+        var boxH = (double)_screen.Height;
+        var imgW = (double)img.Width;
+        var imgH = (double)img.Height;
+
+        var scale = Math.Min(boxW / imgW, boxH / imgH);
+        var offsetX = (boxW - imgW * scale) / 2.0;
+        var offsetY = (boxH - imgH * scale) / 2.0;
+
+        var relX = Math.Clamp((p.X - offsetX) / scale, 0, imgW);
+        var relY = Math.Clamp((p.Y - offsetY) / scale, 0, imgH);
+
+        return (relX / imgW * _remoteWidth, relY / imgH * _remoteHeight);
+    }
+}
