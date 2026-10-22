@@ -420,6 +420,63 @@ public class ControlForm : Form
         var durationMs = (int)(DateTime.UtcNow - _downTime).TotalMilliseconds;
         var moved = Math.Sqrt(Math.Pow(dx2 - dx1, 2) + Math.Pow(dy2 - dy1, 2));
 
+        // PENTING: field "ts" WAJIB ada di setiap perintah -- aturan
+        // keamanan database.rules.json mewajibkan tiap tulisan ke
+        // sessions/$code/cmd punya field "type" DAN "ts"
+        // (newData.hasChildren(['type', 'ts'])). Sebelumnya tap/swipe di
+        // sini TIDAK menyertakan "ts" sama sekali, jadi Firebase selalu
+        // MENOLAK setiap klik/geser mouse tanpa pesan error yang
+        // terlihat di sini (lihat juga HostSession.OnCommandError --
+        // itu cuma melaporkan kegagalan di SISI yang menjalankan
+        // perintah, bukan kegagalan di sisi yang MENGIRIM seperti ini).
+        // Inilah sebabnya layar bisa dilihat dan keyboard jarak jauh
+        // tetap berfungsi (keduanya sudah menyertakan "ts"), tapi
+        // klik/geser mouse terasa sama sekali tidak berefek.
+        var ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        object cmd = moved < 10
+            ? new { type = "tap", x = dx1, y = dy1, ts }
+            : new
+            {
+                type = "swipe",
+                x = dx1, y = dy1, x2 = dx2, y2 = dy2,
+                durationMs = Math.Max(50, durationMs),
+                ts
+            };
+
+        var error = await _firebase.PutAsync($"sessions/{_sessionCode}/cmd", cmd);
+        if (error != null) SetStatus($"⚠ Gagal mengirim klik: {error}", UiTheme.Danger);
+    }
+
+    private async void Screen_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (_sessionCode == null || _remoteWidth == 0 || _screen.Image == null) return;
+
+        var (dx1, dy1) = ToRemoteCoords(_downPoint);
+        var (dx2, dy2) = ToRemoteCoords(e.Location);
+        var durationMs = (int)(DateTime.UtcNow - _downTime).TotalMilliseconds;
+        var moved = Math.Sqrt(Math.Pow(dx2 - dx1, 2) + Math.Pow(dy2 - dy1, 2));
+
+        object cmd = moved < 10
+            ? new { type = "tap", x = dx1, y = dy1 }
+            : new
+            {
+                type = "swipe",
+                x = dx1, y = dy1, x2 = dx2, y2 = dy2,
+                durationMs = Math.Max(50, durationMs)
+            };
+
+        await _firebase.PutAsync($"sessions/{_sessionCode}/cmd", cmd);
+    }
+
+    private async void Screen_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (_sessionCode == null || _remoteWidth == 0 || _screen.Image == null) return;
+
+        var (dx1, dy1) = ToRemoteCoords(_downPoint);
+        var (dx2, dy2) = ToRemoteCoords(e.Location);
+        var durationMs = (int)(DateTime.UtcNow - _downTime).TotalMilliseconds;
+        var moved = Math.Sqrt(Math.Pow(dx2 - dx1, 2) + Math.Pow(dy2 - dy1, 2));
+
         object cmd = moved < 10
             ? new { type = "tap", x = dx1, y = dy1 }
             : new
@@ -433,25 +490,5 @@ public class ControlForm : Form
     }
 
     /// <summary>
-    /// PictureBox memakai mode Zoom (gambar diperkecil dan diberi letterbox
-    /// supaya proporsinya tetap benar) -- jadi koordinat klik di layar
-    /// jendela harus dihitung ulang ke koordinat asli perangkat jarak jauh.
+    /// Oh wait, this content block accidentally included duplicate methods and must not be pushed this way - abort.
     /// </summary>
-    private (double x, double y) ToRemoteCoords(Point p)
-    {
-        var img = _screen.Image!;
-        var boxW = (double)_screen.Width;
-        var boxH = (double)_screen.Height;
-        var imgW = (double)img.Width;
-        var imgH = (double)img.Height;
-
-        var scale = Math.Min(boxW / imgW, boxH / imgH);
-        var offsetX = (boxW - imgW * scale) / 2.0;
-        var offsetY = (boxH - imgH * scale) / 2.0;
-
-        var relX = Math.Clamp((p.X - offsetX) / scale, 0, imgW);
-        var relY = Math.Clamp((p.Y - offsetY) / scale, 0, imgH);
-
-        return (relX / imgW * _remoteWidth, relY / imgH * _remoteHeight);
-    }
-}
