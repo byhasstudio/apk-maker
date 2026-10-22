@@ -41,6 +41,12 @@ public static class SecureTokenStore
         }
         catch
         {
+            // File sesi rusak / tidak bisa didekripsi (mis. disalin dari
+            // akun Windows atau komputer lain -- DPAPI mengunci isinya ke
+            // akun Windows yang membuatnya) -- hapus supaya tidak terus
+            // dicoba baca ulang tiap program dibuka, dan supaya pengguna
+            // tinggal login manual sekali lagi alih-alih stuck permanen.
+            Clear();
             return null;
         }
     }
