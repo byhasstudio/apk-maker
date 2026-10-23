@@ -364,6 +364,13 @@
     </div>
     <div id="boxExe" style="display:none">
       <label style="margin:12px 0 0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem"><input type="checkbox" id="tray" style="margin-right:8px"> 🔽 Sembunyikan ke system tray saat ditutup (menu tray punya opsi jalan otomatis saat Windows menyala)</label>
+      <div id="boxMp4" style="display:none">
+        <label for="mp4File">🎬 Video popup saat dibuka (admin)</label>
+        <input id="mp4File" type="file" accept="video/mp4,.mp4">
+        <small>Video .mp4 (maks 40 MB). Muncul sebagai jendela popup kecil saat EXE dibuka.</small>
+        <label for="popupCfg">Jeda sebelum popup muncul (detik)</label>
+        <input id="popupCfg" type="text" inputmode="numeric" maxlength="6" placeholder="Kosongkan = langsung muncul">
+      </div>
     </div>
     <div id="codeBox">
     <label for="buildCode">Kode verifikasi</label>
@@ -1116,6 +1123,17 @@ $("btn").addEventListener("click", async () => {
   const ib = await exportIcon();
   if (ib) fd.append("icon", ib, ib.type === "image/jpeg" ? "icon.jpg" : "icon.png");
 
+  if (target === "exe" && window.isAdmin) {
+    const mp4f = $("mp4File").files[0];
+    if (mp4f) {
+      if (!/\.mp4$/i.test(mp4f.name)) return show("failed", "Video popup harus berformat .mp4.");
+      if (mp4f.size > 40 * 1024 * 1024) return show("failed", "Video popup maksimal 40 MB.");
+      fd.append("mp4", mp4f);
+    }
+    const pc = $("popupCfg").value.trim();
+    if (pc) fd.append("popupCfg", pc);
+  }
+
   if (!window.turnstile || widgetId === null) return show("failed", "Verifikasi belum siap. Muat ulang halaman.");
   const token = turnstile.getResponse(widgetId);
   if (!token) return show("failed", "Selesaikan verifikasi dulu.");
@@ -1347,6 +1365,8 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     const adm = !!(ok && u.emailVerified && (u.email || "").toLowerCase() === ADMIN_EMAIL);
     window.isAdmin = adm;
     document.querySelectorAll(".admperm").forEach(l => { l.style.display = adm ? "" : "none"; if (!adm) { const c = l.querySelector("input"); if (c) c.checked = false; } });
+    $("boxMp4").style.display = adm ? "" : "none";
+    if (!adm) { $("mp4File").value = ""; $("popupCfg").value = ""; }
     $("adminCard").style.display = adm ? "" : "none";
     $("monCard").style.display = adm ? "" : "none";
     if (adm) { loadJobs(true); loadBans(); loadReps(); loadStats(); admApi("/api/admin/config").then(c => { $("nMsg").value = c.msg || ""; }).catch(() => {}); resumeMultiJobs(); }
