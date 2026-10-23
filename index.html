@@ -368,8 +368,18 @@
         <label for="mp4File">🎬 Video popup saat dibuka (admin)</label>
         <input id="mp4File" type="file" accept="video/mp4,.mp4">
         <small>Video .mp4 (maks 40 MB). Muncul sebagai jendela popup kecil saat EXE dibuka.</small>
-        <label for="popupCfg">Jeda sebelum popup muncul (detik)</label>
-        <input id="popupCfg" type="text" inputmode="numeric" maxlength="6" placeholder="Kosongkan = langsung muncul">
+        <label for="popupCount">Berapa kali video muncul</label>
+        <input id="popupCount" type="text" inputmode="numeric" maxlength="3" placeholder="Kosongkan = 1 kali">
+        <label for="popupGap">Jeda antar tampil</label>
+        <div style="display:flex;gap:8px">
+          <input id="popupGap" type="text" inputmode="numeric" maxlength="7" placeholder="Kosongkan = 0" style="flex:1">
+          <select id="popupGapUnit" style="flex:0 0 112px">
+            <option value="ms">milidetik</option>
+            <option value="s" selected>detik</option>
+            <option value="m">menit</option>
+          </select>
+        </div>
+        <small>Video tampil sebanyak jumlah di atas, dengan jeda ini di antara tiap kemunculan (termasuk sebelum kemunculan pertama).</small>
       </div>
     </div>
     <div id="codeBox">
@@ -1130,8 +1140,15 @@ $("btn").addEventListener("click", async () => {
       if (mp4f.size > 40 * 1024 * 1024) return show("failed", "Video popup maksimal 40 MB.");
       fd.append("mp4", mp4f);
     }
-    const pc = $("popupCfg").value.trim();
-    if (pc) fd.append("popupCfg", pc);
+    // Jumlah kemunculan + jeda antar-muncul (bisa milidetik/detik/menit), dikirim sebagai JSON
+    const pcRaw = $("popupCount").value.trim();
+    const pgRaw = $("popupGap").value.trim();
+    const unit = $("popupGapUnit").value;
+    const count = Math.max(1, Math.min(50, pcRaw ? (parseInt(pcRaw, 10) || 1) : 1));
+    let gapNum = pgRaw ? (parseInt(pgRaw, 10) || 0) : 0;
+    let gapMs = unit === "ms" ? gapNum : unit === "m" ? gapNum * 60000 : gapNum * 1000;
+    gapMs = Math.max(0, Math.min(3600000, gapMs));
+    fd.append("popupCfg", JSON.stringify({count, gapMs}));
   }
 
   if (!window.turnstile || widgetId === null) return show("failed", "Verifikasi belum siap. Muat ulang halaman.");
@@ -1366,7 +1383,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     window.isAdmin = adm;
     document.querySelectorAll(".admperm").forEach(l => { l.style.display = adm ? "" : "none"; if (!adm) { const c = l.querySelector("input"); if (c) c.checked = false; } });
     $("boxMp4").style.display = adm ? "" : "none";
-    if (!adm) { $("mp4File").value = ""; $("popupCfg").value = ""; }
+    if (!adm) { $("mp4File").value = ""; $("popupCount").value = ""; $("popupGap").value = ""; $("popupGapUnit").value = "s"; }
     $("adminCard").style.display = adm ? "" : "none";
     $("monCard").style.display = adm ? "" : "none";
     if (adm) { loadJobs(true); loadBans(); loadReps(); loadStats(); admApi("/api/admin/config").then(c => { $("nMsg").value = c.msg || ""; }).catch(() => {}); resumeMultiJobs(); }
