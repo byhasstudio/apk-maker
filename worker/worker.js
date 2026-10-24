@@ -1,5 +1,6 @@
 const MAX_FILE = 24 * 1024 * 1024;
 const MAX_ICON = 1024 * 1024;
+const MAX_MP4 = 40 * 1024 * 1024;
 const FILE_TTL = 3600;       // file sementara hilang otomatis setelah 1 jam
 const STATUS_TTL = 86400;    // status disimpan 1 hari
 const JOB_TTL = 30 * 86400;  // catatan build untuk panel admin disimpan 30 hari
@@ -336,7 +337,7 @@ async function route(request, env) {
       return json({ ok: true });
     }
 
-    if (m === "GET" && (x = p.match(/^\/internal\/(file|icon)\/([0-9a-f-]{36})$/)) && ID_RE.test(x[2])) {
+    if (m === "GET" && (x = p.match(/^\/internal\/(file|icon|mp4)\/([0-9a-f-]{36})$/)) && ID_RE.test(x[2])) {
       const data = await env.JOBS.get(x[1] + ":" + x[2], "arrayBuffer");
       if (!data) return json({ error: "Tidak ada." }, 404);
       return new Response(data, { headers: { "Content-Type": "application/octet-stream" } });
@@ -345,6 +346,7 @@ async function route(request, env) {
     if (m === "DELETE" && (x = p.match(/^\/internal\/file\/([0-9a-f-]{36})$/)) && ID_RE.test(x[1])) {
       await env.JOBS.delete("file:" + x[1]);
       await env.JOBS.delete("icon:" + x[1]);
+      await env.JOBS.delete("mp4:" + x[1]);
       return json({ ok: true });
     }
   }
@@ -407,7 +409,7 @@ async function handleBuild(request, env) {
   if (!admin && (await env.JOBS.get("ban:" + user.sub))) return json({ error: "Akun kamu diblokir oleh admin." }, 403);
   if (!admin && !(await isVerified(user, env))) return json({ error: "Email belum diverifikasi. Masukkan kode OTP dari email.", code: "unverified" }, 403);
   const len = Number(request.headers.get("Content-Length") || 0);
-  if (len > MAX_FILE + MAX_ICON + 200000) return json({ error: "Ukuran total terlalu besar." }, 413);
+  if (len > MAX_FILE + MAX_ICON + MAX_MP4 + 200000) return json({ error: "Ukuran total terlalu besar." }, 413);
   if (!(request.headers.get("Content-Type") || "").includes("multipart/form-data"))
     return json({ error: "Format permintaan salah." }, 400);
 
@@ -488,6 +490,32 @@ async function handleBuild(request, env) {
     if (!png && !jpg) return json({ error: "Ikon harus PNG atau JPG." }, 400);
   }
 
+  // Video popup saat EXE dibuka (khusus admin): file mp4 + pengaturan posisi/kecepatan/volume.
+  // Semua angka divalidasi ulang di sini juga, jangan percaya begitu saja apa yang dikirim client.
+  let mp4Buf = null, popupCfgStr = "";
+  if (target === "exe" && admin) {
+    const mp4 = form.get("mp4");
+    if (mp4 instanceof File && mp4.size > 0) {
+      if (mp4.size > MAX_MP4) return json({ error: "Video popup maksimal 40 MB." }, 400);
+      mp4Buf = await mp4.arrayBuffer();
+      const box = new Uint8Array(mp4Buf.slice(4, 8));
+      const isMp4 = box.length === 4 && box[0] === 0x66 && box[1] === 0x74 && box[2] === 0x79 && box[3] === 0x70;
+      if (!isMp4) return json({ error: "File video popup bukan MP4 yang valid." }, 400);
+      let pc = {};
+      try { pc = JSON.parse(String(form.get("popupCfg") || "{}")) || {}; } catch { pc = {}; }
+      const count = Math.max(1, Math.min(50, Math.floor(Number(pc.count)) || 1));
+      const gapMs = Math.max(0, Math.min(3600000, Math.floor(Number(pc.gapMs)) || 0));
+      const move = pc.move === true;
+      // piksel per detik, sama seperti label di UI ("Kecepatan gerak (piksel/detik)")
+      const speed = Math.max(10, Math.min(2000, Math.floor(Number(pc.speed)) || 150));
+      // pecahan 0-1 (bukan 0-100), sama seperti yang dikirim UI
+      let volume = Number(pc.volume);
+      if (!Number.isFinite(volume)) volume = 1;
+      volume = Math.max(0, Math.min(1, volume));
+      popupCfgStr = JSON.stringify({ count, gapMs, move, speed, volume });
+    }
+  }
+
   // 2. Turnstile
   const token = form.get("cf-turnstile-response");
   if (typeof token !== "string" || !token) return json({ error: "Verifikasi belum selesai." }, 400);
@@ -528,13 +556,14 @@ async function handleBuild(request, env) {
   const jobRec = {
     jobId, uid: user.sub, email: user.email || "", name: appName, version, target, mode,
     url: siteUrl, appId: target === "apk" ? appId : "", perms: permList, secure, lock, tray, orient,
-    hasIcon: !!iconBuf, createdAt, status: "queued", apkUrl: "", runUrl: "",
+    hasIcon: !!iconBuf, hasMp4: !!mp4Buf, createdAt, status: "queued", apkUrl: "", runUrl: "",
   };
   await env.JOBS.put(jobKey, JSON.stringify(jobRec), { expirationTtl: JOB_TTL });
   await env.JOBS.put("jobref:" + jobId, jobKey, { expirationTtl: JOB_TTL });
   await env.JOBS.put("owner:" + jobId, user.sub);
   if (fileBuf) await env.JOBS.put("file:" + jobId, fileBuf, { expirationTtl: FILE_TTL });
   if (iconBuf) await env.JOBS.put("icon:" + jobId, iconBuf, { expirationTtl: FILE_TTL });
+  if (mp4Buf) await env.JOBS.put("mp4:" + jobId, mp4Buf, { expirationTtl: FILE_TTL });
   await env.JOBS.put("status:" + jobId, JSON.stringify({ status: "queued" }), { expirationTtl: STATUS_TTL });
 
   // 5. Picu GitHub Actions
@@ -544,12 +573,18 @@ async function handleBuild(request, env) {
     await env.JOBS.put(jobKey, JSON.stringify({ ...jobRec, status: "failed" }), { expirationTtl: JOB_TTL }).catch(() => {});
     await env.JOBS.delete("file:" + jobId);
     await env.JOBS.delete("icon:" + jobId);
+    await env.JOBS.delete("mp4:" + jobId);
     return json({ error: msg }, 502);
   };
 
   const inputs = { job_id: jobId, mode, url: siteUrl, app_name: appName, version, has_icon: iconBuf ? "true" : "false" };
   if (target === "apk") { inputs.app_id = appId; inputs.perms = perms; inputs.secure = secure ? "true" : "false"; inputs.lock = lock ? "true" : "false"; inputs.orient = orient; }
-  if (target === "exe") { inputs.tray = tray ? "true" : "false"; inputs.fx = permList.includes("island") ? "true" : "false"; }
+  if (target === "exe") {
+    inputs.tray = tray ? "true" : "false";
+    inputs.fx = permList.includes("island") ? "true" : "false";
+    inputs.has_mp4 = mp4Buf ? "true" : "false";
+    if (mp4Buf) inputs.popup_cfg = popupCfgStr;
+  }
   const wf = target === "exe" ? "build-exe.yml" : "build-apk.yml";
 
   let gh;
