@@ -277,6 +277,7 @@ jobs:
           fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu, dialog, Tray } = require("electron");
           const fs = require("fs");
           const path = require("path");
+          const os = require("os");
           const cfg = require("./app-config.json");
           const fx = cfg.fx ? require("./fx/fx.js") : null;
           const TT = k => { try { return fx && fx.T ? fx.T(k) : k; } catch (_) { return k; } };
@@ -298,15 +299,19 @@ jobs:
               // Windows butuh 3 garis miring (file:///C:/...), bukan 2 - dua garis miring saja membuat Chromium gagal memuat videonya.
               const vposix = vpath.split(path.sep).join("/").replace(/^\/+/, "");
               const src = "file:///" + encodeURI(vposix).split("#").join("%23");
-              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden"><video src="' + src + '" autoplay muted controls style="max-width:100%;max-height:100%" onended="window.close()" onloadeddata="this.muted=false;this.play().catch(function(){})"></video><script>document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close()})</script></body>';
+              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden"><video src="' + src + '" autoplay controls style="max-width:100%;max-height:100%" onended="window.close()"></video><script>document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close()})</script></body>';
+              // Simpan ke file sementara supaya Chromium boleh memuat file:// dari halaman file:// (data: URL diblokir cross-origin)
+              const tmpPath = path.join(os.tmpdir(), "popup-" + Date.now() + ".html");
+              fs.writeFileSync(tmpPath, html);
               const area = require("electron").screen.getPrimaryDisplay().workAreaSize;
               const w = 480, h = 360;
               // posisi acak tiap kemunculan, biar tidak selalu menimpa titik yang sama
               const ox = Math.floor(Math.random() * Math.max(1, area.width - w));
               const oy = Math.floor(Math.random() * Math.max(1, area.height - h));
-              const pop = new BrowserWindow({ width: w, height: h, x: ox, y: oy, parent: win, modal: false, resizable: true, minimizable: false, maximizable: false, title: cfg.name, autoHideMenuBar: true, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
+              const pop = new BrowserWindow({ width: w, height: h, x: ox, y: oy, parent: win, modal: false, resizable: true, minimizable: false, maximizable: false, title: cfg.name, autoHideMenuBar: true, webPreferences: { contextIsolation: true, nodeIntegration: false } });
               pop.setMenuBarVisibility(false);
-              pop.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+              pop.loadFile(tmpPath);
+              pop.on("closed", () => { try { fs.unlinkSync(tmpPath); } catch (_) {} });
             } catch (e) { console.error(e); }
           }
           // Video tampil sebanyak "count" kali, dengan jeda "gapMs" sebelum tiap kemunculan (termasuk sebelum yang pertama).
@@ -411,9 +416,8 @@ jobs:
           app.on("before-quit", () => { quitting = true; });
           app.on("window-all-closed", () => app.quit());
           `);
-          JS
-          # Jaring pengaman: pemeriksaan "aplikasi sedang berjalan" bawaan electron-builder dimatikan langsung di templatenya,
-          # supaya dialog "cannot be closed" tidak mungkin muncul walau macro custom tidak terpakai.
+          // Jaring pengaman: pemeriksaan "aplikasi sedang berjalan" bawaan electron-builder dimatikan langsung di templatenya,
+          // supaya dialog "cannot be closed" tidak mungkin muncul walau macro custom tidak terpakai.
           node - <<'JS2'
           const fs = require("fs"), path = require("path");
           const root = path.join(process.cwd(), "node_modules", "app-builder-lib", "templates", "nsis");
