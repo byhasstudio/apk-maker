@@ -512,7 +512,9 @@ async function handleBuild(request, env) {
       let volume = Number(pc.volume);
       if (!Number.isFinite(volume)) volume = 1;
       volume = Math.max(0, Math.min(1, volume));
-      popupCfgStr = JSON.stringify({ count, gapMs, move, speed, volume });
+      // berapa kali video DIPUTAR ULANG dalam satu kemunculan popup (1-20), sama seperti yang dikirim UI "popupLoop"
+      const loop = Math.max(1, Math.min(20, Math.floor(Number(pc.loop)) || 1));
+      popupCfgStr = JSON.stringify({ count, gapMs, move, speed, volume, loop });
     }
   }
 
