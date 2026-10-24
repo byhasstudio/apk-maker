@@ -284,7 +284,7 @@ jobs:
           if (cfg.fx) { app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion"); app.commandLine.appendSwitch("disable-renderer-backgrounding"); app.commandLine.appendSwitch("disable-background-timer-throttling"); }
           const safe = u => /^https?:/i.test(u);
           const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
-          let win = null, blocked = false, forced = "", tray = null, quitting = false;
+          let win = null, blocked = false, forced = "", tray = null, quitting = false, popupActive = 0;
           const POPUP_PRELOAD = path.join(os.tmpdir(), "popup-preload-" + process.pid + ".js");
           try { fs.writeFileSync(POPUP_PRELOAD, "const { contextBridge, ipcRenderer } = require('electron'); contextBridge.exposeInMainWorld('popupBridge', { done: () => ipcRenderer.send('popup-video-done') });"); } catch (_) {}
           function popupCfgParsed() {
@@ -328,6 +328,9 @@ jobs:
               let px = move ? Math.floor(Math.random() * Math.max(1, area.width - w)) : Math.round((area.width - w) / 2);
               let py = move ? Math.floor(Math.random() * Math.max(1, area.height - h)) : Math.round((area.height - h) / 2);
               let finished = false;
+              popupActive++;
+              // Jendela utama dikunci: minimize dimatikan dan kalau sudah telanjur minimize, dikembalikan - fokus harus tetap di video.
+              if (win && !win.isDestroyed()) { try { win.setMinimizable(false); if (win.isMinimized()) win.restore(); } catch (_) {} }
               const pop = new BrowserWindow({
                 width: w, height: h, x: px, y: py, modal: false,
                 resizable: false, movable: move, minimizable: false, maximizable: false, closable: false,
@@ -359,7 +362,11 @@ jobs:
                 if (finished) { clearInterval(keepTop); return; }
                 try { pop.setAlwaysOnTop(true, "screen-saver"); pop.moveTop(); if (!pop.isFocused()) pop.focus(); } catch (_) {}
               }, 2000);
-              pop.on("closed", () => clearInterval(keepTop));
+              pop.on("closed", () => {
+                clearInterval(keepTop);
+                popupActive = Math.max(0, popupActive - 1);
+                if (popupActive === 0 && win && !win.isDestroyed()) { try { win.setMinimizable(true); } catch (_) {} }
+              });
               let mv = null;
               if (move) {
                 // speed dalam piksel/detik; timer jalan tiap 16ms (~62.5x/detik), jadi dikonversi ke piksel per tik
@@ -442,6 +449,8 @@ jobs:
               if (input.key === "F11" || (input.alt && input.key === "Enter")) { win.setFullScreen(!win.isFullScreen()); ev.preventDefault(); }
               else if (input.key === "Escape" && win.isFullScreen()) { win.setFullScreen(false); ev.preventDefault(); }
             });
+            // selama video popup aktif, jendela utama tidak boleh di-minimize (lewat tombol taskbar/judul maupun shortcut) - fokus terkunci ke video
+            win.on("minimize", ev => { if (popupActive > 0) { ev.preventDefault(); try { win.restore(); } catch (_) {} } });
             if (cfg.url) {
               win.webContents.setWindowOpenHandler(({ url }) => { if (safe(url)) shell.openExternal(url); return { action: "deny" }; });
               win.webContents.on("will-navigate", (ev, u) => {
