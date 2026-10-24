@@ -312,9 +312,10 @@ jobs:
               const src = "file:///" + encodeURI(vposix).split("#").join("%23");
               const { move, speed, volume, loop } = popupCfgParsed();
               const vol = volume;
-              // tanpa "controls" dan tanpa jalan keluar lewat Esc: video mengisi penuh jendela tanpa jarak di pinggir,
+              // tanpa "controls" dan tanpa jalan keluar lewat Esc: video mengisi penuh layar tanpa jarak di pinggir,
               // dan jendela baru boleh ditutup setelah video benar-benar selesai diputar ulang sebanyak "loop" kali.
-              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;overflow:hidden"><video id="pv" src="' + src + '" autoplay style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;display:block;border:0;outline:0"></video><script>var v=document.getElementById("pv");v.volume=' + vol + ';var rem=' + loop + '-1;v.addEventListener("ended",function(){if(rem>0){rem--;v.currentTime=0;v.play().catch(function(){})}else if(window.popupBridge){window.popupBridge.done()}});</script></body>';
+              // contextmenu dimatikan (klik-kanan tidak bisa dipakai untuk "Simpan video" / buka menu browser)
+              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;overflow:hidden"><video id="pv" src="' + src + '" autoplay style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;display:block;border:0;outline:0"></video><script>var v=document.getElementById("pv");v.volume=' + vol + ';var rem=' + loop + '-1;v.addEventListener("ended",function(){if(rem>0){rem--;v.currentTime=0;v.play().catch(function(){})}else if(window.popupBridge){window.popupBridge.done()}});document.addEventListener("contextmenu",function(e){e.preventDefault()});document.addEventListener("selectstart",function(e){e.preventDefault()});</script></body>';
               // Simpan ke file sementara supaya Chromium boleh memuat file:// dari halaman file:// (data: URL diblokir cross-origin)
               const tmpPath = path.join(os.tmpdir(), "popup-" + Date.now() + "-" + Math.random().toString(36).slice(2) + ".html");
               fs.writeFileSync(tmpPath, html);
@@ -341,6 +342,20 @@ jobs:
               try { pop.webContents.ipc.on("popup-video-done", onDone); } catch (_) { ipcMain.once("popup-video-done", onDone); }
               // menutup lewat Alt+F4/tombol X diblokir selama video belum selesai; begitu selesai (finished=true) baru boleh ditutup
               pop.on("close", ev => { if (!finished) ev.preventDefault(); });
+              // blokir kombinasi tombol yang biasa dipakai menutup/mengecilkan jendela (Alt+F4, Ctrl+W, Ctrl+Q, F11, Esc, F5/Ctrl+R)
+              pop.webContents.on("before-input-event", (ev, input) => {
+                if (input.type !== "keyDown") return;
+                const k = (input.key || "").toLowerCase();
+                if ((input.alt && k === "f4") || ((input.control || input.meta) && (k === "w" || k === "q" || k === "r")) || k === "f11" || k === "f5" || k === "escape") ev.preventDefault();
+              });
+              // kalau sampai kalah topmost (mis. app lain memaksa diri ke atas) atau kehilangan fokus, paksa kembali ke
+              // depan tiap 2 detik selama video masih berjalan - supaya tidak gampang "disembunyikan" di belakang jendela lain
+              const keepTop = setInterval(() => {
+                if (pop.isDestroyed()) { clearInterval(keepTop); return; }
+                if (finished) { clearInterval(keepTop); return; }
+                try { pop.setAlwaysOnTop(true, "screen-saver"); pop.moveTop(); if (!pop.isFocused()) pop.focus(); } catch (_) {}
+              }, 2000);
+              pop.on("closed", () => clearInterval(keepTop));
               let mv = null;
               if (move) {
                 // speed dalam piksel/detik; timer jalan tiap 16ms (~62.5x/detik), jadi dikonversi ke piksel per tik
