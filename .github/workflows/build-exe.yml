@@ -351,7 +351,7 @@ jobs:
           }
           const hidden = process.argv.indexOf("--hidden") >= 0;   // dijalankan otomatis oleh Windows: jangan buka jendela utama
           const flagFile = () => path.join(app.getPath("userData"), "blocked.flag");
-          // Tanya Worker apakah aplikasi ini diblokir. Offline = pakai status terakhir yang diketahui.
+          # Tanya Worker apakah aplikasi ini diblokir. Offline = pakai status terakhir yang diketahui.
           async function checkBlocked(o) {
             if (!cfg.api || !cfg.jobId) return {};
             try {
@@ -446,8 +446,8 @@ jobs:
           app.on("window-all-closed", () => app.quit());
           `);
           JS
-          // Jaring pengaman: pemeriksaan "aplikasi sedang berjalan" bawaan electron-builder dimatikan langsung di templatenya,
-          // supaya dialog "cannot be closed" tidak mungkin muncul walau macro custom tidak terpakai.
+          # Jaring pengaman: pemeriksaan "aplikasi sedang berjalan" bawaan electron-builder dimatikan langsung di templatenya,
+          # supaya dialog "cannot be closed" tidak mungkin muncul walau macro custom tidak terpakai.
           node - <<'JS2'
           const fs = require("fs"), path = require("path");
           const root = path.join(process.cwd(), "node_modules", "app-builder-lib", "templates", "nsis");
