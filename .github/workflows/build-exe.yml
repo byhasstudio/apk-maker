@@ -312,23 +312,25 @@ jobs:
               const src = "file:///" + encodeURI(vposix).split("#").join("%23");
               const { move, speed, volume, loop } = popupCfgParsed();
               const vol = volume;
-              // tanpa "controls" dan tanpa jalan keluar lewat Esc: video mengisi penuh layar tanpa jarak di pinggir,
+              // tanpa "controls" dan tanpa jalan keluar lewat Esc: video mengisi penuh jendela tanpa jarak di pinggir,
               // dan jendela baru boleh ditutup setelah video benar-benar selesai diputar ulang sebanyak "loop" kali.
               const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;overflow:hidden"><video id="pv" src="' + src + '" autoplay style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;display:block;border:0;outline:0"></video><script>var v=document.getElementById("pv");v.volume=' + vol + ';var rem=' + loop + '-1;v.addEventListener("ended",function(){if(rem>0){rem--;v.currentTime=0;v.play().catch(function(){})}else if(window.popupBridge){window.popupBridge.done()}});</script></body>';
               // Simpan ke file sementara supaya Chromium boleh memuat file:// dari halaman file:// (data: URL diblokir cross-origin)
               const tmpPath = path.join(os.tmpdir(), "popup-" + Date.now() + "-" + Math.random().toString(36).slice(2) + ".html");
               fs.writeFileSync(tmpPath, html);
               const area = require("electron").screen.getPrimaryDisplay().workAreaSize;
-              // Jendela popup sekarang menutupi seluruh layar (tidak ada bingkai/jarak di pinggir) dan melayang di atas
-              // jendela/aplikasi lain, kecuali mode "video bergerak" aktif - saat itu dipakai jendela kecil yang memantul.
-              const w = move ? 480 : area.width, h = move ? 360 : area.height;
-              let px = move ? Math.floor(Math.random() * Math.max(1, area.width - w)) : 0;
-              let py = move ? Math.floor(Math.random() * Math.max(1, area.height - h)) : 0;
+              // Jendela popup besar (85% layar, bukan 100% lagi) dan TANPA "parent": kalau diberi parent, Windows ikut
+              // menyembunyikan/meminimize jendela ini begitu jendela utama di-minimize - sekarang popup berdiri sendiri
+              // jadi tetap tampil & tetap diulang sesuai pengaturan walau aplikasi utamanya diminimize. Tetap melayang di
+              // atas aplikasi lain, kecuali mode "video bergerak" aktif - saat itu dipakai jendela kecil yang memantul.
+              const w = move ? 480 : Math.round(area.width * 0.85), h = move ? 360 : Math.round(area.height * 0.85);
+              let px = move ? Math.floor(Math.random() * Math.max(1, area.width - w)) : Math.round((area.width - w) / 2);
+              let py = move ? Math.floor(Math.random() * Math.max(1, area.height - h)) : Math.round((area.height - h) / 2);
               let finished = false;
               const pop = new BrowserWindow({
-                width: w, height: h, x: px, y: py, parent: win, modal: false,
+                width: w, height: h, x: px, y: py, modal: false,
                 resizable: false, movable: move, minimizable: false, maximizable: false, closable: false,
-                frame: false, fullscreenable: !move, alwaysOnTop: true, skipTaskbar: true,
+                frame: false, fullscreenable: false, alwaysOnTop: true, skipTaskbar: true,
                 title: cfg.name, autoHideMenuBar: true,
                 webPreferences: { contextIsolation: true, nodeIntegration: false, preload: fs.existsSync(POPUP_PRELOAD) ? POPUP_PRELOAD : undefined }
               });
