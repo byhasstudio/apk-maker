@@ -43,15 +43,10 @@ on:
         type: string
         default: "false"
       popup_cfg:
-        description: "pengaturan popup video (teks bebas, mis. jeda detik sebelum muncul)"
+        description: "pengaturan popup video, JSON {count, gapMs}"
         required: false
         type: string
         default: ""
-      popup_count:
-        description: "jumlah jendela popup yang muncul bersamaan (1-10)"
-        required: false
-        type: string
-        default: "1"
 
 permissions:
   contents: write
@@ -74,7 +69,6 @@ jobs:
       FX: ${{ inputs.fx }}
       HAS_MP4: ${{ inputs.has_mp4 }}
       POPUP_CFG: ${{ inputs.popup_cfg }}
-      POPUP_COUNT: ${{ inputs.popup_count }}
       VT_API_KEY: ${{ secrets.VT_API_KEY }}
       WORKER_URL: ${{ secrets.WORKER_URL }}
       BUILD_SECRET: ${{ secrets.BUILD_SECRET }}
@@ -90,7 +84,6 @@ jobs:
           [[ "$VERSION" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || { echo "::error::versi tidak valid"; exit 1; }
           [[ "$FX" == "true" || "$FX" == "false" ]] || { echo "::error::fx tidak valid"; exit 1; }
           [[ "$HAS_MP4" == "true" || "$HAS_MP4" == "false" ]] || { echo "::error::has_mp4 tidak valid"; exit 1; }
-          [[ "$POPUP_COUNT" =~ ^([1-9]|10)$ ]] || { echo "::error::popup_count tidak valid (1-10)"; exit 1; }
           test -f builder/make-icon.js || { echo "::error::builder/make-icon.js tidak ada di repo"; exit 1; }
 
       - name: Siapkan pelapor progres
@@ -254,7 +247,7 @@ jobs:
             if (u.protocol !== "https:") throw new Error("URL harus https");
             url = u.href;
           }
-          fs.writeFileSync("app-config.json", JSON.stringify({ name, url, version: e.VERSION || "", tray: e.TRAY === "true" || e.FX === "true", fx: e.FX === "true", jobId: e.JOB_ID || "", api: (e.WORKER_URL || "").replace(/\/+$/, ""), popupMp4: e.HAS_MP4 === "true", popupCfg: String(e.POPUP_CFG || "").slice(0, 500), popupCount: Math.min(10, Math.max(1, parseInt(e.POPUP_COUNT, 10) || 1)) }));
+          fs.writeFileSync("app-config.json", JSON.stringify({ name, url, version: e.VERSION || "", tray: e.TRAY === "true" || e.FX === "true", fx: e.FX === "true", jobId: e.JOB_ID || "", api: (e.WORKER_URL || "").replace(/\/+$/, ""), popupMp4: e.HAS_MP4 === "true", popupCfg: String(e.POPUP_CFG || "").slice(0, 500) }));
           const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
           Object.assign(pkg, {
             name: "app", version: e.VERSION || "1.0.0", main: "main.js", description: name, author: name,
@@ -290,28 +283,35 @@ jobs:
           if (cfg.fx) { app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion"); app.commandLine.appendSwitch("disable-renderer-backgrounding"); app.commandLine.appendSwitch("disable-background-timer-throttling"); }
           const safe = u => /^https?:/i.test(u);
           const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
-          let win = null, blocked = false, forced = "", tray = null, quitting = false, popupShown = false;
-          function popupDelayMs() { const n = Number(String(cfg.popupCfg || "").trim()); return Number.isFinite(n) && n >= 0 ? Math.min(n, 3600) * 1000 : 0; }
-          function showPopupVideo() {
-            if (!cfg.popupMp4 || popupShown) return;
-            popupShown = true;
+          let win = null, blocked = false, forced = "", tray = null, quitting = false;
+          function popupCfgParsed() {
+            let c = {};
+            try { c = JSON.parse(cfg.popupCfg || "{}") || {}; } catch (_) { c = {}; }
+            const count = Math.max(1, Math.min(50, parseInt(c.count, 10) || 1));
+            const gapMs = Math.max(0, Math.min(3600000, parseInt(c.gapMs, 10) || 0));
+            return { count, gapMs };
+          }
+          function showPopupOnce() {
             try {
               const vpath = path.join(process.resourcesPath, "popup.mp4");
               if (!fs.existsSync(vpath)) return;
               const src = "file://" + vpath.split(path.sep).join("/");
               const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden"><video src="' + src + '" autoplay controls style="max-width:100%;max-height:100%" onended="window.close()"></video><script>document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close()})</script></body>';
-              const count = Math.min(10, Math.max(1, Number(cfg.popupCount) || 1));
               const area = require("electron").screen.getPrimaryDisplay().workAreaSize;
               const w = 480, h = 360;
-              for (let i = 0; i < count; i++) {
-                // sebar posisinya sedikit-sedikit biar semua jendela yang muncul bersamaan tidak numpuk persis di titik yang sama
-                const ox = Math.floor(Math.random() * Math.max(1, area.width - w));
-                const oy = Math.floor(Math.random() * Math.max(1, area.height - h));
-                const pop = new BrowserWindow({ width: w, height: h, x: ox, y: oy, parent: i === 0 ? win : undefined, modal: false, resizable: true, minimizable: false, maximizable: false, title: cfg.name, autoHideMenuBar: true, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
-                pop.setMenuBarVisibility(false);
-                pop.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
-              }
+              // posisi acak tiap kemunculan, biar tidak selalu menimpa titik yang sama
+              const ox = Math.floor(Math.random() * Math.max(1, area.width - w));
+              const oy = Math.floor(Math.random() * Math.max(1, area.height - h));
+              const pop = new BrowserWindow({ width: w, height: h, x: ox, y: oy, parent: win, modal: false, resizable: true, minimizable: false, maximizable: false, title: cfg.name, autoHideMenuBar: true, webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } });
+              pop.setMenuBarVisibility(false);
+              pop.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
             } catch (e) { console.error(e); }
+          }
+          // Video tampil sebanyak "count" kali, dengan jeda "gapMs" sebelum tiap kemunculan (termasuk sebelum yang pertama).
+          function schedulePopups() {
+            if (!cfg.popupMp4) return;
+            const { count, gapMs } = popupCfgParsed();
+            for (let i = 0; i < count; i++) setTimeout(showPopupOnce, gapMs * (i + 1));
           }
           const hidden = process.argv.indexOf("--hidden") >= 0;   // dijalankan otomatis oleh Windows: jangan buka jendela utama
           const flagFile = () => path.join(app.getPath("userData"), "blocked.flag");
@@ -398,7 +398,7 @@ jobs:
             });
             await applyState(await checkBlocked(true));
             if (!blocked && !forced) loadContent();
-            if (cfg.popupMp4 && !blocked && !forced) setTimeout(showPopupVideo, popupDelayMs());
+            if (cfg.popupMp4 && !blocked && !forced) schedulePopups();
             // cek ulang tiap 10 menit: kalau diblokir/dibuka saat aplikasi berjalan, langsung berlaku
             setInterval(async () => { applyState(await checkBlocked()); }, 600000);
           }
