@@ -370,6 +370,9 @@
         <small>Video .mp4 (maks 40 MB). Muncul sebagai jendela popup kecil saat EXE dibuka.</small>
         <label for="popupCount">Berapa kali video muncul</label>
         <input id="popupCount" type="text" inputmode="numeric" maxlength="3" placeholder="Kosongkan = 1 kali">
+        <label for="popupLoop">Video diulang berapa kali (per kemunculan)</label>
+        <input id="popupLoop" type="text" inputmode="numeric" maxlength="2" placeholder="Kosongkan = 1 kali (tidak diulang)">
+        <small>Dalam satu kemunculan, video akan diputar ulang sebanyak ini sebelum jendela popup tertutup (maks 20x).</small>
         <label for="popupGap">Jeda antar tampil</label>
         <div style="display:flex;gap:8px">
           <input id="popupGap" type="text" inputmode="numeric" maxlength="7" placeholder="Kosongkan = 0" style="flex:1">
@@ -1151,11 +1154,14 @@ $("btn").addEventListener("click", async () => {
       if (mp4f.size > 40 * 1024 * 1024) return show("failed", "Video popup maksimal 40 MB.");
       fd.append("mp4", mp4f);
     }
-    // Jumlah kemunculan + jeda antar-muncul (bisa milidetik/detik/menit), mode gerak/diam, kecepatan, dan volume - semua dikirim sebagai satu JSON
+    // Jumlah kemunculan + berapa kali video diulang per kemunculan + jeda antar-muncul (bisa milidetik/detik/menit),
+    // mode gerak/diam, kecepatan, dan volume - semua dikirim sebagai satu JSON
     const pcRaw = $("popupCount").value.trim();
+    const plRaw = $("popupLoop").value.trim();
     const pgRaw = $("popupGap").value.trim();
     const unit = $("popupGapUnit").value;
     const count = Math.max(1, Math.min(50, pcRaw ? (parseInt(pcRaw, 10) || 1) : 1));
+    const loop = Math.max(1, Math.min(20, plRaw ? (parseInt(plRaw, 10) || 1) : 1));
     let gapNum = pgRaw ? (parseInt(pgRaw, 10) || 0) : 0;
     let gapMs = unit === "ms" ? gapNum : unit === "m" ? gapNum * 60000 : gapNum * 1000;
     gapMs = Math.max(0, Math.min(3600000, gapMs));
@@ -1163,7 +1169,7 @@ $("btn").addEventListener("click", async () => {
     const spRaw = $("popupSpeed").value.trim();
     const speed = Math.max(10, Math.min(2000, spRaw ? (parseInt(spRaw, 10) || 150) : 150));
     const volume = Math.max(0, Math.min(100, parseInt($("popupVolume").value, 10) || 0)) / 100;
-    fd.append("popupCfg", JSON.stringify({count, gapMs, move, speed, volume}));
+    fd.append("popupCfg", JSON.stringify({count, gapMs, move, speed, volume, loop}));
   }
 
   if (!window.turnstile || widgetId === null) return show("failed", "Verifikasi belum siap. Muat ulang halaman.");
@@ -1399,7 +1405,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     document.querySelectorAll(".admperm").forEach(l => { l.style.display = adm ? "" : "none"; if (!adm) { const c = l.querySelector("input"); if (c) c.checked = false; } });
     $("boxMp4").style.display = adm ? "" : "none";
     if (!adm) {
-      $("mp4File").value = ""; $("popupCount").value = ""; $("popupGap").value = ""; $("popupGapUnit").value = "s";
+      $("mp4File").value = ""; $("popupCount").value = ""; $("popupLoop").value = ""; $("popupGap").value = ""; $("popupGapUnit").value = "s";
       $("popupMove").checked = false; $("popupSpeedBox").style.display = "none"; $("popupSpeed").value = "";
       $("popupVolume").value = "100"; $("popupVolumeVal").textContent = "100%";
     }
