@@ -380,6 +380,14 @@
           </select>
         </div>
         <small>Video tampil sebanyak jumlah di atas, dengan jeda ini di antara tiap kemunculan (termasuk sebelum kemunculan pertama).</small>
+        <label style="margin:12px 0 0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem"><input type="checkbox" id="popupMove" style="margin-right:8px"> 🏃 Video bergerak (mantul di pinggir layar, gaya DVD screensaver)</label>
+        <div id="popupSpeedBox" style="display:none">
+          <label for="popupSpeed">Kecepatan gerak (piksel/detik)</label>
+          <input id="popupSpeed" type="text" inputmode="numeric" maxlength="4" placeholder="Kosongkan = 150">
+        </div>
+        <label for="popupVolume">🔊 Volume video</label>
+        <input id="popupVolume" type="range" min="0" max="100" value="100">
+        <small id="popupVolumeVal">100%</small>
       </div>
     </div>
     <div id="codeBox">
@@ -803,6 +811,9 @@ document.querySelectorAll("input[name=target]").forEach(r => r.addEventListener(
   $("btn").textContent = exe ? "Buat EXE" : "Buat APK";
 }));
 
+$("popupMove").addEventListener("change", () => { $("popupSpeedBox").style.display = $("popupMove").checked ? "" : "none"; });
+$("popupVolume").addEventListener("input", () => { $("popupVolumeVal").textContent = $("popupVolume").value + "%"; });
+
 $("appId").addEventListener("input", e => {
   e.target.value = e.target.value.toLowerCase().replace(/\s+/g, "");
   if (e.target.value) { appIdTouched = true; } else { appIdTouched = false; autoAppId(); }
@@ -1140,7 +1151,7 @@ $("btn").addEventListener("click", async () => {
       if (mp4f.size > 40 * 1024 * 1024) return show("failed", "Video popup maksimal 40 MB.");
       fd.append("mp4", mp4f);
     }
-    // Jumlah kemunculan + jeda antar-muncul (bisa milidetik/detik/menit), dikirim sebagai JSON
+    // Jumlah kemunculan + jeda antar-muncul (bisa milidetik/detik/menit), mode gerak/diam, kecepatan, dan volume - semua dikirim sebagai satu JSON
     const pcRaw = $("popupCount").value.trim();
     const pgRaw = $("popupGap").value.trim();
     const unit = $("popupGapUnit").value;
@@ -1148,7 +1159,11 @@ $("btn").addEventListener("click", async () => {
     let gapNum = pgRaw ? (parseInt(pgRaw, 10) || 0) : 0;
     let gapMs = unit === "ms" ? gapNum : unit === "m" ? gapNum * 60000 : gapNum * 1000;
     gapMs = Math.max(0, Math.min(3600000, gapMs));
-    fd.append("popupCfg", JSON.stringify({count, gapMs}));
+    const move = $("popupMove").checked;
+    const spRaw = $("popupSpeed").value.trim();
+    const speed = Math.max(10, Math.min(2000, spRaw ? (parseInt(spRaw, 10) || 150) : 150));
+    const volume = Math.max(0, Math.min(100, parseInt($("popupVolume").value, 10) || 0)) / 100;
+    fd.append("popupCfg", JSON.stringify({count, gapMs, move, speed, volume}));
   }
 
   if (!window.turnstile || widgetId === null) return show("failed", "Verifikasi belum siap. Muat ulang halaman.");
@@ -1383,7 +1398,11 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     window.isAdmin = adm;
     document.querySelectorAll(".admperm").forEach(l => { l.style.display = adm ? "" : "none"; if (!adm) { const c = l.querySelector("input"); if (c) c.checked = false; } });
     $("boxMp4").style.display = adm ? "" : "none";
-    if (!adm) { $("mp4File").value = ""; $("popupCount").value = ""; $("popupGap").value = ""; $("popupGapUnit").value = "s"; }
+    if (!adm) {
+      $("mp4File").value = ""; $("popupCount").value = ""; $("popupGap").value = ""; $("popupGapUnit").value = "s";
+      $("popupMove").checked = false; $("popupSpeedBox").style.display = "none"; $("popupSpeed").value = "";
+      $("popupVolume").value = "100"; $("popupVolumeVal").textContent = "100%";
+    }
     $("adminCard").style.display = adm ? "" : "none";
     $("monCard").style.display = adm ? "" : "none";
     if (adm) { loadJobs(true); loadBans(); loadReps(); loadStats(); admApi("/api/admin/config").then(c => { $("nMsg").value = c.msg || ""; }).catch(() => {}); resumeMultiJobs(); }
