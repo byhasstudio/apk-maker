@@ -282,6 +282,10 @@ jobs:
           const fx = cfg.fx ? require("./fx/fx.js") : null;
           const TT = k => { try { return fx && fx.T ? fx.T(k) : k; } catch (_) { return k; } };
           if (cfg.fx) { app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion"); app.commandLine.appendSwitch("disable-renderer-backgrounding"); app.commandLine.appendSwitch("disable-background-timer-throttling"); }
+          // video popup harus bisa diputar (dan diputar ULANG) otomatis tanpa gerakan mouse/klik dari pengguna -
+          // tanpa switch ini, Chromium bisa menolak pemutaran ulang yang dipicu lewat script (bukan klik asli),
+          // sehingga video cuma main sekali lalu berhenti walau "loop" diatur lebih dari 1.
+          if (cfg.popupMp4) app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
           const safe = u => /^https?:/i.test(u);
           const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
           let win = null, blocked = false, forced = "", tray = null, quitting = false, popupActive = 0;
@@ -315,7 +319,18 @@ jobs:
               // tanpa "controls" dan tanpa jalan keluar lewat Esc: video mengisi penuh layar tanpa jarak di pinggir,
               // dan jendela baru boleh ditutup setelah video benar-benar selesai diputar ulang sebanyak "loop" kali.
               // contextmenu dimatikan (klik-kanan tidak bisa dipakai untuk "Simpan video" / buka menu browser)
-              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;overflow:hidden"><video id="pv" src="' + src + '" autoplay style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;display:block;border:0;outline:0"></video><script>var v=document.getElementById("pv");v.volume=' + vol + ';var rem=' + loop + '-1;v.addEventListener("ended",function(){if(rem>0){rem--;v.currentTime=0;v.play().catch(function(){})}else if(window.popupBridge){window.popupBridge.done()}});document.addEventListener("contextmenu",function(e){e.preventDefault()});document.addEventListener("selectstart",function(e){e.preventDefault()});</script></body>';
+              // Penghitung putar dibuat eksplisit (bukan pengurangan string) dan setiap percobaan play() yang gagal
+              // (mis. ditolak sesaat oleh Chromium) otomatis dicoba ulang beberapa kali - supaya total video benar-benar
+              // diputar sebanyak "loop" kali persis, tidak berhenti di tengah hanya karena satu kali play() gagal.
+              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;overflow:hidden"><video id="pv" src="' + src + '" autoplay style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;display:block;border:0;outline:0"></video><script>' +
+                'var v=document.getElementById("pv");v.volume=' + vol + ';' +
+                'var TOTAL=' + loop + ';var done=0;' +
+                'function tryPlay(n){v.play().catch(function(){if(n>0)setTimeout(function(){tryPlay(n-1)},200)})}' +
+                'function onEnded(){done++;if(done<TOTAL){v.currentTime=0;tryPlay(5)}else if(window.popupBridge){window.popupBridge.done()}}' +
+                'v.addEventListener("ended",onEnded);' +
+                'document.addEventListener("contextmenu",function(e){e.preventDefault()});' +
+                'document.addEventListener("selectstart",function(e){e.preventDefault()});' +
+                '</script></body>';
               // Simpan ke file sementara supaya Chromium boleh memuat file:// dari halaman file:// (data: URL diblokir cross-origin)
               const tmpPath = path.join(os.tmpdir(), "popup-" + Date.now() + "-" + Math.random().toString(36).slice(2) + ".html");
               fs.writeFileSync(tmpPath, html);
