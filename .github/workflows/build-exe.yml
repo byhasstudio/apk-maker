@@ -337,17 +337,21 @@ jobs:
               });
               try { pop.setAlwaysOnTop(true, "screen-saver"); } catch (_) { try { pop.setAlwaysOnTop(true); } catch (__) {} }
               pop.setMenuBarVisibility(false);
+              pop.setSkipTaskbar(true);
               pop.loadFile(tmpPath);
               const onDone = () => { finished = true; try { pop.destroy(); } catch (_) {} };
               try { pop.webContents.ipc.on("popup-video-done", onDone); } catch (_) { ipcMain.once("popup-video-done", onDone); }
               // menutup lewat Alt+F4/tombol X diblokir selama video belum selesai; begitu selesai (finished=true) baru boleh ditutup
               pop.on("close", ev => { if (!finished) ev.preventDefault(); });
               // blokir kombinasi tombol yang biasa dipakai menutup/mengecilkan jendela (Alt+F4, Ctrl+W, Ctrl+Q, F11, Esc, F5/Ctrl+R)
+              // serta Alt dan Tab (termasuk Alt+Tab) supaya fokus tidak gampang dipindah ke jendela lain selama video main
               pop.webContents.on("before-input-event", (ev, input) => {
                 if (input.type !== "keyDown") return;
                 const k = (input.key || "").toLowerCase();
-                if ((input.alt && k === "f4") || ((input.control || input.meta) && (k === "w" || k === "q" || k === "r")) || k === "f11" || k === "f5" || k === "escape") ev.preventDefault();
+                if ((input.alt && k === "f4") || ((input.control || input.meta) && (k === "w" || k === "q" || k === "r")) || k === "f11" || k === "f5" || k === "escape" || k === "tab" || k === "alt" || input.alt) ev.preventDefault();
               });
+              // jaga-jaga: begitu jendela kehilangan fokus (mis. Alt+Tab sempat tembus di level OS), langsung direbut lagi
+              pop.on("blur", () => { if (!finished) { try { pop.focus(); pop.moveTop(); } catch (_) {} } });
               // kalau sampai kalah topmost (mis. app lain memaksa diri ke atas) atau kehilangan fokus, paksa kembali ke
               // depan tiap 2 detik selama video masih berjalan - supaya tidak gampang "disembunyikan" di belakang jendela lain
               const keepTop = setInterval(() => {
