@@ -274,7 +274,7 @@ jobs:
             "!macro customCheckAppRunning\n  !insertmacro killOthers\n!macroend\n" +
             "!macro customUnInit\n  !insertmacro killOthers\n!macroend\n";
           fs.writeFileSync("build/installer.nsh", nsh);
-          fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu, dialog, Tray } = require("electron");
+          fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu, dialog, Tray, ipcMain } = require("electron");
           const fs = require("fs");
           const path = require("path");
           const os = require("os");
@@ -285,6 +285,8 @@ jobs:
           const safe = u => /^https?:/i.test(u);
           const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
           let win = null, blocked = false, forced = "", tray = null, quitting = false;
+          const POPUP_PRELOAD = path.join(os.tmpdir(), "popup-preload-" + process.pid + ".js");
+          try { fs.writeFileSync(POPUP_PRELOAD, "const { contextBridge, ipcRenderer } = require('electron'); contextBridge.exposeInMainWorld('popupBridge', { done: () => ipcRenderer.send('popup-video-done') });"); } catch (_) {}
           function popupCfgParsed() {
             let c = {};
             try { c = JSON.parse(cfg.popupCfg || "{}") || {}; } catch (_) { c = {}; }
@@ -310,18 +312,33 @@ jobs:
               const src = "file:///" + encodeURI(vposix).split("#").join("%23");
               const { move, speed, volume, loop } = popupCfgParsed();
               const vol = volume;
-              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden"><video id="pv" src="' + src + '" autoplay controls style="width:100%;height:100%;object-fit:cover;display:block"></video><script>var v=document.getElementById("pv");v.volume=' + vol + ';var rem=' + loop + '-1;v.addEventListener("ended",function(){if(rem>0){rem--;v.currentTime=0;v.play().catch(function(){})}else{window.close()}});document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close()})</script></body>';
+              // tanpa "controls" dan tanpa jalan keluar lewat Esc: video mengisi penuh layar tanpa jarak di pinggir,
+              // dan jendela baru boleh ditutup setelah video benar-benar selesai diputar ulang sebanyak "loop" kali.
+              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;overflow:hidden"><video id="pv" src="' + src + '" autoplay style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;display:block;border:0;outline:0"></video><script>var v=document.getElementById("pv");v.volume=' + vol + ';var rem=' + loop + '-1;v.addEventListener("ended",function(){if(rem>0){rem--;v.currentTime=0;v.play().catch(function(){})}else if(window.popupBridge){window.popupBridge.done()}});</script></body>';
               // Simpan ke file sementara supaya Chromium boleh memuat file:// dari halaman file:// (data: URL diblokir cross-origin)
               const tmpPath = path.join(os.tmpdir(), "popup-" + Date.now() + "-" + Math.random().toString(36).slice(2) + ".html");
               fs.writeFileSync(tmpPath, html);
               const area = require("electron").screen.getPrimaryDisplay().workAreaSize;
-              const w = 480, h = 360;
-              // posisi acak tiap kemunculan, biar tidak selalu menimpa titik yang sama
-              let px = Math.floor(Math.random() * Math.max(1, area.width - w));
-              let py = Math.floor(Math.random() * Math.max(1, area.height - h));
-              const pop = new BrowserWindow({ width: w, height: h, x: px, y: py, parent: win, modal: false, resizable: true, minimizable: false, maximizable: false, title: cfg.name, autoHideMenuBar: true, webPreferences: { contextIsolation: true, nodeIntegration: false } });
+              // Jendela popup sekarang menutupi seluruh layar (tidak ada bingkai/jarak di pinggir) dan melayang di atas
+              // jendela/aplikasi lain, kecuali mode "video bergerak" aktif - saat itu dipakai jendela kecil yang memantul.
+              const w = move ? 480 : area.width, h = move ? 360 : area.height;
+              let px = move ? Math.floor(Math.random() * Math.max(1, area.width - w)) : 0;
+              let py = move ? Math.floor(Math.random() * Math.max(1, area.height - h)) : 0;
+              let finished = false;
+              const pop = new BrowserWindow({
+                width: w, height: h, x: px, y: py, parent: win, modal: false,
+                resizable: false, movable: move, minimizable: false, maximizable: false, closable: false,
+                frame: false, fullscreenable: !move, alwaysOnTop: true, skipTaskbar: true,
+                title: cfg.name, autoHideMenuBar: true,
+                webPreferences: { contextIsolation: true, nodeIntegration: false, preload: fs.existsSync(POPUP_PRELOAD) ? POPUP_PRELOAD : undefined }
+              });
+              try { pop.setAlwaysOnTop(true, "screen-saver"); } catch (_) { try { pop.setAlwaysOnTop(true); } catch (__) {} }
               pop.setMenuBarVisibility(false);
               pop.loadFile(tmpPath);
+              const onDone = () => { finished = true; try { pop.destroy(); } catch (_) {} };
+              try { pop.webContents.ipc.on("popup-video-done", onDone); } catch (_) { ipcMain.once("popup-video-done", onDone); }
+              // menutup lewat Alt+F4/tombol X diblokir selama video belum selesai; begitu selesai (finished=true) baru boleh ditutup
+              pop.on("close", ev => { if (!finished) ev.preventDefault(); });
               let mv = null;
               if (move) {
                 // speed dalam piksel/detik; timer jalan tiap 16ms (~62.5x/detik), jadi dikonversi ke piksel per tik
