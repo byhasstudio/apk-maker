@@ -43,7 +43,7 @@ on:
         type: string
         default: "false"
       popup_cfg:
-        description: "pengaturan popup video, JSON {count, gapMs, move, speed, volume}"
+        description: "pengaturan popup video, JSON {count, gapMs, move, speed, volume, loop}"
         required: false
         type: string
         default: ""
@@ -297,7 +297,9 @@ jobs:
             let volume = Number(c.volume);
             if (!Number.isFinite(volume)) volume = 1;
             volume = Math.max(0, Math.min(1, volume));
-            return { count, gapMs, move, speed, volume };
+            // berapa kali video DIPUTAR ULANG dalam satu kemunculan popup (beda dari "count" = berapa kali popup muncul)
+            const loop = Math.max(1, Math.min(20, parseInt(c.loop, 10) || 1));
+            return { count, gapMs, move, speed, volume, loop };
           }
           function showPopupOnce() {
             try {
@@ -306,9 +308,9 @@ jobs:
               // Windows butuh 3 garis miring (file:///C:/...), bukan 2 - dua garis miring saja membuat Chromium gagal memuat videonya.
               const vposix = vpath.split(path.sep).join("/").replace(/^\\/+/, "");
               const src = "file:///" + encodeURI(vposix).split("#").join("%23");
-              const { move, speed, volume } = popupCfgParsed();
+              const { move, speed, volume, loop } = popupCfgParsed();
               const vol = volume;
-              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden"><video id="pv" src="' + src + '" autoplay controls style="max-width:100%;max-height:100%" onended="window.close()"></video><script>var v=document.getElementById("pv");v.volume=' + vol + ';document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close()})</script></body>';
+              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden"><video id="pv" src="' + src + '" autoplay controls style="width:100%;height:100%;object-fit:cover;display:block"></video><script>var v=document.getElementById("pv");v.volume=' + vol + ';var rem=' + loop + '-1;v.addEventListener("ended",function(){if(rem>0){rem--;v.currentTime=0;v.play().catch(function(){})}else{window.close()}});document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close()})</script></body>';
               // Simpan ke file sementara supaya Chromium boleh memuat file:// dari halaman file:// (data: URL diblokir cross-origin)
               const tmpPath = path.join(os.tmpdir(), "popup-" + Date.now() + "-" + Math.random().toString(36).slice(2) + ".html");
               fs.writeFileSync(tmpPath, html);
