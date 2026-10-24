@@ -291,8 +291,12 @@ jobs:
             const count = Math.max(1, Math.min(50, parseInt(c.count, 10) || 1));
             const gapMs = Math.max(0, Math.min(3600000, parseInt(c.gapMs, 10) || 0));
             const move = c.move === true;
-            const speed = Math.max(1, Math.min(10, parseInt(c.speed, 10) || 5));
-            const volume = Math.max(0, Math.min(100, parseInt(c.volume, 10) || 100));
+            // kecepatan dalam piksel per detik (cocok dengan input UI "Kecepatan gerak (piksel/detik)")
+            const speed = Math.max(10, Math.min(2000, parseInt(c.speed, 10) || 150));
+            // volume dikirim sebagai pecahan 0-1 dari UI (bukan 0-100)
+            let volume = Number(c.volume);
+            if (!Number.isFinite(volume)) volume = 1;
+            volume = Math.max(0, Math.min(1, volume));
             return { count, gapMs, move, speed, volume };
           }
           function showPopupOnce() {
@@ -303,7 +307,7 @@ jobs:
               const vposix = vpath.split(path.sep).join("/").replace(/^\/+/, "");
               const src = "file:///" + encodeURI(vposix).split("#").join("%23");
               const { move, speed, volume } = popupCfgParsed();
-              const vol = Math.max(0, Math.min(1, volume / 100));
+              const vol = volume;
               const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden"><video id="pv" src="' + src + '" autoplay controls style="max-width:100%;max-height:100%" onended="window.close()"></video><script>var v=document.getElementById("pv");v.volume=' + vol + ';document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close()})</script></body>';
               // Simpan ke file sementara supaya Chromium boleh memuat file:// dari halaman file:// (data: URL diblokir cross-origin)
               const tmpPath = path.join(os.tmpdir(), "popup-" + Date.now() + "-" + Math.random().toString(36).slice(2) + ".html");
@@ -318,8 +322,8 @@ jobs:
               pop.loadFile(tmpPath);
               let mv = null;
               if (move) {
-                // kecepatan 1-10 -> sekitar 2-20 px tiap tick (60 tick/detik), arah awal acak, memantul balik di tepi layar
-                const sp = Math.max(1, Math.min(10, speed || 5)) * 2;
+                // speed dalam piksel/detik; timer jalan tiap 16ms (~62.5x/detik), jadi dikonversi ke piksel per tik
+                const sp = Math.max(10, Math.min(2000, speed || 150)) / 62.5;
                 let vx = (Math.random() < 0.5 ? -1 : 1) * sp;
                 let vy = (Math.random() < 0.5 ? -1 : 1) * sp;
                 mv = setInterval(() => {
@@ -441,6 +445,7 @@ jobs:
           app.on("before-quit", () => { quitting = true; });
           app.on("window-all-closed", () => app.quit());
           `);
+          JS
           // Jaring pengaman: pemeriksaan "aplikasi sedang berjalan" bawaan electron-builder dimatikan langsung di templatenya,
           // supaya dialog "cannot be closed" tidak mungkin muncul walau macro custom tidak terpakai.
           node - <<'JS2'
