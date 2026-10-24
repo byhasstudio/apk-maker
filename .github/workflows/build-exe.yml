@@ -295,8 +295,10 @@ jobs:
             try {
               const vpath = path.join(process.resourcesPath, "popup.mp4");
               if (!fs.existsSync(vpath)) return;
-              const src = "file://" + vpath.split(path.sep).join("/");
-              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden"><video src="' + src + '" autoplay controls style="max-width:100%;max-height:100%" onended="window.close()"></video><script>document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close()})</script></body>';
+              // Windows butuh 3 garis miring (file:///C:/...), bukan 2 - dua garis miring saja membuat Chromium gagal memuat videonya.
+              const vposix = vpath.split(path.sep).join("/").replace(/^\/+/, "");
+              const src = "file:///" + encodeURI(vposix).split("#").join("%23");
+              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden"><video src="' + src + '" autoplay muted controls style="max-width:100%;max-height:100%" onended="window.close()" onloadeddata="this.muted=false;this.play().catch(function(){})"></video><script>document.addEventListener("keydown",function(e){if(e.key==="Escape")window.close()})</script></body>';
               const area = require("electron").screen.getPrimaryDisplay().workAreaSize;
               const w = 480, h = 360;
               // posisi acak tiap kemunculan, biar tidak selalu menimpa titik yang sama
