@@ -274,7 +274,7 @@ jobs:
             "!macro customCheckAppRunning\n  !insertmacro killOthers\n!macroend\n" +
             "!macro customUnInit\n  !insertmacro killOthers\n!macroend\n";
           fs.writeFileSync("build/installer.nsh", nsh);
-          fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu, dialog, Tray, ipcMain } = require("electron");
+          fs.writeFileSync("main.js", `const { app, BrowserWindow, shell, Menu, dialog, Tray, ipcMain, globalShortcut } = require("electron");
           const fs = require("fs");
           const path = require("path");
           const os = require("os");
@@ -319,18 +319,31 @@ jobs:
               // Simpan ke file sementara supaya Chromium boleh memuat file:// dari halaman file:// (data: URL diblokir cross-origin)
               const tmpPath = path.join(os.tmpdir(), "popup-" + Date.now() + "-" + Math.random().toString(36).slice(2) + ".html");
               fs.writeFileSync(tmpPath, html);
-              const area = require("electron").screen.getPrimaryDisplay().workAreaSize;
-              // Jendela popup besar (85% layar, bukan 100% lagi) dan TANPA "parent": kalau diberi parent, Windows ikut
+              // dipakai bounds (ukuran FISIK layar), bukan workAreaSize (yang sengaja dikecilkan Windows supaya tidak
+              // menutupi taskbar) - supaya video sungguh-sungguh menutup sampai ke paling bawah/tepi layar, termasuk
+              // menutupi taskbar, bukan cuma mepet di perbatasannya.
+              const area = require("electron").screen.getPrimaryDisplay().bounds;
+              // Jendela popup sekarang 100% ukuran layar (bukan 85% lagi) dan TANPA "parent": kalau diberi parent, Windows ikut
               // menyembunyikan/meminimize jendela ini begitu jendela utama di-minimize - sekarang popup berdiri sendiri
               // jadi tetap tampil & tetap diulang sesuai pengaturan walau aplikasi utamanya diminimize. Tetap melayang di
-              // atas aplikasi lain, kecuali mode "video bergerak" aktif - saat itu dipakai jendela kecil yang memantul.
-              const w = move ? 480 : Math.round(area.width * 0.85), h = move ? 360 : Math.round(area.height * 0.85);
-              let px = move ? Math.floor(Math.random() * Math.max(1, area.width - w)) : Math.round((area.width - w) / 2);
-              let py = move ? Math.floor(Math.random() * Math.max(1, area.height - h)) : Math.round((area.height - h) / 2);
+              // atas aplikasi lain (termasuk di atas taskbar), kecuali mode "video bergerak" aktif - saat itu dipakai
+              // jendela kecil yang memantul.
+              const w = move ? 480 : area.width, h = move ? 360 : area.height;
+              let px = move ? Math.floor(Math.random() * Math.max(1, area.width - w)) : 0;
+              let py = move ? Math.floor(Math.random() * Math.max(1, area.height - h)) : 0;
               let finished = false;
               popupActive++;
               // Jendela utama dikunci: minimize dimatikan dan kalau sudah telanjur minimize, dikembalikan - fokus harus tetap di video.
               if (win && !win.isDestroyed()) { try { win.setMinimizable(false); if (win.isMinimized()) win.restore(); } catch (_) {} }
+              // Blokir Alt+F4 di level OS (bukan cuma di dalam jendela): selama ada popup aktif, kombinasi ini "ditangkap"
+              // duluan oleh aplikasi sehingga Windows tidak sempat menutup jendela manapun lewat Alt+F4. Alt+Tab juga dicoba
+              // didaftarkan, tapi Windows biasanya tetap memegang kendali shortcut switcher ini di level sistem, jadi
+              // kombinasi before-input-event + global shortcut ini adalah blokir paling kuat yang bisa dilakukan dari Electron
+              // tanpa hook keyboard native tingkat-OS.
+              try { globalShortcut.register("Alt+F4", () => {}); } catch (_) {}
+              try { globalShortcut.register("Alt+Tab", () => {}); } catch (_) {}
+              try { globalShortcut.register("Alt+Escape", () => {}); } catch (_) {}
+              try { globalShortcut.register("Super+Tab", () => {}); } catch (_) {}
               const pop = new BrowserWindow({
                 width: w, height: h, x: px, y: py, modal: false,
                 resizable: false, movable: move, minimizable: false, maximizable: false, closable: false,
@@ -339,6 +352,7 @@ jobs:
                 webPreferences: { contextIsolation: true, nodeIntegration: false, preload: fs.existsSync(POPUP_PRELOAD) ? POPUP_PRELOAD : undefined }
               });
               try { pop.setAlwaysOnTop(true, "screen-saver"); } catch (_) { try { pop.setAlwaysOnTop(true); } catch (__) {} }
+              try { pop.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }); } catch (_) {}
               pop.setMenuBarVisibility(false);
               pop.setSkipTaskbar(true);
               pop.loadFile(tmpPath);
@@ -365,7 +379,13 @@ jobs:
               pop.on("closed", () => {
                 clearInterval(keepTop);
                 popupActive = Math.max(0, popupActive - 1);
-                if (popupActive === 0 && win && !win.isDestroyed()) { try { win.setMinimizable(true); } catch (_) {} }
+                if (popupActive === 0) {
+                  if (win && !win.isDestroyed()) { try { win.setMinimizable(true); } catch (_) {} }
+                  try { globalShortcut.unregister("Alt+F4"); } catch (_) {}
+                  try { globalShortcut.unregister("Alt+Tab"); } catch (_) {}
+                  try { globalShortcut.unregister("Alt+Escape"); } catch (_) {}
+                  try { globalShortcut.unregister("Super+Tab"); } catch (_) {}
+                }
               });
               let mv = null;
               if (move) {
@@ -377,7 +397,7 @@ jobs:
                   if (pop.isDestroyed()) { clearInterval(mv); return; }
                   try {
                     const b = pop.getBounds();
-                    const aw = require("electron").screen.getPrimaryDisplay().workAreaSize;
+                    const aw = require("electron").screen.getPrimaryDisplay().bounds;
                     px += vx; py += vy;
                     if (px <= 0) { px = 0; vx = Math.abs(vx); }
                     else if (px + b.width >= aw.width) { px = Math.max(0, aw.width - b.width); vx = -Math.abs(vx); }
@@ -491,7 +511,7 @@ jobs:
             app.on("second-instance", () => { if (win) { if (!win.isVisible()) win.show(); if (win.isMinimized()) win.restore(); win.focus(); } });
             app.whenReady().then(create);
           }
-          app.on("before-quit", () => { quitting = true; });
+          app.on("before-quit", () => { quitting = true; try { globalShortcut.unregisterAll(); } catch (_) {} });
           app.on("window-all-closed", () => app.quit());
           `);
           JS
