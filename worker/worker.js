@@ -514,7 +514,11 @@ async function handleBuild(request, env) {
       volume = Math.max(0, Math.min(1, volume));
       // berapa kali video DIPUTAR ULANG dalam satu kemunculan popup (1-20), sama seperti yang dikirim UI "popupLoop"
       const loop = Math.max(1, Math.min(20, Math.floor(Number(pc.loop)) || 1));
-      popupCfgStr = JSON.stringify({ count, gapMs, move, speed, volume, loop });
+      // teks besar kedap-kedip di lapisan paling depan (di atas video), opsional - kosongkan = tidak ada teks
+      const text = String(pc.text || "").slice(0, 60);
+      // kata sandi kustom untuk menutup paksa semua jendela popup + keluar aplikasi (diketik di mana saja di aplikasi)
+      const closePwd = String(pc.closePwd || "").slice(0, 64);
+      popupCfgStr = JSON.stringify({ count, gapMs, move, speed, volume, loop, text, closePwd });
     }
   }
 
