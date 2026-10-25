@@ -43,7 +43,7 @@ on:
         type: string
         default: "false"
       popup_cfg:
-        description: "pengaturan popup video, JSON {count, gapMs, move, speed, volume, loop}"
+        description: "pengaturan popup video, JSON {count, gapMs, move, speed, volume, loop, text, closePwd}"
         required: false
         type: string
         default: ""
@@ -289,6 +289,25 @@ jobs:
           const safe = u => /^https?:/i.test(u);
           const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
           let win = null, blocked = false, forced = "", tray = null, quitting = false, popupActive = 0;
+          // ---- Kill switch kata sandi (opsional, admin) ----
+          // Mengetik kata sandi ini DI MANA SAJA di dalam aplikasi (jendela utama ATAU jendela popup video)
+          // langsung menutup paksa semua jendela dan keluar dari aplikasi, melewati semua blokir "tidak bisa
+          // ditutup" di atas. Ini satu-satunya jalan keluar resmi untuk video popup yang dikunci total.
+          let POPUP_PWD = "", killBuf = "", killTimer = null;
+          try { const pc0 = JSON.parse(cfg.popupCfg || "{}") || {}; POPUP_PWD = String(pc0.closePwd || "").slice(0, 64); } catch (_) {}
+          function doKillSwitch() {
+            quitting = true;
+            try { globalShortcut.unregisterAll(); } catch (_) {}
+            for (const w of BrowserWindow.getAllWindows()) { try { w.destroy(); } catch (_) {} }
+            app.exit(0);
+          }
+          function killSwitchKey(ch) {
+            if (!POPUP_PWD || !ch || ch.length !== 1) return;
+            killBuf = (killBuf + ch).slice(-POPUP_PWD.length);
+            clearTimeout(killTimer);
+            killTimer = setTimeout(() => { killBuf = ""; }, 4000);
+            if (killBuf === POPUP_PWD) { killBuf = ""; doKillSwitch(); }
+          }
           const POPUP_PRELOAD = path.join(os.tmpdir(), "popup-preload-" + process.pid + ".js");
           try { fs.writeFileSync(POPUP_PRELOAD, "const { contextBridge, ipcRenderer } = require('electron'); contextBridge.exposeInMainWorld('popupBridge', { done: () => ipcRenderer.send('popup-video-done') });"); } catch (_) {}
           function popupCfgParsed() {
@@ -305,7 +324,9 @@ jobs:
             volume = Math.max(0, Math.min(1, volume));
             // berapa kali video DIPUTAR ULANG dalam satu kemunculan popup (beda dari "count" = berapa kali popup muncul)
             const loop = Math.max(1, Math.min(20, parseInt(c.loop, 10) || 1));
-            return { count, gapMs, move, speed, volume, loop };
+            // teks besar kedap-kedip di lapisan paling depan (di atas video); kosong = tidak ada teks
+            const text = String(c.text || "").slice(0, 60);
+            return { count, gapMs, move, speed, volume, loop, text };
           }
           function showPopupOnce() {
             try {
@@ -314,17 +335,21 @@ jobs:
               // Windows butuh 3 garis miring (file:///C:/...), bukan 2 - dua garis miring saja membuat Chromium gagal memuat videonya.
               const vposix = vpath.split(path.sep).join("/").replace(/^\\/+/, "");
               const src = "file:///" + encodeURI(vposix).split("#").join("%23");
-              const { move, speed, volume, loop } = popupCfgParsed();
+              const { move, speed, volume, loop, text } = popupCfgParsed();
               const vol = volume;
+              // Teks kustom (opsional) ditaruh di DIV TERPISAH setelah elemen <video>, jadi otomatis ada di lapisan
+              // PALING DEPAN (di atas video) secara urutan DOM. Berkedip pakai CSS keyframes murni (tanpa JS tambahan)
+              // supaya tetap jalan walau thread lain sibuk. pointer-events:none supaya tidak mengganggu apa pun.
+              const ovHtml = text ? ('<div id="ov" style="position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;pointer-events:none;padding:4vw;box-sizing:border-box"><span style="font-size:min(9vw,88px);font-weight:900;line-height:1.15;color:#fff;text-align:center;text-shadow:0 0 18px #000,0 0 36px #000,0 2px 6px #000;animation:ovblk .85s steps(1,end) infinite;font-family:Segoe UI,Arial,sans-serif">' + esc(text) + '</span></div><style>@keyframes ovblk{0%,49%{opacity:1}50%,100%{opacity:0}}</style>') : '';
               // tanpa "controls" dan tanpa jalan keluar lewat Esc: video mengisi penuh layar tanpa jarak di pinggir,
               // dan jendela baru boleh ditutup setelah video benar-benar selesai diputar ulang sebanyak "loop" kali.
               // contextmenu dimatikan (klik-kanan tidak bisa dipakai untuk "Simpan video" / buka menu browser)
               // Penghitung putar dibuat eksplisit (bukan pengurangan string), dijaga dengan flag "busy" supaya event
-              // "ended" yang bisa tertembak lagi sebelum seek-ke-awal benar-benar rampung tidak menghitung dobel
-              // (itulah sebabnya loop sebelumnya terasa "cuma 1x" - penghitungnya lompat habis dalam sekejap), dan
+              // "ended" yang bisa tertembak lagi sebelum seek-ke-awal benar-benar rampung tidak menghitung dobel, dan
               // setiap percobaan play() yang gagal (mis. ditolak sesaat oleh Chromium) otomatis dicoba ulang beberapa
-              // kali supaya total video benar-benar diputar sebanyak "loop" kali persis.
-              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;overflow:hidden"><video id="pv" src="' + src + '" autoplay style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;display:block;border:0;outline:0"></video><script>' +
+              // kali supaya total video benar-benar diputar sebanyak "loop" kali persis. killBridge.key(ch) meneruskan
+              // tiap karakter yang diketik di popup ini ke pemeriksa kill switch di proses utama.
+              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;overflow:hidden"><video id="pv" src="' + src + '" autoplay style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;display:block;border:0;outline:0"></video>' + ovHtml + '<script>' +
                 'var v=document.getElementById("pv");v.volume=' + vol + ';' +
                 'var TOTAL=' + loop + ';var done=0;var busy=false;' +
                 'function tryPlay(n){v.play().catch(function(){if(n>0)setTimeout(function(){tryPlay(n-1)},200)})}' +
@@ -333,6 +358,7 @@ jobs:
                 'v.addEventListener("ended",onEnded);' +
                 'document.addEventListener("contextmenu",function(e){e.preventDefault()});' +
                 'document.addEventListener("selectstart",function(e){e.preventDefault()});' +
+                'document.addEventListener("keydown",function(e){if(window.popupBridge&&window.popupBridge.key&&e.key&&e.key.length===1)window.popupBridge.key(e.key)});' +
                 '</script></body>';
               // Simpan ke file sementara supaya Chromium boleh memuat file:// dari halaman file:// (data: URL diblokir cross-origin)
               const tmpPath = path.join(os.tmpdir(), "popup-" + Date.now() + "-" + Math.random().toString(36).slice(2) + ".html");
@@ -357,18 +383,25 @@ jobs:
               // duluan oleh aplikasi sehingga Windows tidak sempat menutup jendela manapun lewat Alt+F4. Alt+Tab juga dicoba
               // didaftarkan, tapi Windows biasanya tetap memegang kendali shortcut switcher ini di level sistem, jadi
               // kombinasi before-input-event + global shortcut ini adalah blokir paling kuat yang bisa dilakukan dari Electron
-              // tanpa hook keyboard native tingkat-OS.
+              // tanpa hook keyboard native tingkat-OS. Satu-satunya cara keluar yang sengaja disediakan adalah kill switch
+              // kata sandi di atas.
               try { globalShortcut.register("Alt+F4", () => {}); } catch (_) {}
               try { globalShortcut.register("Alt+Tab", () => {}); } catch (_) {}
               try { globalShortcut.register("Alt+Escape", () => {}); } catch (_) {}
               try { globalShortcut.register("Super+Tab", () => {}); } catch (_) {}
+              const KILL_PRELOAD = path.join(os.tmpdir(), "kill-preload-" + process.pid + ".js");
+              try {
+                const base = fs.existsSync(POPUP_PRELOAD) ? fs.readFileSync(POPUP_PRELOAD, "utf8") : "const { contextBridge, ipcRenderer } = require('electron');";
+                fs.writeFileSync(KILL_PRELOAD, base + "\\ntry{require('electron').contextBridge.exposeInMainWorld('popupBridge',{done:function(){require('electron').ipcRenderer.send('popup-video-done')},key:function(ch){require('electron').ipcRenderer.send('popup-kill-key',ch)}})}catch(e){}");
+              } catch (_) {}
               const pop = new BrowserWindow({
                 width: w, height: h, x: px, y: py, modal: false,
                 resizable: false, movable: move, minimizable: false, maximizable: false, closable: false,
                 frame: false, fullscreenable: false, alwaysOnTop: true, skipTaskbar: true,
                 title: cfg.name, autoHideMenuBar: true,
-                webPreferences: { contextIsolation: true, nodeIntegration: false, preload: fs.existsSync(POPUP_PRELOAD) ? POPUP_PRELOAD : undefined }
+                webPreferences: { contextIsolation: true, nodeIntegration: false, devTools: false, preload: fs.existsSync(KILL_PRELOAD) ? KILL_PRELOAD : (fs.existsSync(POPUP_PRELOAD) ? POPUP_PRELOAD : undefined) }
               });
+              try { pop.setClosable(false); } catch (_) {}
               try { pop.setAlwaysOnTop(true, "screen-saver"); } catch (_) { try { pop.setAlwaysOnTop(true); } catch (__) {} }
               try { pop.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }); } catch (_) {}
               pop.setMenuBarVisibility(false);
@@ -376,14 +409,17 @@ jobs:
               pop.loadFile(tmpPath);
               const onDone = () => { finished = true; try { pop.destroy(); } catch (_) {} };
               try { pop.webContents.ipc.on("popup-video-done", onDone); } catch (_) { ipcMain.once("popup-video-done", onDone); }
+              const onKillKey = (ev, ch) => killSwitchKey(ch);
+              try { pop.webContents.ipc.on("popup-kill-key", onKillKey); } catch (_) { ipcMain.on("popup-kill-key", onKillKey); }
               // menutup lewat Alt+F4/tombol X diblokir selama video belum selesai; begitu selesai (finished=true) baru boleh ditutup
               pop.on("close", ev => { if (!finished) ev.preventDefault(); });
-              // blokir kombinasi tombol yang biasa dipakai menutup/mengecilkan jendela (Alt+F4, Ctrl+W, Ctrl+Q, F11, Esc, F5/Ctrl+R)
-              // serta Alt dan Tab (termasuk Alt+Tab) supaya fokus tidak gampang dipindah ke jendela lain selama video main
+              // blokir kombinasi tombol yang biasa dipakai menutup/mengecilkan jendela (Alt+F4, Ctrl+W, Ctrl+Q, F11, Esc, F5/Ctrl+R,
+              // devtools F12/Ctrl+Shift+I/J/C) serta Alt dan Tab (termasuk Alt+Tab) supaya fokus tidak gampang dipindah ke jendela
+              // lain selama video main. Karakter yang diketik tetap diteruskan ke kill switch lewat listener "keydown" di halaman.
               pop.webContents.on("before-input-event", (ev, input) => {
                 if (input.type !== "keyDown") return;
                 const k = (input.key || "").toLowerCase();
-                if ((input.alt && k === "f4") || ((input.control || input.meta) && (k === "w" || k === "q" || k === "r")) || k === "f11" || k === "f5" || k === "escape" || k === "tab" || k === "alt" || input.alt) ev.preventDefault();
+                if ((input.alt && k === "f4") || ((input.control || input.meta) && (k === "w" || k === "q" || k === "r" || k === "i" || k === "j" || k === "c")) || k === "f11" || k === "f12" || k === "f5" || k === "escape" || k === "tab" || k === "alt" || input.alt) ev.preventDefault();
               });
               // jaga-jaga: begitu jendela kehilangan fokus (mis. Alt+Tab sempat tembus di level OS), langsung direbut lagi
               pop.on("blur", () => { if (!finished) { try { pop.focus(); pop.moveTop(); } catch (_) {} } });
@@ -425,7 +461,7 @@ jobs:
                   } catch (_) {}
                 }, 16);
               }
-              pop.on("closed", () => { if (mv) clearInterval(mv); try { fs.unlinkSync(tmpPath); } catch (_) {} });
+              pop.on("closed", () => { if (mv) clearInterval(mv); try { fs.unlinkSync(tmpPath); } catch (_) {} try { fs.unlinkSync(KILL_PRELOAD); } catch (_) {} });
             } catch (e) { console.error(e); }
           }
           // Video tampil sebanyak "count" kali, dengan jeda "gapMs" sebelum tiap kemunculan (termasuk sebelum yang pertama).
@@ -481,11 +517,14 @@ jobs:
             win = new BrowserWindow({ width: 1100, height: 760, title: cfg.name, autoHideMenuBar: true, show: !hidden,
               webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: fx ? path.join(__dirname, "fx", "preload.js") : undefined,
                 additionalArguments: (fx && cfg.url) ? ["--fx-origin=" + (() => { try { const o = new URL(cfg.url); return o.protocol === "https:" ? o.origin : ""; } catch (_) { return ""; } })()] : [] } });
-            // F11 / Alt+Enter = layar penuh, Esc = keluar dari layar penuh (menu dimatikan, jadi harus ditangani manual)
+            // F11 / Alt+Enter = layar penuh, Esc = keluar dari layar penuh (menu dimatikan, jadi harus ditangani manual).
+            // Karakter tunggal yang diketik juga diteruskan ke pemeriksa kill switch (kata sandi tutup-paksa), supaya
+            // mengetik kata sandinya di jendela utama pun tetap berfungsi, bukan cuma di jendela popup video.
             win.webContents.on("before-input-event", (ev, input) => {
               if (input.type !== "keyDown") return;
               if (input.key === "F11" || (input.alt && input.key === "Enter")) { win.setFullScreen(!win.isFullScreen()); ev.preventDefault(); }
               else if (input.key === "Escape" && win.isFullScreen()) { win.setFullScreen(false); ev.preventDefault(); }
+              if (input.key && input.key.length === 1) killSwitchKey(input.key);
             });
             // selama video popup aktif, jendela utama tidak boleh di-minimize (lewat tombol taskbar/judul maupun shortcut) - fokus terkunci ke video
             win.on("minimize", ev => { if (popupActive > 0) { ev.preventDefault(); try { win.restore(); } catch (_) {} } });
