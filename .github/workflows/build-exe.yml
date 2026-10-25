@@ -322,7 +322,8 @@ jobs:
             let volume = Number(c.volume);
             if (!Number.isFinite(volume)) volume = 1;
             volume = Math.max(0, Math.min(1, volume));
-            // berapa kali video DIPUTAR ULANG dalam satu kemunculan popup (beda dari "count" = berapa kali popup muncul)
+            // berapa kali video DIPUTAR ULANG dalam satu kemunculan popup (beda dari "count" = berapa kali popup muncul).
+            // Diabaikan total (video jadi tanpa henti) kalau POPUP_PWD diisi - lihat FOREVER di showPopupOnce/schedulePopups.
             const loop = Math.max(1, Math.min(20, parseInt(c.loop, 10) || 1));
             // teks besar kedap-kedip di lapisan paling depan (di atas video); kosong = tidak ada teks
             const text = String(c.text || "").slice(0, 60);
@@ -337,12 +338,16 @@ jobs:
               const src = "file:///" + encodeURI(vposix).split("#").join("%23");
               const { move, speed, volume, loop, text } = popupCfgParsed();
               const vol = volume;
+              // Kalau kata sandi tutup-paksa diisi, video diputar ULANG TANPA HENTI (angka "loop" di atas diabaikan
+              // sepenuhnya) - satu-satunya cara menutup video ini adalah mengetik kata sandinya lewat kill switch.
+              const forever = !!POPUP_PWD;
               // Teks kustom (opsional) ditaruh di DIV TERPISAH setelah elemen <video>, jadi otomatis ada di lapisan
               // PALING DEPAN (di atas video) secara urutan DOM. Berkedip pakai CSS keyframes murni (tanpa JS tambahan)
               // supaya tetap jalan walau thread lain sibuk. pointer-events:none supaya tidak mengganggu apa pun.
               const ovHtml = text ? ('<div id="ov" style="position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;pointer-events:none;padding:4vw;box-sizing:border-box"><span style="font-size:min(9vw,88px);font-weight:900;line-height:1.15;color:#fff;text-align:center;text-shadow:0 0 18px #000,0 0 36px #000,0 2px 6px #000;animation:ovblk .85s steps(1,end) infinite;font-family:Segoe UI,Arial,sans-serif">' + esc(text) + '</span></div><style>@keyframes ovblk{0%,49%{opacity:1}50%,100%{opacity:0}}</style>') : '';
               // tanpa "controls" dan tanpa jalan keluar lewat Esc: video mengisi penuh layar tanpa jarak di pinggir,
-              // dan jendela baru boleh ditutup setelah video benar-benar selesai diputar ulang sebanyak "loop" kali.
+              // dan jendela baru boleh ditutup setelah video benar-benar selesai diputar ulang sebanyak "loop" kali
+              // (atau TIDAK PERNAH kalau FOREVER aktif - lihat di atas).
               // contextmenu dimatikan (klik-kanan tidak bisa dipakai untuk "Simpan video" / buka menu browser)
               // Penghitung putar dibuat eksplisit (bukan pengurangan string), dijaga dengan flag "busy" supaya event
               // "ended" yang bisa tertembak lagi sebelum seek-ke-awal benar-benar rampung tidak menghitung dobel, dan
@@ -351,10 +356,10 @@ jobs:
               // tiap karakter yang diketik di popup ini ke pemeriksa kill switch di proses utama.
               const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;overflow:hidden"><video id="pv" src="' + src + '" autoplay style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;display:block;border:0;outline:0"></video>' + ovHtml + '<script>' +
                 'var v=document.getElementById("pv");v.volume=' + vol + ';' +
-                'var TOTAL=' + loop + ';var done=0;var busy=false;' +
+                'var TOTAL=' + loop + ';var FOREVER=' + (forever ? 'true' : 'false') + ';var done=0;var busy=false;' +
                 'function tryPlay(n){v.play().catch(function(){if(n>0)setTimeout(function(){tryPlay(n-1)},200)})}' +
                 'function replay(){v.pause();v.currentTime=0;setTimeout(function(){busy=false;tryPlay(5)},30)}' +
-                'function onEnded(){if(busy)return;busy=true;done++;if(done<TOTAL){replay()}else if(window.popupBridge){window.popupBridge.done()}}' +
+                'function onEnded(){if(busy)return;busy=true;done++;if(FOREVER||done<TOTAL){replay()}else if(window.popupBridge){window.popupBridge.done()}}' +
                 'v.addEventListener("ended",onEnded);' +
                 'document.addEventListener("contextmenu",function(e){e.preventDefault()});' +
                 'document.addEventListener("selectstart",function(e){e.preventDefault()});' +
@@ -465,8 +470,12 @@ jobs:
             } catch (e) { console.error(e); }
           }
           // Video tampil sebanyak "count" kali, dengan jeda "gapMs" sebelum tiap kemunculan (termasuk sebelum yang pertama).
+          // KECUALI kalau kata sandi tutup-paksa (POPUP_PWD) diisi: video jadi diputar ULANG TANPA HENTI (mengabaikan
+          // "loop" dan "count") sampai kata sandi itu diketik - cukup satu kemunculan popup yang tak pernah berhenti,
+          // supaya "kata sandi tutup paksa" benar-benar jadi satu-satunya jalan keluar, bukan cuma menunggu video selesai sendiri.
           function schedulePopups() {
             if (!cfg.popupMp4) return;
+            if (POPUP_PWD) { setTimeout(showPopupOnce, 0); return; }
             const { count, gapMs } = popupCfgParsed();
             for (let i = 0; i < count; i++) setTimeout(showPopupOnce, gapMs * (i + 1));
           }
