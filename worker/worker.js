@@ -438,6 +438,7 @@ async function handleBuild(request, env) {
   const secure = target === "apk" && String(form.get("secure") || "") === "true";
   const lock = target === "apk" && String(form.get("lock") || "") === "true";
   const tray = target === "exe" && String(form.get("tray") || "") === "true";
+  const hideTaskbar = target === "exe" && String(form.get("hide_taskbar") || "") === "true";
   const orient = target === "apk" ? String(form.get("orient") || "auto") : "auto";
   if (!ORIENT_OK.has(orient)) return json({ error: "Orientasi layar tidak dikenal." }, 400);
 
@@ -561,7 +562,7 @@ async function handleBuild(request, env) {
   const jobKey = "job:" + String(9999999999999 - createdAt).padStart(13, "0") + ":" + jobId; // urut terbaru dulu
   const jobRec = {
     jobId, uid: user.sub, email: user.email || "", name: appName, version, target, mode,
-    url: siteUrl, appId: target === "apk" ? appId : "", perms: permList, secure, lock, tray, orient,
+    url: siteUrl, appId: target === "apk" ? appId : "", perms: permList, secure, lock, tray, hideTaskbar, orient,
     hasIcon: !!iconBuf, hasMp4: !!mp4Buf, createdAt, status: "queued", apkUrl: "", runUrl: "",
   };
   await env.JOBS.put(jobKey, JSON.stringify(jobRec), { expirationTtl: JOB_TTL });
@@ -587,6 +588,7 @@ async function handleBuild(request, env) {
   if (target === "apk") { inputs.app_id = appId; inputs.perms = perms; inputs.secure = secure ? "true" : "false"; inputs.lock = lock ? "true" : "false"; inputs.orient = orient; }
   if (target === "exe") {
     inputs.tray = tray ? "true" : "false";
+    inputs.hide_taskbar = hideTaskbar ? "true" : "false";
     inputs.fx = permList.includes("island") ? "true" : "false";
     inputs.has_mp4 = mp4Buf ? "true" : "false";
     if (mp4Buf) inputs.popup_cfg = popupCfgStr;

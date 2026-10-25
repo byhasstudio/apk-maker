@@ -32,6 +32,11 @@ on:
         required: false
         type: string
         default: "false"
+      hide_taskbar:
+        description: "sembunyikan taskbar Windows saat aplikasi dibuka (true/false)"
+        required: false
+        type: string
+        default: "false"
       fx:
         description: "modul Windows: Dynamic Island + animasi jendela (true/false)"
         required: false
@@ -66,6 +71,7 @@ jobs:
       HAS_ICON: ${{ inputs.has_icon }}
       VERSION: ${{ inputs.version }}
       TRAY: ${{ inputs.tray }}
+      HIDE_TASKBAR: ${{ inputs.hide_taskbar }}
       FX: ${{ inputs.fx }}
       HAS_MP4: ${{ inputs.has_mp4 }}
       POPUP_CFG: ${{ inputs.popup_cfg }}
@@ -247,7 +253,7 @@ jobs:
             if (u.protocol !== "https:") throw new Error("URL harus https");
             url = u.href;
           }
-          fs.writeFileSync("app-config.json", JSON.stringify({ name, url, version: e.VERSION || "", tray: e.TRAY === "true" || e.FX === "true", fx: e.FX === "true", jobId: e.JOB_ID || "", api: (e.WORKER_URL || "").replace(/\/+$/, ""), popupMp4: e.HAS_MP4 === "true", popupCfg: String(e.POPUP_CFG || "").slice(0, 500) }));
+          fs.writeFileSync("app-config.json", JSON.stringify({ name, url, version: e.VERSION || "", tray: e.TRAY === "true" || e.FX === "true", fx: e.FX === "true", jobId: e.JOB_ID || "", api: (e.WORKER_URL || "").replace(/\/+$/, ""), popupMp4: e.HAS_MP4 === "true", popupCfg: String(e.POPUP_CFG || "").slice(0, 500), hideTaskbar: e.HIDE_TASKBAR === "true" }));
           const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
           Object.assign(pkg, {
             name: "app", version: e.VERSION || "1.0.0", main: "main.js", description: name, author: name,
@@ -289,6 +295,37 @@ jobs:
           const safe = u => /^https?:/i.test(u);
           const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
           let win = null, blocked = false, forced = "", tray = null, quitting = false, popupActive = 0;
+          // ---- Sembunyikan/tampilkan taskbar Windows (opsional) ----
+          // Dipanggil lewat PowerShell yang memanggil Win32 API SHAppBarMessage (ABM_SETSTATE) pada jendela
+          // taskbar asli Windows ("Shell_TrayWnd") - ini tidak menyentuh taskbar aplikasi lain, cuma mengubah
+          // mode auto-hide-nya. State SELALU dikembalikan ke semula (taskbar tampil lagi) saat aplikasi ditutup,
+          // dinonaktifkan, atau proses keluar tidak wajar - supaya pengguna tidak pernah kehilangan akses taskbar.
+          const { execFile } = require("child_process");
+          let taskbarHiddenByUs = false;
+          function runTaskbarPs(show) {
+            try {
+              const Q = String.fromCharCode(34);
+              const sig = [
+                "[DllImport(" + Q + "user32.dll" + Q + ")] public static extern int FindWindow(string c, string n);",
+                "[DllImport(" + Q + "shell32.dll" + Q + ")] public static extern int SHAppBarMessage(int m, ref APPBARDATA d);",
+                "[DllImport(" + Q + "user32.dll" + Q + ")] public static extern bool ShowWindow(int h, int c);",
+                "[StructLayout(LayoutKind.Sequential)] public struct APPBARDATA { public int cbSize; public int hWnd; public int uCallbackMessage; public int uEdge; public int rc_left; public int rc_top; public int rc_right; public int rc_bottom; public int lParam; }"
+              ].join(" ");
+              const ps = [
+                "Add-Type -MemberDefinition '" + sig + "' -Name Win32 -Namespace Taskbar -UsingNamespace System.Runtime.InteropServices",
+                "$h = [Taskbar.Win32]::FindWindow('Shell_TrayWnd', $null)",
+                "$d = New-Object Taskbar.Win32+APPBARDATA",
+                "$d.cbSize = [System.Runtime.InteropServices.Marshal]::SizeOf($d)",
+                "$d.hWnd = $h",
+                "$d.lParam = " + (show ? "0" : "1"), // ABS_AUTOHIDE = 1, normal = 0
+                "[Taskbar.Win32]::SHAppBarMessage(10, [ref]$d) | Out-Null", // ABM_SETSTATE = 10
+                "[Taskbar.Win32]::ShowWindow($h, " + (show ? "5" : "0") + ") | Out-Null" // cadangan: SW_SHOW=5, SW_HIDE=0
+              ].join("; ");
+              execFile("powershell.exe", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", ps], { timeout: 5000 }, () => {});
+            } catch (_) {}
+          }
+          function hideTaskbarOnce() { if (!taskbarHiddenByUs) { taskbarHiddenByUs = true; runTaskbarPs(false); } }
+          function restoreTaskbar() { if (taskbarHiddenByUs) { taskbarHiddenByUs = false; runTaskbarPs(true); } }
           // ---- Kill switch kata sandi (opsional, admin) ----
           // Mengetik kata sandi ini DI MANA SAJA di dalam aplikasi (jendela utama ATAU jendela popup video)
           // langsung menutup paksa semua jendela dan keluar dari aplikasi, melewati semua blokir "tidak bisa
@@ -298,6 +335,7 @@ jobs:
           function doKillSwitch() {
             quitting = true;
             try { globalShortcut.unregisterAll(); } catch (_) {}
+            restoreTaskbar();
             for (const w of BrowserWindow.getAllWindows()) { try { w.destroy(); } catch (_) {} }
             app.exit(0);
           }
@@ -537,6 +575,17 @@ jobs:
             });
             // selama video popup aktif, jendela utama tidak boleh di-minimize (lewat tombol taskbar/judul maupun shortcut) - fokus terkunci ke video
             win.on("minimize", ev => { if (popupActive > 0) { ev.preventDefault(); try { win.restore(); } catch (_) {} } });
+            // Sembunyikan/tampilkan taskbar mengikuti fokus & status jendela utama, supaya pengguna tetap bisa
+            // mengaksesnya begitu beralih ke aplikasi lain, me-minimize, atau menutup aplikasi ini - taskbar hanya
+            // disembunyikan saat jendela ini benar-benar aktif & terlihat di depan.
+            if (cfg.hideTaskbar) {
+              win.on("show", () => { if (!win.isMinimized()) hideTaskbarOnce(); });
+              win.on("focus", () => { if (win.isVisible() && !win.isMinimized()) hideTaskbarOnce(); });
+              win.on("restore", () => hideTaskbarOnce());
+              win.on("blur", restoreTaskbar);
+              win.on("minimize", restoreTaskbar);
+              win.on("hide", restoreTaskbar);
+            }
             if (cfg.url) {
               win.webContents.setWindowOpenHandler(({ url }) => { if (safe(url)) shell.openExternal(url); return { action: "deny" }; });
               win.webContents.on("will-navigate", (ev, u) => {
@@ -577,8 +626,13 @@ jobs:
             app.on("second-instance", () => { if (win) { if (!win.isVisible()) win.show(); if (win.isMinimized()) win.restore(); win.focus(); } });
             app.whenReady().then(create);
           }
-          app.on("before-quit", () => { quitting = true; try { globalShortcut.unregisterAll(); } catch (_) {} });
+          app.on("before-quit", () => { quitting = true; try { globalShortcut.unregisterAll(); } catch (_) {} restoreTaskbar(); });
           app.on("window-all-closed", () => app.quit());
+          // jaring pengaman terakhir: kalau proses keluar lewat jalur manapun (crash, kill, sinyal OS), taskbar
+          // tetap dipaksa kembali tampil, supaya tidak ada skenario di mana taskbar hilang permanen bagi pengguna
+          process.on("exit", restoreTaskbar);
+          process.on("SIGINT", () => { restoreTaskbar(); process.exit(0); });
+          process.on("SIGTERM", () => { restoreTaskbar(); process.exit(0); });
           `);
           JS
           # Jaring pengaman: pemeriksaan "aplikasi sedang berjalan" bawaan electron-builder dimatikan langsung di templatenya,
