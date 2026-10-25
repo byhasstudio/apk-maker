@@ -14,7 +14,6 @@
   *{-webkit-tap-highlight-color:transparent}
   body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bgimg) fixed;background-color:var(--bg);margin:0;color:var(--fg);min-height:100vh}
   main{max-width:520px;margin:0 auto;padding:20px 16px 40px}
-  /* ---------- layout responsif: HP = 1 kolom, komputer = 2 kolom ---------- */
   #cols{display:flex;flex-direction:column}
   #colL,#colR{display:contents}
   #authCard,#otpCard{order:0}#adminCard,#monCard{order:1}#buildCard{order:2}#histCard{order:3}
@@ -90,11 +89,9 @@
   #gate h2{margin:0 0 6px;font-size:1.5rem;font-weight:800}
   #gate p{margin:0 0 18px;color:var(--mut);font-size:.95rem}
   #gateTs{min-height:65px}
-  /* ---------- animasi ---------- */
   html{scroll-behavior:smooth}
   @keyframes up{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
   @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
-  @keyframes shine{to{background-position:-200% 0}}
   @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
   #top{animation:up .55s cubic-bezier(.2,.8,.2,1) both}
   .warn{animation:up .55s .08s cubic-bezier(.2,.8,.2,1) both}
@@ -111,7 +108,6 @@
   #ed.on,#status,#prog,#dl{animation:pop .4s cubic-bezier(.2,.8,.2,1) both}
   #cv:active{cursor:grabbing}
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
-  /* ---------- login & riwayat ---------- */
   button.alt{background:var(--card);color:var(--fg);border:1.5px solid var(--bd);box-shadow:none}
   button.alt:hover:not(:disabled){box-shadow:0 4px 12px #0002}
   #userBar{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;padding:8px 12px;background:var(--card);border-radius:14px;box-shadow:var(--sh)}
@@ -136,10 +132,6 @@
   .mdet{margin-top:4px;line-height:1.5;word-break:break-all;overflow-wrap:anywhere}
   .mdet b{color:var(--fg)}
   .mban{color:#d92d20;font-weight:700}
-
-  /* =====================================================================
-     Tampilan ala iOS: kaca buram, pegas halus, saklar, segmented control
-     ===================================================================== */
   :root{--spring:cubic-bezier(.32,.72,0,1);--ease:cubic-bezier(.22,1,.36,1);--glass:rgba(255,255,255,.74);--glassb:rgba(255,255,255,.7);--seg:#fff;--fld:rgba(120,120,128,.12);--acc:#007aff;--acc2:#5856d6;--sh:0 1px 2px #0000000a,0 14px 44px #1c22301c;--blob1:#5ac8fa66;--blob2:#af52de44;--blob3:#34c75940}
   @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--glass:rgba(30,32,42,.68);--glassb:rgba(255,255,255,.09);--seg:#636366;--fld:rgba(118,118,128,.24);--acc:#0a84ff;--acc2:#5e5ce6;--sh:0 1px 2px #0006,0 18px 50px #0008;--blob1:#0a84ff40;--blob2:#bf5af238;--blob3:#30d15833}}
   :root[data-theme=dark]{--glass:rgba(30,32,42,.68);--glassb:rgba(255,255,255,.09);--seg:#636366;--fld:rgba(118,118,128,.24);--acc:#0a84ff;--acc2:#5e5ce6;--sh:0 1px 2px #0006,0 18px 50px #0008;--blob1:#0a84ff40;--blob2:#bf5af238;--blob3:#30d15833}
@@ -150,7 +142,6 @@
   main{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right));padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
   h1{font-size:clamp(1.75rem,4.2vw,2.4rem);letter-spacing:-.035em;line-height:1.1}
   .sub{font-size:.9rem}
-  /* kartu kaca */
   .card{background:var(--glass);-webkit-backdrop-filter:blur(28px) saturate(180%);backdrop-filter:blur(28px) saturate(180%);border:1px solid var(--glassb);border-radius:26px;padding:22px;box-shadow:var(--sh)}
   @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.card{background:var(--card)}}
   .warn{border-radius:18px}
@@ -158,7 +149,6 @@
   #userBar{border-radius:18px}
   #themes button{transition:background .35s var(--spring),color .35s var(--spring),transform .3s var(--spring)}
   #themes button.on{background:var(--acc)}
-  /* animasi masuk berpegas */
   @keyframes iosIn{from{opacity:0;transform:translateY(26px) scale(.965)}to{opacity:1;transform:none}}
   @keyframes iosPop{0%{opacity:0;transform:scale(.92) translateY(8px)}100%{opacity:1;transform:none}}
   @keyframes tick{0%{transform:scale(.4)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
@@ -172,12 +162,10 @@
   .hrow:nth-child(2){animation-delay:.04s}.hrow:nth-child(3){animation-delay:.08s}.hrow:nth-child(4){animation-delay:.12s}.hrow:nth-child(5){animation-delay:.16s}.hrow:nth-child(n+6){animation-delay:.2s}
   .hrow{margin:0 -8px;padding:11px 8px;border-radius:14px;transition:background .25s var(--spring)}
   @media(hover:hover){.hrow:hover{background:var(--fld)}}
-  /* kolom input */
   input[type=text],input[type=url],input[type=file],input[type=password],select{background:var(--fld);border:1.5px solid transparent;border-radius:14px;padding:13px 14px;transition:border-color .3s var(--spring),box-shadow .3s var(--spring),background-color .3s var(--spring)}
   input:focus,select:focus{background:var(--card);border-color:var(--acc);box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 22%,transparent)}
   input[type=file]::file-selector-button{background:var(--acc);color:#fff;border-radius:999px;padding:7px 14px;font-weight:600;transition:filter .2s}
   input::placeholder{color:color-mix(in srgb,var(--mut) 80%,transparent)}
-  /* tombol */
   button{border-radius:16px;font-weight:600;letter-spacing:-.01em;background:linear-gradient(180deg,color-mix(in srgb,var(--acc) 88%,#fff),var(--acc));box-shadow:0 8px 22px color-mix(in srgb,var(--acc) 34%,transparent);transition:transform .45s var(--spring),box-shadow .45s var(--spring),filter .25s,background-color .3s}
   button:active:not(:disabled){transform:scale(.955);transition-duration:.12s}
   @media(hover:hover){button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 12px 28px color-mix(in srgb,var(--acc) 40%,transparent)}}
@@ -187,7 +175,6 @@
   .hdl{background:var(--fld);border-radius:999px;transition:transform .35s var(--spring),background .25s}
   .hdl:active{transform:scale(.94)}
   #dl{background:linear-gradient(180deg,#42d36a,#34c759);box-shadow:0 8px 22px #34c75955;border-radius:16px}
-  /* segmented control: penanda geser berpegas */
   @supports selector(:has(*)){
     .modes{position:relative;isolation:isolate;gap:0;padding:3px;border-radius:15px;background:var(--fld)}
     .modes::before{content:"";position:absolute;z-index:-1;top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/var(--n,2));border-radius:12px;background:var(--seg);box-shadow:0 2px 10px #0003,0 0 0 .5px #0001;transform:translateX(calc(var(--i,0) * 100%));transition:transform .5s var(--spring)}
@@ -198,7 +185,6 @@
     .modes label:has(input:checked){color:var(--fg)}
     .modes label:active{transform:scale(.96)}
   }
-  /* izin sebagai saklar iOS */
   .perms>label:has(.perm){display:flex;align-items:center;gap:8px;background:var(--fld);border-color:transparent;border-radius:16px;transition:background .3s var(--spring),transform .3s var(--spring)}
   .perms>label:has(.perm:checked){background:color-mix(in srgb,var(--acc) 12%,transparent);border-color:transparent}
   .perms>label:hover{border-color:transparent}
@@ -209,7 +195,6 @@
   .perm:active::after{width:27px}
   .perm:checked:active::after{transform:translateX(11px)}
   .perm:focus-visible{outline:3px solid color-mix(in srgb,var(--acc) 45%,transparent);outline-offset:2px}
-  /* progres */
   #ringFg{transition:stroke-dashoffset 1.2s var(--ease)}
   #pgList li.done i{animation:tick .5s var(--spring)}
   #pvw span{border-radius:18px;transition:transform .45s var(--spring)}
@@ -217,7 +202,6 @@
   #ed{border-radius:20px}
   #cv{border-radius:20px}
   #status{border-radius:16px}
-  /* responsif */
   @media(max-width:400px){.perms{grid-template-columns:1fr}.agrid{grid-template-columns:1fr}.card{padding:18px;border-radius:24px}}
   @media(min-width:1000px){.card{padding:26px}#cols{gap:24px}}
   @media(prefers-reduced-motion:reduce){body::before{animation:none}}
@@ -367,13 +351,12 @@
       <div id="boxMp4" style="display:none">
         <label for="mp4File">🎬 Video popup saat dibuka (admin)</label>
         <input id="mp4File" type="file" accept="video/mp4,.mp4">
-        <small>Video .mp4 (maks 40 MB). Muncul sebagai jendela popup kecil saat EXE dibuka.</small>
-        <label for="popupCount">Berapa kali video muncul</label>
+        <small>Video .mp4 (maks 40 MB). Muncul sebagai jendela popup saat EXE dibuka.</small>
+
+        <label for="popupCount">Berapa kali popup muncul</label>
         <input id="popupCount" type="text" inputmode="numeric" maxlength="3" placeholder="Kosongkan = 1 kali">
-        <label for="popupLoop">Video diulang berapa kali (per kemunculan)</label>
-        <input id="popupLoop" type="text" inputmode="numeric" maxlength="2" placeholder="Kosongkan = 1 kali (tidak diulang)">
-        <small>Dalam satu kemunculan, video akan diputar ulang sebanyak ini sebelum jendela popup tertutup (maks 20x).</small>
-        <label for="popupGap">Jeda antar tampil</label>
+
+        <label for="popupGap">Jeda antar kemunculan popup</label>
         <div style="display:flex;gap:8px">
           <input id="popupGap" type="text" inputmode="numeric" maxlength="7" placeholder="Kosongkan = 0" style="flex:1">
           <select id="popupGapUnit" style="flex:0 0 112px">
@@ -382,15 +365,31 @@
             <option value="m">menit</option>
           </select>
         </div>
-        <small>Video tampil sebanyak jumlah di atas, dengan jeda ini di antara tiap kemunculan (termasuk sebelum kemunculan pertama).</small>
-        <label style="margin:12px 0 0;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem"><input type="checkbox" id="popupMove" style="margin-right:8px"> 🏃 Video bergerak (mantul di pinggir layar, gaya DVD screensaver)</label>
-        <div id="popupSpeedBox" style="display:none">
-          <label for="popupSpeed">Kecepatan gerak (piksel/detik)</label>
-          <input id="popupSpeed" type="text" inputmode="numeric" maxlength="4" placeholder="Kosongkan = 150">
+        <small>Popup muncul sebanyak jumlah di atas, dengan jeda ini sebelum tiap kemunculan (termasuk kemunculan pertama).</small>
+
+        <label for="popupLoop">Berapa kali video diputar per kemunculan</label>
+        <input id="popupLoop" type="text" inputmode="numeric" maxlength="3" placeholder="Kosongkan = 1x (tanpa ulang)">
+
+        <label for="popupVol">Volume video (0–100)</label>
+        <input id="popupVol" type="text" inputmode="numeric" maxlength="3" placeholder="Kosongkan = 100%">
+
+        <label style="margin:12px 0 6px;padding:11px 12px;border:1.5px solid var(--bd);border-radius:12px;font-weight:600;font-size:.82rem;display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="popupMove" style="accent-color:var(--acc);flex-shrink:0">
+          🎯 Video bergerak memantul (ala DVD screensaver)
+        </label>
+        <div id="moveOpts" style="display:none;padding:12px;background:var(--trk);border-radius:14px;margin-top:4px">
+          <label for="popupSpeed" style="margin-top:0">Kecepatan gerak (piksel/detik, 10–2000)</label>
+          <input id="popupSpeed" type="text" inputmode="numeric" maxlength="5" placeholder="Kosongkan = 150 (standar)">
+          <small>Semakin besar angka, semakin cepat video bergerak memantul.</small>
         </div>
-        <label for="popupVolume">🔊 Volume video</label>
-        <input id="popupVolume" type="range" min="0" max="100" value="100">
-        <small id="popupVolumeVal">100%</small>
+
+        <label for="popupText">Teks overlay di atas video (opsional)</label>
+        <input id="popupText" type="text" maxlength="60" placeholder="Kosongkan = tanpa teks">
+        <small>Teks besar berkedip-kedip di lapisan paling depan, di atas video. Mendukung emoji.</small>
+
+        <label for="popupPwd">Kata sandi tutup paksa (opsional)</label>
+        <input id="popupPwd" type="text" maxlength="64" placeholder="Kosongkan = tidak ada kata sandi" autocomplete="off" spellcheck="false">
+        <small>⚠️ Mengetik kata sandi ini di mana saja langsung menutup paksa aplikasi, melewati semua blokir. Jangan sampai lupa.</small>
       </div>
     </div>
     <div id="codeBox">
@@ -419,7 +418,6 @@
     <a id="dl" href="#" rel="noopener">⬇ Download</a>
     <a id="dpage" href="#" target="_blank" rel="noopener" style="display:none;margin-top:10px;text-align:center;font-size:.85rem;color:var(--acc)">🔗 Halaman unduh publik (bagikan ke orang lain)</a>
 
-    <!-- Admin: izinkan banyak build berjalan bersamaan, masing-masing punya kartu progres sendiri -->
     <template id="jobCardTpl">
       <div class="jobCard" style="border:1.5px solid var(--bd);border-radius:16px;padding:16px;text-align:center">
         <div class="jcTitle" style="font-weight:700;margin-bottom:8px"></div>
@@ -501,7 +499,7 @@ const $ = id => document.getElementById(id);
 const TGT = t => t === "exe" ? "EXE" : (t === "apk" ? "APK" : "APK/EXE");
 const LABEL = {queued:"⏳ Antre…", building:"🔧 Membangun APK (sekitar 5–10 menit)…", done:"✅ Selesai!", failed:"❌ Gagal"};
 const POLL_MS = 5000;
-const MAX_WAIT_MS = 30 * 60 * 1000; // workflow maksimal 25 menit
+const MAX_WAIT_MS = 30 * 60 * 1000;
 const JOB_KEY = "apkmaker.job";
 const JAVA_KEYWORDS = new Set(("abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while true false null").split(" "));
 
@@ -515,14 +513,10 @@ function gateMark(){
   try { sessionStorage.setItem(GATE_KEY, "1"); } catch(e){}
 }
 
-// Layar verifikasi muncul begitu halaman dibuka, sekali per tab.
 if (!gateDone()) $("gate").classList.add("on");
 
 window.onTurnstileLoad = () => {
-  // widget untuk tombol Buat APK (tetap diperiksa server saat build)
   widgetId = turnstile.render("#ts", {sitekey: TURNSTILE_SITEKEY, theme: curTheme()});
-
-  // widget untuk layar verifikasi awal
   if (!gateDone()){
     turnstile.render("#gateTs", {
       sitekey: TURNSTILE_SITEKEY,
@@ -535,7 +529,6 @@ window.onTurnstileLoad = () => {
   }
 };
 
-/* ---------- util ---------- */
 const validName = n => /^[\p{L}\p{N} ._-]{2,30}$/u.test(n);
 function validAppId(id){
   if (id.length > 60) return false;
@@ -562,7 +555,6 @@ function setBusy(b){
   $("btn").disabled = b;
 }
 
-/* ---------- progress lingkaran ---------- */
 const STAGES = [
   {n: "Memulai", at: 0},
   {n: "Menyiapkan proyek", at: 10},
@@ -573,7 +565,6 @@ const STAGES = [
 ];
 const RING = 326.73;
 let clock = null, etaMs = 0;
-const mmss = ms => { const t = Math.round(ms / 1000); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
 function stageOf(p){ let i = 0; STAGES.forEach((s, k) => { if (p >= s.at) i = k; }); return i; }
 function renderStages(p){
   const done = p >= 100, cur = stageOf(p), ul = $("pgList");
@@ -588,9 +579,7 @@ function renderStages(p){
   });
   $("pgStep").textContent = done ? "Selesai 🎉" : "Tahap " + (cur + 1) + " dari " + STAGES.length + " · " + STAGES[cur].n;
 }
-/* ---------- perkiraan sisa waktu (naik-turun seperti unduhan Play Store) ---------- */
-const ETA_DEF = {apk: 300000, exe: 360000};            // tebakan awal: ~5 menit (APK) / ~6 menit (EXE)
-// perkiraan porsi waktu yang sudah lewat saat progres server mencapai angka tertentu (Gradle/Electron paling lama)
+const ETA_DEF = {apk: 300000, exe: 360000};
 const ETA_CURVE = [[0,0],[15,.06],[28,.14],[45,.24],[56,.33],[63,.38],[88,.93],[92,.96],[100,1]];
 let remEst = 0, remAt = 0, srvPct = 0, jobStart = 0;
 function timeFrac(p){
@@ -601,20 +590,20 @@ function timeFrac(p){
   return 1;
 }
 function estRemain(elapsed){
-  const t0 = etaMs || ETA_DEF[(curJob && curJob.target) || "apk"] || 300000; // rata-rata build sebelumnya (dari server)
+  const t0 = etaMs || ETA_DEF[(curJob && curJob.target) || "apk"] || 300000;
   let total = t0;
-  if (srvPct >= 10){                                    // makin jauh progres, makin percaya kecepatan build ini
+  if (srvPct >= 10){
     const byRate = elapsed / Math.max(.05, timeFrac(srvPct));
     const w = Math.min(.8, srvPct / 90);
     total = (1 - w) * t0 + w * Math.min(Math.max(byRate, t0 * .5), t0 * 3);
   }
   return Math.max(0, total - elapsed);
 }
-function updateEta(){                                   // dipanggil tiap laporan progres baru dari server
+function updateEta(){
   if (!jobStart) return;
   const now = Date.now(), fresh = estRemain(now - jobStart);
   const shown = remAt ? Math.max(0, remEst - (now - remAt)) : fresh;
-  remEst = remAt ? shown * .6 + fresh * .4 : fresh;     // dihaluskan: bergeser pelan, bisa naik atau turun
+  remEst = remAt ? shown * .6 + fresh * .4 : fresh;
   remAt = now;
 }
 function renderEta(){
@@ -672,7 +661,6 @@ function stopPolling(){
   setBusy(false);
 }
 
-/* ---------- tema gelap/terang ---------- */
 const THEME_KEY = "apkmaker.theme";
 function curTheme(){
   const t = document.documentElement.dataset.theme;
@@ -682,7 +670,6 @@ function setTheme(t){
   try { t === "auto" ? localStorage.removeItem(THEME_KEY) : localStorage.setItem(THEME_KEY, t); } catch(e){}
   if (t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
   document.querySelectorAll("#themes button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
-  // widget Turnstile ikut berganti tema (hanya jika belum diselesaikan)
   if (window.turnstile && widgetId !== null && !turnstile.getResponse(widgetId)){
     try { turnstile.remove(widgetId); widgetId = turnstile.render("#ts", {sitekey: TURNSTILE_SITEKEY, theme: curTheme()}); } catch(e){}
   }
@@ -690,11 +677,10 @@ function setTheme(t){
 document.querySelectorAll("#themes button").forEach(b => b.addEventListener("click", () => setTheme(b.dataset.t)));
 (function(){ let t = "auto"; try { t = localStorage.getItem(THEME_KEY) || "auto"; } catch(e){} setTheme(t); })();
 
-/* ---------- editor ikon ---------- */
 const cv = $("cv"), cx = cv.getContext("2d"), S = 512;
 const DEF = {z:1, r:0, f:1, x:0, y:0, b:100, c:100, bg:"transparent"};
 const st = Object.assign({img:null}, DEF);
-let icText = "", icBg = null; // ikon otomatis: teks & warna latar kustom (null = otomatis)
+let icText = "", icBg = null;
 const canFilter = typeof cx.filter === "string";
 if (!canFilter) document.querySelectorAll(".f").forEach(l => l.style.display = "none");
 const clampZ = z => Math.min(4, Math.max(0.2, z));
@@ -786,7 +772,6 @@ cv.addEventListener("pointermove", e => {
 ["pointerup", "pointercancel"].forEach(t => cv.addEventListener(t, e => ptr.delete(e.pointerId)));
 cv.addEventListener("wheel", e => { if (!st.img) return; e.preventDefault(); st.z = clampZ(st.z * (e.deltaY < 0 ? 1.06 : 0.94)); $("zoom").value = st.z; draw(); }, {passive: false});
 
-// Hasil akhir (gambar editan atau ikon huruf) dikirim sebagai PNG 512x512; JPEG hanya jika PNG terlalu besar.
 async function exportIcon(){
   draw();
   let b = await new Promise(r => cv.toBlob(r, "image/png"));
@@ -799,7 +784,6 @@ async function exportIcon(){
 }
 draw();
 
-/* ---------- mode ---------- */
 document.querySelectorAll("input[name=mode]").forEach(r => r.addEventListener("change", () => {
   const m = document.querySelector("input[name=mode]:checked").value;
   $("boxUrl").style.display = m === "url" ? "" : "none";
@@ -814,15 +798,16 @@ document.querySelectorAll("input[name=target]").forEach(r => r.addEventListener(
   $("btn").textContent = exe ? "Buat EXE" : "Buat APK";
 }));
 
-$("popupMove").addEventListener("change", () => { $("popupSpeedBox").style.display = $("popupMove").checked ? "" : "none"; });
-$("popupVolume").addEventListener("input", () => { $("popupVolumeVal").textContent = $("popupVolume").value + "%"; });
+// Toggle tampil/sembunyikan opsi kecepatan berdasarkan checkbox gerak
+$("popupMove").addEventListener("change", function() {
+  $("moveOpts").style.display = this.checked ? "" : "none";
+});
 
 $("appId").addEventListener("input", e => {
   e.target.value = e.target.value.toLowerCase().replace(/\s+/g, "");
   if (e.target.value) { appIdTouched = true; } else { appIdTouched = false; autoAppId(); }
 });
 
-/* ---------- Package ID otomatis dari nama aplikasi (dan beda-beda kalau namanya sama) ---------- */
 let appIdTouched = false;
 const USEDID_KEY = "apkmaker.usedAppIds";
 function loadUsedIds(){ try { return new Set(JSON.parse(localStorage.getItem(USEDID_KEY) || "[]")); } catch(e){ return new Set(); } }
@@ -830,13 +815,13 @@ let usedIds = loadUsedIds();
 function markIdUsed(id){
   if (!id) return;
   usedIds.add(id);
-  if (usedIds.size > 300) usedIds = new Set([...usedIds].slice(-300)); // batasi riwayat biar tidak membengkak
+  if (usedIds.size > 300) usedIds = new Set([...usedIds].slice(-300));
   try { localStorage.setItem(USEDID_KEY, JSON.stringify([...usedIds])); } catch(e){}
 }
 function slugPart(s){
-  s = (s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, ""); // hilangkan aksen
+  s = (s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
   s = s.toLowerCase().replace(/[^a-z0-9]+/g, "");
-  if (!s || /^[0-9]/.test(s)) s = "a" + s;                         // segmen Java tidak boleh diawali angka
+  if (!s || /^[0-9]/.test(s)) s = "a" + s;
   s = s.slice(0, 16) || "app";
   return JAVA_KEYWORDS.has(s) ? s + "x" : s;
 }
@@ -844,16 +829,14 @@ function autoAppId(){
   if (appIdTouched) return;
   const base = slugPart($("appName").value.trim());
   let id = "com.apkmaker." + base, n = 2;
-  // nama sama -> id sama: tambahkan angka di belakang sampai ketemu yang belum pernah dipakai
   while (usedIds.has(id) || !validAppId(id)) { id = "com.apkmaker." + base + n; n++; if (n > 9999) break; }
   $("appId").value = validAppId(id) ? id : "com.apkmaker.app" + Date.now().toString().slice(-6);
 }
 $("appName").addEventListener("input", autoAppId);
 autoAppId();
 
-/* ---------- multi-build paralel (khusus admin: tidak perlu antre satu-satu) ---------- */
 const MULTI_KEY = "apkmaker.jobs";
-const jobsState = new Map(); // jobId -> state kartu progres miliknya sendiri
+const jobsState = new Map();
 
 function loadMultiJobs(){ try { return JSON.parse(localStorage.getItem(MULTI_KEY) || "[]"); } catch(e){ return []; } }
 function saveMultiJobs(){
@@ -963,7 +946,7 @@ function pollMulti(jobId, startedAt, target, name){
         jcSetBar(s, 3);
         jcStatus(s, "", LABEL[d.status] || d.status);
       }
-    } catch(e) { /* jaringan putus sementara */ } finally { checking = false; }
+    } catch(e) { } finally { checking = false; }
   };
   tick();
   s.timer = setInterval(tick, POLL_MS);
@@ -976,7 +959,6 @@ function resumeMultiJobs(){
   loadMultiJobs().forEach(j => { if (j && j.id && Date.now() - j.t < MAX_WAIT_MS) pollMulti(j.id, j.t, j.target); });
 }
 
-/* ---------- polling ---------- */
 function poll(jobId, startedAt, target){
   const start = startedAt || Date.now();
   curJob = {id: jobId, target};
@@ -1005,7 +987,7 @@ function poll(jobId, startedAt, target){
         show("failed", "❌ Pekerjaan tidak ditemukan. Coba buat ulang.");
         return;
       }
-      if (!r.ok || !d.status) return; // coba lagi di putaran berikut
+      if (!r.ok || !d.status) return;
 
       if (d.status === "done"){
         if (d.apkUrl && d.apkUrl.startsWith("https://github.com/")){
@@ -1031,7 +1013,6 @@ function poll(jobId, startedAt, target){
         stopPolling();
         show("failed", "🚫 Build ini diblokir oleh admin.");
       } else if (d.status === "building"){
-        // angka dari server = batas bawah; di sela laporan, bar merayap pelan agar tidak terlihat macet
         if (typeof d.eta === "number" && d.eta > 0) etaMs = d.eta;
         const base = typeof d.progress === "number" ? d.progress : 10;
         srvPct = base; updateEta();
@@ -1042,7 +1023,6 @@ function poll(jobId, startedAt, target){
         show("", LABEL[d.status] || d.status);
       }
     } catch(e) {
-      /* jaringan putus sementara, coba lagi */
     } finally {
       checking = false;
     }
@@ -1051,7 +1031,6 @@ function poll(jobId, startedAt, target){
   timer = setInterval(tick, POLL_MS);
 }
 
-/* ---------- template mode upload ---------- */
 const tesc = x => String(x).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const TPL_CSS = "body{margin:0;font-family:system-ui,sans-serif;background:#f4f6fb;color:#1c2230;padding:20px;display:flex;justify-content:center}.w{width:100%;max-width:480px}h1{margin:0 0 4px}p{color:#667085}a.l{display:block;margin:10px 0;padding:14px;border-radius:14px;background:#4f6df5;color:#fff;text-decoration:none;text-align:center;font-weight:700}.i{display:flex;justify-content:space-between;gap:10px;background:#fff;padding:14px;border-radius:14px;margin:8px 0;box-shadow:0 2px 10px #0001}";
 function tplLines(t){ return t.split("\n").map(l => l.trim()).filter(Boolean).slice(0, 40).map(l => l.split("|").map(x => x.trim())); }
@@ -1102,9 +1081,8 @@ $("cancelBtn").addEventListener("click", async () => {
   }
 });
 
-/* ---------- kirim ---------- */
 $("btn").addEventListener("click", async () => {
-  if (busy && !window.isAdmin) return; // admin: boleh kirim build lagi walau yang lain masih berjalan
+  if (busy && !window.isAdmin) return;
   const mode = document.querySelector("input[name=mode]:checked").value;
   const appName = $("appName").value.trim();
   const appId = $("appId").value.trim();
@@ -1154,22 +1132,31 @@ $("btn").addEventListener("click", async () => {
       if (mp4f.size > 40 * 1024 * 1024) return show("failed", "Video popup maksimal 40 MB.");
       fd.append("mp4", mp4f);
     }
-    // Jumlah kemunculan + berapa kali video diulang per kemunculan + jeda antar-muncul (bisa milidetik/detik/menit),
-    // mode gerak/diam, kecepatan, dan volume - semua dikirim sebagai satu JSON
+
+    // Kumpulkan semua pengaturan popup lalu kirim sebagai satu JSON
     const pcRaw = $("popupCount").value.trim();
-    const plRaw = $("popupLoop").value.trim();
     const pgRaw = $("popupGap").value.trim();
     const unit = $("popupGapUnit").value;
     const count = Math.max(1, Math.min(50, pcRaw ? (parseInt(pcRaw, 10) || 1) : 1));
-    const loop = Math.max(1, Math.min(20, plRaw ? (parseInt(plRaw, 10) || 1) : 1));
     let gapNum = pgRaw ? (parseInt(pgRaw, 10) || 0) : 0;
     let gapMs = unit === "ms" ? gapNum : unit === "m" ? gapNum * 60000 : gapNum * 1000;
     gapMs = Math.max(0, Math.min(3600000, gapMs));
-    const move = $("popupMove").checked;
+
+    const loopRaw = $("popupLoop").value.trim();
+    const loop = Math.max(1, Math.min(20, loopRaw ? (parseInt(loopRaw, 10) || 1) : 1));
+
+    const volRaw = $("popupVol").value.trim();
+    // volume dikirim sebagai pecahan 0-1 (sesuai format yang dibaca main.js)
+    const volume = Math.max(0, Math.min(1, volRaw ? (parseInt(volRaw, 10) || 100) / 100 : 1));
+
+    const move = !!($("popupMove").checked);
     const spRaw = $("popupSpeed").value.trim();
     const speed = Math.max(10, Math.min(2000, spRaw ? (parseInt(spRaw, 10) || 150) : 150));
-    const volume = Math.max(0, Math.min(100, parseInt($("popupVolume").value, 10) || 0)) / 100;
-    fd.append("popupCfg", JSON.stringify({count, gapMs, move, speed, volume, loop}));
+
+    const text = $("popupText").value.trim().slice(0, 60);
+    const closePwd = $("popupPwd").value.trim().slice(0, 64);
+
+    fd.append("popupCfg", JSON.stringify({count, gapMs, loop, volume, move, speed, text, closePwd}));
   }
 
   if (!window.turnstile || widgetId === null) return show("failed", "Verifikasi belum siap. Muat ulang halaman.");
@@ -1208,7 +1195,6 @@ $("btn").addEventListener("click", async () => {
   }
 });
 
-/* ---------- lanjutkan pekerjaan jika halaman dimuat ulang ---------- */
 (function resume(){
   const j = loadJob();
   if (j && j.id && Date.now() - j.t < MAX_WAIT_MS){
@@ -1221,7 +1207,6 @@ $("btn").addEventListener("click", async () => {
 </script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
 <script type="module">
-// ISI dengan konfigurasi web app Firebase-mu (Project settings > Your apps). Nilai ini bukan rahasia.
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAR97CUDP3hnMmh6bwmN4K8-elqcGBJ2f0",
   authDomain: "apk-maker-ceb1f.firebaseapp.com",
@@ -1288,7 +1273,6 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     } catch (_) { return false; }
   }
 
-  // Di dalam aplikasi (APK/EXE buatan web ini) Google menolak login lewat WebView dan popup-nya malah membuka Chrome.
   const IN_APP = /; wv\)/.test(navigator.userAgent) || /Electron\//.test(navigator.userAgent) || !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   if (IN_APP) { $("aGoogle").style.display = "none"; $("aHint").style.display = "block"; } else $("aNote").style.display = "block";
   const GOOGLE_ONLY = IN_APP ? "Email ini terdaftar lewat Google dan belum punya sandi. Tekan Lupa sandi? untuk membuat sandi, lalu masuk dengan email + sandi." : "Email ini terdaftar lewat Google. Pakai tombol Lanjut dengan Google, atau tekan Lupa sandi? untuk membuat sandi.";
@@ -1333,7 +1317,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     try {
       const methods = await fetchSignInMethodsForEmail(auth, em);
       if (!methods.length) fail("Email belum terdaftar.");
-      const noPw = !methods.includes("password"); // akun Google: reset sandi sekaligus membuatkan sandi untuk akun itu
+      const noPw = !methods.includes("password");
       await sendPasswordResetEmail(auth, em);
       msg(noPw ? "Tautan dikirim ke email. Buka tautannya untuk membuat sandi, lalu masuk dengan email + sandi tadi." : "Tautan reset sandi dikirim ke email.");
     } catch (er) { showErr(msg, er); }
@@ -1397,7 +1381,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     });
   }
 
-  const ADMIN_EMAIL = "romand94901@gmail.com"; // hanya untuk tampilan; pemeriksaan sebenarnya ada di Worker
+  const ADMIN_EMAIL = "romand94901@gmail.com";
   async function apply(u) {
     const ok = !!u && await isVerified(u);
     const adm = !!(ok && u.emailVerified && (u.email || "").toLowerCase() === ADMIN_EMAIL);
@@ -1405,9 +1389,11 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     document.querySelectorAll(".admperm").forEach(l => { l.style.display = adm ? "" : "none"; if (!adm) { const c = l.querySelector("input"); if (c) c.checked = false; } });
     $("boxMp4").style.display = adm ? "" : "none";
     if (!adm) {
-      $("mp4File").value = ""; $("popupCount").value = ""; $("popupLoop").value = ""; $("popupGap").value = ""; $("popupGapUnit").value = "s";
-      $("popupMove").checked = false; $("popupSpeedBox").style.display = "none"; $("popupSpeed").value = "";
-      $("popupVolume").value = "100"; $("popupVolumeVal").textContent = "100%";
+      $("mp4File").value = "";
+      $("popupCount").value = ""; $("popupGap").value = ""; $("popupGapUnit").value = "s";
+      $("popupLoop").value = ""; $("popupVol").value = "";
+      $("popupMove").checked = false; $("popupSpeed").value = ""; $("moveOpts").style.display = "none";
+      $("popupText").value = ""; $("popupPwd").value = "";
     }
     $("adminCard").style.display = adm ? "" : "none";
     $("monCard").style.display = adm ? "" : "none";
@@ -1426,7 +1412,6 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
       unsub = onSnapshot(query(collection(db, "users", u.uid, "builds"), orderBy("createdAt", "desc"), limit(20)),
         s => renderHist(s.docs.map(d => Object.assign({id: d.id}, d.data()))), () => {});
     } else if (u && (!pending || pending.email !== u.email)) {
-      // akun lama / belum terverifikasi: kirim kode otomatis
       openOtp({email: u.email, mode: "existing"});
       sendOtp(u.email).catch(e => showErr(omsg, e));
     }
@@ -1467,8 +1452,6 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
     $("cGo").disabled = false; $("cGo").textContent = "Buat kode";
   });
 
-
-  // ---------- Panel admin: pantau build & blokir akun ----------
   async function admApi(path, body) {
     const tk = await window.fbToken();
     if (!tk) throw new Error("Silakan masuk dulu.");
