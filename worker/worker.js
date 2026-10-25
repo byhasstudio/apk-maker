@@ -509,6 +509,9 @@ async function handleBuild(request, env) {
       const move = pc.move === true;
       // piksel per detik, sama seperti label di UI ("Kecepatan gerak (piksel/detik)")
       const speed = Math.max(10, Math.min(2000, Math.floor(Number(pc.speed)) || 150));
+      // ukuran jendela video yang bergerak memantul (piksel), sama seperti yang dikirim UI "popupW"/"popupH"
+      const popupW = Math.max(100, Math.min(1600, Math.floor(Number(pc.popupW)) || 480));
+      const popupH = Math.max(100, Math.min(1600, Math.floor(Number(pc.popupH)) || 360));
       // pecahan 0-1 (bukan 0-100), sama seperti yang dikirim UI
       let volume = Number(pc.volume);
       if (!Number.isFinite(volume)) volume = 1;
@@ -519,7 +522,7 @@ async function handleBuild(request, env) {
       const text = String(pc.text || "").slice(0, 60);
       // kata sandi kustom untuk menutup paksa semua jendela popup + keluar aplikasi (diketik di mana saja di aplikasi)
       const closePwd = String(pc.closePwd || "").slice(0, 64);
-      popupCfgStr = JSON.stringify({ count, gapMs, move, speed, volume, loop, text, closePwd });
+      popupCfgStr = JSON.stringify({ count, gapMs, move, speed, popupW, popupH, volume, loop, text, closePwd });
     }
   }
 

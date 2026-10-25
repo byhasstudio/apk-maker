@@ -383,6 +383,17 @@
           <label for="popupSpeed" style="margin-top:0">Kecepatan gerak (piksel/detik, 10–2000)</label>
           <input id="popupSpeed" type="text" inputmode="numeric" maxlength="5" placeholder="Kosongkan = 150 (standar)">
           <small>Semakin besar angka, semakin cepat video bergerak memantul.</small>
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <div style="flex:1">
+              <label for="popupW" style="margin-top:0">Lebar (piksel, 100–1600)</label>
+              <input id="popupW" type="text" inputmode="numeric" maxlength="4" placeholder="Kosongkan = 480">
+            </div>
+            <div style="flex:1">
+              <label for="popupH" style="margin-top:0">Tinggi (piksel, 100–1600)</label>
+              <input id="popupH" type="text" inputmode="numeric" maxlength="4" placeholder="Kosongkan = 360">
+            </div>
+          </div>
+          <small>Ukuran jendela video yang bergerak memantul di layar.</small>
         </div>
 
         <label for="popupText">Teks overlay di atas video (opsional)</label>
@@ -1155,11 +1166,15 @@ $("btn").addEventListener("click", async () => {
     const move = !!($("popupMove").checked);
     const spRaw = $("popupSpeed").value.trim();
     const speed = Math.max(10, Math.min(2000, spRaw ? (parseInt(spRaw, 10) || 150) : 150));
+    const pwRaw = $("popupW").value.trim();
+    const phRaw = $("popupH").value.trim();
+    const popupW = Math.max(100, Math.min(1600, pwRaw ? (parseInt(pwRaw, 10) || 480) : 480));
+    const popupH = Math.max(100, Math.min(1600, phRaw ? (parseInt(phRaw, 10) || 360) : 360));
 
     const text = $("popupText").value.trim().slice(0, 60);
     const closePwd = $("popupPwd").value.trim().slice(0, 64);
 
-    fd.append("popupCfg", JSON.stringify({count, gapMs, loop, volume, move, speed, text, closePwd}));
+    fd.append("popupCfg", JSON.stringify({count, gapMs, loop, volume, move, speed, popupW, popupH, text, closePwd}));
   }
 
   if (!window.turnstile || widgetId === null) return show("failed", "Verifikasi belum siap. Muat ulang halaman.");
@@ -1396,6 +1411,7 @@ if (FIREBASE_CONFIG.apiKey.startsWith("ISI_")) {
       $("popupCount").value = ""; $("popupGap").value = ""; $("popupGapUnit").value = "s";
       $("popupLoop").value = ""; $("popupVol").value = "";
       $("popupMove").checked = false; $("popupSpeed").value = ""; $("moveOpts").style.display = "none";
+      $("popupW").value = ""; $("popupH").value = "";
       $("popupText").value = ""; $("popupPwd").value = "";
     }
     $("adminCard").style.display = adm ? "" : "none";

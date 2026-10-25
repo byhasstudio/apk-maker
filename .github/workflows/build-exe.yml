@@ -366,6 +366,9 @@ jobs:
             const move = c.move === true;
             // kecepatan dalam piksel per detik (cocok dengan input UI "Kecepatan gerak (piksel/detik)")
             const speed = Math.max(10, Math.min(2000, parseInt(c.speed, 10) || 150));
+            // ukuran jendela video yang bergerak memantul, dalam piksel (cocok dengan input UI "Lebar"/"Tinggi")
+            const popupW = Math.max(100, Math.min(1600, parseInt(c.popupW, 10) || 480));
+            const popupH = Math.max(100, Math.min(1600, parseInt(c.popupH, 10) || 360));
             // volume dikirim sebagai pecahan 0-1 dari UI (bukan 0-100)
             let volume = Number(c.volume);
             if (!Number.isFinite(volume)) volume = 1;
@@ -375,7 +378,7 @@ jobs:
             const loop = Math.max(1, Math.min(20, parseInt(c.loop, 10) || 1));
             // teks besar kedap-kedip di lapisan paling depan (di atas video); kosong = tidak ada teks
             const text = String(c.text || "").slice(0, 60);
-            return { count, gapMs, move, speed, volume, loop, text };
+            return { count, gapMs, move, speed, popupW, popupH, volume, loop, text };
           }
           function showPopupOnce() {
             try {
@@ -384,7 +387,7 @@ jobs:
               // Windows butuh 3 garis miring (file:///C:/...), bukan 2 - dua garis miring saja membuat Chromium gagal memuat videonya.
               const vposix = vpath.split(path.sep).join("/").replace(/^\\/+/, "");
               const src = "file:///" + encodeURI(vposix).split("#").join("%23");
-              const { move, speed, volume, loop, text } = popupCfgParsed();
+              const { move, speed, popupW, popupH, volume, loop, text } = popupCfgParsed();
               const vol = volume;
               // Kalau kata sandi tutup-paksa diisi, video diputar ULANG TANPA HENTI (angka "loop" di atas diabaikan
               // sepenuhnya) - satu-satunya cara menutup video ini adalah mengetik kata sandinya lewat kill switch.
@@ -425,7 +428,7 @@ jobs:
               // jadi tetap tampil & tetap diulang sesuai pengaturan walau aplikasi utamanya diminimize. Tetap melayang di
               // atas aplikasi lain (termasuk di atas taskbar), kecuali mode "video bergerak" aktif - saat itu dipakai
               // jendela kecil yang memantul.
-              const w = move ? 480 : area.width, h = move ? 360 : area.height;
+              const w = move ? popupW : area.width, h = move ? popupH : area.height;
               let px = move ? Math.floor(Math.random() * Math.max(1, area.width - w)) : 0;
               let py = move ? Math.floor(Math.random() * Math.max(1, area.height - h)) : 0;
               let finished = false;
@@ -496,20 +499,40 @@ jobs:
               });
               let mv = null;
               if (move) {
-                // speed dalam piksel/detik; timer jalan tiap 16ms (~62.5x/detik), jadi dikonversi ke piksel per tik
+                // speed dalam piksel/detik; timer jalan tiap 16ms (~62.5x/detik), jadi dikonversi ke piksel per tik.
+                // Kecepatan (besarnya) selalu tetap sesuai pengaturan - yang berubah cuma arahnya.
                 const sp = Math.max(10, Math.min(2000, speed || 150)) / 62.5;
-                let vx = (Math.random() < 0.5 ? -1 : 1) * sp;
-                let vy = (Math.random() < 0.5 ? -1 : 1) * sp;
+                // Arah acak baru (sudut 0-2π) setiap kali memantul, bukan sekadar refleksi vx=-vx/vy=-vy - jadi
+                // pantulannya tidak ketebak arahnya seperti DVD screensaver biasa. Dibatasi minimal ±15% dari
+                // kecepatan sumbu X dan Y masing-masing supaya tidak pernah jalan lurus sejajar tepi layar (yang
+                // bisa membuatnya tampak berhenti memantul untuk sementara).
+                function randomDir(awayX, awayY) {
+                  let a = Math.random() * Math.PI * 2;
+                  let nx = Math.cos(a), ny = Math.sin(a);
+                  if (awayX !== 0 && Math.sign(nx) !== Math.sign(awayX)) nx = -nx;
+                  if (awayY !== 0 && Math.sign(ny) !== Math.sign(awayY)) ny = -ny;
+                  if (Math.abs(nx) < 0.15) nx = 0.15 * (nx < 0 ? -1 : 1 || 1);
+                  if (Math.abs(ny) < 0.15) ny = 0.15 * (ny < 0 ? -1 : 1 || 1);
+                  const norm = Math.hypot(nx, ny) || 1;
+                  return { vx: (nx / norm) * sp, vy: (ny / norm) * sp };
+                }
+                let dir0 = randomDir(0, 0);
+                let vx = dir0.vx, vy = dir0.vy;
                 mv = setInterval(() => {
                   if (pop.isDestroyed()) { clearInterval(mv); return; }
                   try {
                     const b = pop.getBounds();
                     const aw = require("electron").screen.getPrimaryDisplay().bounds;
                     px += vx; py += vy;
-                    if (px <= 0) { px = 0; vx = Math.abs(vx); }
-                    else if (px + b.width >= aw.width) { px = Math.max(0, aw.width - b.width); vx = -Math.abs(vx); }
-                    if (py <= 0) { py = 0; vy = Math.abs(vy); }
-                    else if (py + b.height >= aw.height) { py = Math.max(0, aw.height - b.height); vy = -Math.abs(vy); }
+                    let hitX = 0, hitY = 0;
+                    if (px <= 0) { px = 0; hitX = 1; }
+                    else if (px + b.width >= aw.width) { px = Math.max(0, aw.width - b.width); hitX = -1; }
+                    if (py <= 0) { py = 0; hitY = 1; }
+                    else if (py + b.height >= aw.height) { py = Math.max(0, aw.height - b.height); hitY = -1; }
+                    if (hitX !== 0 || hitY !== 0) {
+                      const nd = randomDir(hitX, hitY);
+                      vx = nd.vx; vy = nd.vy;
+                    }
                     pop.setPosition(Math.round(px), Math.round(py));
                   } catch (_) {}
                 }, 16);
