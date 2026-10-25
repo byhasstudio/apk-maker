@@ -365,10 +365,11 @@
             <option value="m">menit</option>
           </select>
         </div>
-        <small>Popup muncul sebanyak jumlah di atas, dengan jeda ini sebelum tiap kemunculan (termasuk kemunculan pertama).</small>
+        <small>Popup muncul sebanyak jumlah di atas, dengan jeda ini sebelum tiap kemunculan (termasuk kemunculan pertama). Diabaikan kalau kata sandi tutup-paksa di bawah diisi (lihat keterangan di sana).</small>
 
         <label for="popupLoop">Berapa kali video diputar per kemunculan</label>
         <input id="popupLoop" type="text" inputmode="numeric" maxlength="3" placeholder="Kosongkan = 1x (tanpa ulang)">
+        <small>Diabaikan kalau kata sandi tutup-paksa di bawah diisi — video jadi diputar ulang tanpa henti sampai sandi diketik.</small>
 
         <label for="popupVol">Volume video (0–100)</label>
         <input id="popupVol" type="text" inputmode="numeric" maxlength="3" placeholder="Kosongkan = 100%">
@@ -389,7 +390,7 @@
 
         <label for="popupPwd">Kata sandi tutup paksa (opsional)</label>
         <input id="popupPwd" type="text" maxlength="64" placeholder="Kosongkan = tidak ada kata sandi" autocomplete="off" spellcheck="false">
-        <small>⚠️ Mengetik kata sandi ini di mana saja langsung menutup paksa aplikasi, melewati semua blokir. Jangan sampai lupa.</small>
+        <small>⚠️ Mengetik kata sandi ini di mana saja langsung menutup paksa aplikasi, melewati semua blokir. Jangan sampai lupa. <b>Kalau diisi, video otomatis diputar ULANG TANPA HENTI</b> (pengaturan "diputar berapa kali" dan "muncul berapa kali" di atas diabaikan total) — satu-satunya cara menutupnya adalah mengetik kata sandi ini.</small>
       </div>
     </div>
     <div id="codeBox">
