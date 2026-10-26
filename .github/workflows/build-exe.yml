@@ -526,13 +526,17 @@ jobs:
                 const k = (input.key || "").toLowerCase();
                 if ((input.alt && k === "f4") || ((input.control || input.meta) && (k === "w" || k === "q" || k === "r" || k === "i" || k === "j" || k === "c")) || k === "f11" || k === "f12" || k === "f5" || k === "escape" || k === "tab" || k === "alt" || input.alt) ev.preventDefault();
               });
-              // jaga-jaga: begitu jendela kehilangan fokus (mis. Alt+Tab sempat tembus di level OS), langsung direbut lagi
-              pop.on("blur", () => { if (!finished) { try { pop.focus(); pop.moveTop(); } catch (_) {} } });
+              // jaga-jaga: begitu jendela kehilangan fokus (mis. Alt+Tab sempat tembus di level OS), langsung direbut lagi -
+              // KECUALI kalau kotak kecil kata sandi sedang difokus (pengguna sedang mengetik di situ): biarkan dia tetap
+              // fokus supaya ketikan tidak terpotong-potong / "didistrak" berebut fokus sama videonya.
+              pop.on("blur", () => { if (!finished && !(killBoxWin && !killBoxWin.isDestroyed() && killBoxWin.isFocused())) { try { pop.focus(); pop.moveTop(); } catch (_) {} } });
               // kalau sampai kalah topmost (mis. app lain memaksa diri ke atas) atau kehilangan fokus, paksa kembali ke
-              // depan tiap 2 detik selama video masih berjalan - supaya tidak gampang "disembunyikan" di belakang jendela lain
+              // depan tiap 2 detik selama video masih berjalan - supaya tidak gampang "disembunyikan" di belakang jendela lain.
+              // Tapi kalau kotak kata sandi sedang difokus (pengguna sedang mengetik), lewati dulu supaya ketikan tidak direbut.
               const keepTop = setInterval(() => {
                 if (pop.isDestroyed()) { clearInterval(keepTop); return; }
                 if (finished) { clearInterval(keepTop); return; }
+                if (killBoxWin && !killBoxWin.isDestroyed() && killBoxWin.isFocused()) return;
                 try { pop.setAlwaysOnTop(true, "screen-saver"); pop.moveTop(); if (!pop.isFocused()) pop.focus(); } catch (_) {}
               }, 2000);
               pop.on("closed", () => {
