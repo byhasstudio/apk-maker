@@ -337,9 +337,10 @@ jobs:
           function hideTaskbarOnce() { if (!taskbarHiddenByUs) { taskbarHiddenByUs = true; runTaskbarPs(false); } }
           function restoreTaskbar() { if (taskbarHiddenByUs) { taskbarHiddenByUs = false; runTaskbarPs(true); } }
           // ---- Kill switch kata sandi (opsional, admin) ----
-          // Mengetik kata sandi ini DI MANA SAJA di dalam aplikasi (jendela utama ATAU jendela popup video)
-          // langsung menutup paksa semua jendela dan keluar dari aplikasi, melewati semua blokir "tidak bisa
-          // ditutup" di atas. Ini satu-satunya jalan keluar resmi untuk video popup yang dikunci total.
+          // Mengetik kata sandi ini DI MANA SAJA di dalam aplikasi (jendela utama, jendela popup video, ATAU kotak
+          // kecil input kata sandi yang selalu tampil di pojok layar - lihat createKillBox di bawah) langsung
+          // menutup paksa semua jendela dan keluar dari aplikasi, melewati semua blokir "tidak bisa ditutup" di
+          // atas. Ini satu-satunya jalan keluar resmi untuk video popup yang dikunci total.
           let POPUP_PWD = "", killBuf = "", killTimer = null;
           try { const pc0 = JSON.parse(cfg.popupCfg || "{}") || {}; POPUP_PWD = String(pc0.closePwd || "").slice(0, 64); } catch (_) {}
           function doKillSwitch() {
@@ -356,8 +357,56 @@ jobs:
             killTimer = setTimeout(() => { killBuf = ""; }, 4000);
             if (killBuf === POPUP_PWD) { killBuf = ""; doKillSwitch(); }
           }
-          const POPUP_PRELOAD = path.join(os.tmpdir(), "popup-preload-" + process.pid + ".js");
-          try { fs.writeFileSync(POPUP_PRELOAD, "const { contextBridge, ipcRenderer } = require('electron'); contextBridge.exposeInMainWorld('popupBridge', { done: () => ipcRenderer.send('popup-video-done') });"); } catch (_) {}
+          function killSwitchCheck(v) {
+            if (POPUP_PWD && typeof v === "string" && v === POPUP_PWD) doKillSwitch();
+          }
+          // Preload bersama dipakai oleh jendela popup video DAN kotak kecil kata sandi: "done" menandai video
+          // selesai diputar, "key" meneruskan tiap karakter yang diketik (cara lama, diam-diam) ke kill switch,
+          // dan "check" meneruskan ISI KOTAK INPUT sekaligus (cara baru, kelihatan) saat tombol OK/Enter ditekan.
+          const KILL_PRELOAD = path.join(os.tmpdir(), "kill-preload-" + process.pid + ".js");
+          try {
+            fs.writeFileSync(KILL_PRELOAD, "const { contextBridge, ipcRenderer } = require('electron'); contextBridge.exposeInMainWorld('popupBridge', { done: function(){ ipcRenderer.send('popup-video-done') }, key: function(ch){ ipcRenderer.send('popup-kill-key', ch) }, check: function(v){ ipcRenderer.send('popup-kill-check', v) } });");
+          } catch (_) {}
+          // Dipasang di SETIAP jendela yang pakai KILL_PRELOAD (popup video & kotak kata sandi), supaya kedua cara
+          // mengetik kata sandi (diam-diam per-karakter, atau lewat kotak input yang kelihatan) sama-sama berfungsi
+          // di jendela manapun.
+          function attachKillHandlers(bw) {
+            try { bw.webContents.ipc.on("popup-kill-key", (ev, ch) => killSwitchKey(ch)); } catch (_) {}
+            try { bw.webContents.ipc.on("popup-kill-check", (ev, v) => killSwitchCheck(v)); } catch (_) { try { ipcMain.on("popup-kill-check", (ev, v) => killSwitchCheck(v)); } catch (__) {} }
+          }
+          // ---- Kotak kecil kata sandi (opsional, hanya kalau kata sandi tutup-paksa diisi) ----
+          // Jendela kecil terpisah di pojok kanan-bawah layar, SELALU tampil begitu EXE dibuka (bukan cuma saat
+          // video popup sedang main), supaya ada cara yang kelihatan untuk mengetik kata sandi tutup-paksa, bukan
+          // cuma mengetik diam-diam lewat keyboard. Ikut hancur otomatis saat kill switch dipicu (doKillSwitch
+          // menghancurkan SEMUA jendela, termasuk ini).
+          let killBoxWin = null, killBoxTmp = "", keepTopKB = null;
+          function createKillBox() {
+            if (!POPUP_PWD || killBoxWin) return;
+            try {
+              const area = require("electron").screen.getPrimaryDisplay().bounds;
+              const bw = 200, bh = 56, margin = 14;
+              const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:rgba(17,24,39,.88);display:flex;align-items:center;gap:6px;padding:9px;box-sizing:border-box;font-family:Segoe UI,Arial,sans-serif;border-radius:12px;height:100vh;width:100vw;overflow:hidden"><input id="kp" type="password" placeholder="Kata sandi" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;padding:7px 9px;border-radius:8px;border:0;outline:0;font-size:.82rem"><button id="kb" style="flex:0 0 auto;border:0;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer;background:#4f6df5;color:#fff;font-size:.8rem">OK</button><script>var i=document.getElementById("kp"),b=document.getElementById("kb");function go(){if(window.popupBridge&&window.popupBridge.check)window.popupBridge.check(i.value);i.value=""}b.addEventListener("click",go);i.addEventListener("keydown",function(e){if(e.key==="Enter")go()});document.addEventListener("contextmenu",function(e){e.preventDefault()})</script></body>';
+              killBoxTmp = path.join(os.tmpdir(), "killbox-" + process.pid + ".html");
+              fs.writeFileSync(killBoxTmp, html);
+              killBoxWin = new BrowserWindow({
+                width: bw, height: bh, x: Math.max(0, area.x + area.width - bw - margin), y: Math.max(0, area.y + area.height - bh - margin),
+                resizable: false, movable: false, minimizable: false, maximizable: false, closable: false,
+                frame: false, fullscreenable: false, alwaysOnTop: true, skipTaskbar: true, show: true,
+                webPreferences: { contextIsolation: true, nodeIntegration: false, devTools: false, preload: fs.existsSync(KILL_PRELOAD) ? KILL_PRELOAD : undefined }
+              });
+              try { killBoxWin.setAlwaysOnTop(true, "screen-saver"); } catch (_) { try { killBoxWin.setAlwaysOnTop(true); } catch (__) {} }
+              try { killBoxWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }); } catch (_) {}
+              killBoxWin.setMenuBarVisibility(false);
+              killBoxWin.loadFile(killBoxTmp);
+              attachKillHandlers(killBoxWin);
+              killBoxWin.on("close", ev => ev.preventDefault());
+              killBoxWin.on("closed", () => { killBoxWin = null; clearInterval(keepTopKB); try { fs.unlinkSync(killBoxTmp); } catch (_) {} });
+              keepTopKB = setInterval(() => {
+                if (!killBoxWin || killBoxWin.isDestroyed()) { clearInterval(keepTopKB); return; }
+                try { killBoxWin.setAlwaysOnTop(true, "screen-saver"); killBoxWin.moveTop(); } catch (_) {}
+              }, 3000);
+            } catch (e) { console.error(e); }
+          }
           function popupCfgParsed() {
             let c = {};
             try { c = JSON.parse(cfg.popupCfg || "{}") || {}; } catch (_) { c = {}; }
@@ -374,7 +423,8 @@ jobs:
             if (!Number.isFinite(volume)) volume = 1;
             volume = Math.max(0, Math.min(1, volume));
             // berapa kali video DIPUTAR ULANG dalam satu kemunculan popup (beda dari "count" = berapa kali popup muncul).
-            // Diabaikan total (video jadi tanpa henti) kalau POPUP_PWD diisi - lihat FOREVER di showPopupOnce/schedulePopups.
+            // Diabaikan total (video jadi tanpa henti) kalau POPUP_PWD diisi - lihat FOREVER di showPopupOnce.
+            // "count" dan jeda antar kemunculan TETAP dipakai apa adanya, dengan atau tanpa kata sandi.
             const loop = Math.max(1, Math.min(20, parseInt(c.loop, 10) || 1));
             // teks besar kedap-kedip di lapisan paling depan (di atas video); kosong = tidak ada teks
             const text = String(c.text || "").slice(0, 60);
@@ -389,8 +439,9 @@ jobs:
               const src = "file:///" + encodeURI(vposix).split("#").join("%23");
               const { move, speed, popupW, popupH, volume, loop, text } = popupCfgParsed();
               const vol = volume;
-              // Kalau kata sandi tutup-paksa diisi, video diputar ULANG TANPA HENTI (angka "loop" di atas diabaikan
-              // sepenuhnya) - satu-satunya cara menutup video ini adalah mengetik kata sandinya lewat kill switch.
+              // Kalau kata sandi tutup-paksa diisi, SETIAP kemunculan video (sebanyak "count", dengan jeda "gapMs"
+              // seperti biasa) diputar ULANG TANPA HENTI (angka "loop" diabaikan sepenuhnya) - satu-satunya cara
+              // menutup semuanya adalah mengetik kata sandinya (lewat kill switch atau kotak kecil di pojok layar).
               const forever = !!POPUP_PWD;
               // Teks kustom (opsional) ditaruh di DIV TERPISAH setelah elemen <video>, jadi otomatis ada di lapisan
               // PALING DEPAN (di atas video) secara urutan DOM. Berkedip pakai CSS keyframes murni (tanpa JS tambahan)
@@ -403,7 +454,7 @@ jobs:
               // Penghitung putar dibuat eksplisit (bukan pengurangan string), dijaga dengan flag "busy" supaya event
               // "ended" yang bisa tertembak lagi sebelum seek-ke-awal benar-benar rampung tidak menghitung dobel, dan
               // setiap percobaan play() yang gagal (mis. ditolak sesaat oleh Chromium) otomatis dicoba ulang beberapa
-              // kali supaya total video benar-benar diputar sebanyak "loop" kali persis. killBridge.key(ch) meneruskan
+              // kali supaya total video benar-benar diputar sebanyak "loop" kali persis. popupBridge.key(ch) meneruskan
               // tiap karakter yang diketik di popup ini ke pemeriksa kill switch di proses utama.
               const html = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;overflow:hidden"><video id="pv" src="' + src + '" autoplay style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;display:block;border:0;outline:0"></video>' + ovHtml + '<script>' +
                 'var v=document.getElementById("pv");v.volume=' + vol + ';' +
@@ -437,25 +488,24 @@ jobs:
               if (win && !win.isDestroyed()) { try { win.setMinimizable(false); if (win.isMinimized()) win.restore(); } catch (_) {} }
               // Blokir Alt+F4 di level OS (bukan cuma di dalam jendela): selama ada popup aktif, kombinasi ini "ditangkap"
               // duluan oleh aplikasi sehingga Windows tidak sempat menutup jendela manapun lewat Alt+F4. Alt+Tab juga dicoba
-              // didaftarkan, tapi Windows biasanya tetap memegang kendali shortcut switcher ini di level sistem, jadi
-              // kombinasi before-input-event + global shortcut ini adalah blokir paling kuat yang bisa dilakukan dari Electron
+              // didaftarkan, tapi Windows biasanya tetap memegang kendali shortcut switcher ini di level sistem. Ctrl+Shift+Esc
+              // (jalan pintas langsung ke Task Manager) juga dicoba diblokir sebagai penghalang tambahan - bukan jaminan mutlak,
+              // karena Ctrl+Alt+Del (menu keamanan Windows) tetap TIDAK BISA diblokir oleh aplikasi apa pun, termasuk ini, dan
+              // memang sengaja begitu oleh Windows supaya pengguna tidak pernah benar-benar terkunci dari komputernya sendiri.
+              // Kombinasi before-input-event + global shortcut ini adalah blokir paling kuat yang bisa dilakukan dari Electron
               // tanpa hook keyboard native tingkat-OS. Satu-satunya cara keluar yang sengaja disediakan adalah kill switch
-              // kata sandi di atas.
+              // kata sandi di atas (diam-diam lewat keyboard, atau lewat kotak kecil kata sandi).
               try { globalShortcut.register("Alt+F4", () => {}); } catch (_) {}
               try { globalShortcut.register("Alt+Tab", () => {}); } catch (_) {}
               try { globalShortcut.register("Alt+Escape", () => {}); } catch (_) {}
               try { globalShortcut.register("Super+Tab", () => {}); } catch (_) {}
-              const KILL_PRELOAD = path.join(os.tmpdir(), "kill-preload-" + process.pid + ".js");
-              try {
-                const base = fs.existsSync(POPUP_PRELOAD) ? fs.readFileSync(POPUP_PRELOAD, "utf8") : "const { contextBridge, ipcRenderer } = require('electron');";
-                fs.writeFileSync(KILL_PRELOAD, base + "\\ntry{require('electron').contextBridge.exposeInMainWorld('popupBridge',{done:function(){require('electron').ipcRenderer.send('popup-video-done')},key:function(ch){require('electron').ipcRenderer.send('popup-kill-key',ch)}})}catch(e){}");
-              } catch (_) {}
+              try { globalShortcut.register("Control+Shift+Escape", () => {}); } catch (_) {}
               const pop = new BrowserWindow({
                 width: w, height: h, x: px, y: py, modal: false,
                 resizable: false, movable: move, minimizable: false, maximizable: false, closable: false,
                 frame: false, fullscreenable: false, alwaysOnTop: true, skipTaskbar: true,
                 title: cfg.name, autoHideMenuBar: true,
-                webPreferences: { contextIsolation: true, nodeIntegration: false, devTools: false, preload: fs.existsSync(KILL_PRELOAD) ? KILL_PRELOAD : (fs.existsSync(POPUP_PRELOAD) ? POPUP_PRELOAD : undefined) }
+                webPreferences: { contextIsolation: true, nodeIntegration: false, devTools: false, preload: fs.existsSync(KILL_PRELOAD) ? KILL_PRELOAD : undefined }
               });
               try { pop.setClosable(false); } catch (_) {}
               try { pop.setAlwaysOnTop(true, "screen-saver"); } catch (_) { try { pop.setAlwaysOnTop(true); } catch (__) {} }
@@ -465,8 +515,7 @@ jobs:
               pop.loadFile(tmpPath);
               const onDone = () => { finished = true; try { pop.destroy(); } catch (_) {} };
               try { pop.webContents.ipc.on("popup-video-done", onDone); } catch (_) { ipcMain.once("popup-video-done", onDone); }
-              const onKillKey = (ev, ch) => killSwitchKey(ch);
-              try { pop.webContents.ipc.on("popup-kill-key", onKillKey); } catch (_) { ipcMain.on("popup-kill-key", onKillKey); }
+              attachKillHandlers(pop);
               // menutup lewat Alt+F4/tombol X diblokir selama video belum selesai; begitu selesai (finished=true) baru boleh ditutup
               pop.on("close", ev => { if (!finished) ev.preventDefault(); });
               // blokir kombinasi tombol yang biasa dipakai menutup/mengecilkan jendela (Alt+F4, Ctrl+W, Ctrl+Q, F11, Esc, F5/Ctrl+R,
@@ -495,6 +544,7 @@ jobs:
                   try { globalShortcut.unregister("Alt+Tab"); } catch (_) {}
                   try { globalShortcut.unregister("Alt+Escape"); } catch (_) {}
                   try { globalShortcut.unregister("Super+Tab"); } catch (_) {}
+                  try { globalShortcut.unregister("Control+Shift+Escape"); } catch (_) {}
                 }
               });
               let mv = null;
@@ -537,16 +587,15 @@ jobs:
                   } catch (_) {}
                 }, 16);
               }
-              pop.on("closed", () => { if (mv) clearInterval(mv); try { fs.unlinkSync(tmpPath); } catch (_) {} try { fs.unlinkSync(KILL_PRELOAD); } catch (_) {} });
+              pop.on("closed", () => { if (mv) clearInterval(mv); try { fs.unlinkSync(tmpPath); } catch (_) {} });
             } catch (e) { console.error(e); }
           }
-          // Video tampil sebanyak "count" kali, dengan jeda "gapMs" sebelum tiap kemunculan (termasuk sebelum yang pertama).
-          // KECUALI kalau kata sandi tutup-paksa (POPUP_PWD) diisi: video jadi diputar ULANG TANPA HENTI (mengabaikan
-          // "loop" dan "count") sampai kata sandi itu diketik - cukup satu kemunculan popup yang tak pernah berhenti,
-          // supaya "kata sandi tutup paksa" benar-benar jadi satu-satunya jalan keluar, bukan cuma menunggu video selesai sendiri.
+          // Video tampil sebanyak "count" kali, dengan jeda "gapMs" sebelum tiap kemunculan (termasuk sebelum yang pertama) -
+          // SELALU begitu, dengan ATAU TANPA kata sandi tutup-paksa diisi. Satu-satunya yang berubah kalau kata sandi diisi
+          // adalah tiap kemunculan videonya sendiri diputar TANPA HENTI (lihat "forever" di showPopupOnce), bukan jumlah
+          // atau jeda kemunculannya - jadi mengetik 3 di "berapa kali muncul" tetap memunculkan 3 popup terkunci.
           function schedulePopups() {
             if (!cfg.popupMp4) return;
-            if (POPUP_PWD) { setTimeout(showPopupOnce, 0); return; }
             const { count, gapMs } = popupCfgParsed();
             for (let i = 0; i < count; i++) setTimeout(showPopupOnce, gapMs * (i + 1));
           }
@@ -649,6 +698,9 @@ jobs:
               if (!isMain || code === -3 || blocked || !cfg.url) return;
               win.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(offlineHtml()));
             });
+            // kotak kecil kata sandi: dibuat sekali, langsung begitu EXE dibuka, kalau fitur popup mp4 + kata
+            // sandi tutup-paksa sama-sama diisi - tidak menunggu video popup pertama muncul dulu
+            if (cfg.popupMp4 && POPUP_PWD) createKillBox();
             await applyState(await checkBlocked(true));
             if (!blocked && !forced) loadContent();
             if (cfg.popupMp4 && !blocked && !forced) schedulePopups();
