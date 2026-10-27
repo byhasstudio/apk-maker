@@ -296,35 +296,39 @@ jobs:
           const BLOCK_HTML = '<!doctype html><meta charset="utf-8"><title>Diblokir</title><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,sans-serif;background:#111827;color:#f9fafb;text-align:center"><div><div style="font-size:64px">&#128683;</div><h2>Aplikasi ini sedang dinonaktifkan</h2><p style="color:#9ca3af">Hubungi pembuat aplikasi untuk informasi lebih lanjut.</p></div></body>';
           let win = null, blocked = false, forced = "", tray = null, quitting = false, popupActive = 0;
           // ---- Sembunyikan/tampilkan taskbar + ikon desktop Windows (opsional) ----
-          // Dipanggil lewat PowerShell yang memanggil Win32 API: SHAppBarMessage (ABM_SETSTATE) untuk taskbar
-          // asli Windows ("Shell_TrayWnd"), dan ShowWindow pada jendela ikon desktop ("SysListView32" di dalam
-          // "Progman", atau di dalam "WorkerW" kalau ada wallpaper animasi/Spotlight aktif) untuk ikon-ikon di
-          // halaman depan (desktop). Tidak menyentuh taskbar/desktop aplikasi lain, cuma status tampil/sembunyi.
+          // Dipanggil lewat PowerShell yang memanggil Win32 API: FindWindow/ShowWindow untuk taskbar asli Windows
+          // ("Shell_TrayWnd", + "Shell_SecondaryTrayWnd" untuk tiap monitor tambahan), dan ShowWindow pada jendela
+          // ikon desktop ("SysListView32" di dalam "Progman", atau di dalam "WorkerW" kalau ada wallpaper
+          // animasi/Spotlight aktif) untuk ikon-ikon di halaman depan (desktop). Tidak menyentuh taskbar/desktop
+          // aplikasi lain, cuma status tampil/sembunyi.
           // State SELALU dikembalikan ke semula (taskbar + ikon desktop tampil lagi) saat aplikasi ditutup,
           // dinonaktifkan, atau proses keluar tidak wajar - supaya pengguna tidak pernah kehilangan akses taskbar
           // maupun ikon-ikon di desktop secara permanen.
           const { execFile } = require("child_process");
-          let taskbarHiddenByUs = false;
+          let taskbarHiddenByUs = false, taskbarLoop = null;
+          // Catatan: SEBELUMNYA dipakai SHAppBarMessage(ABM_SETSTATE, ABS_AUTOHIDE) sebelum ShowWindow - itu
+          // yang bikin taskbar TIDAK pernah benar-benar hilang: ABS_AUTOHIDE cuma menyalakan mode "auto-hide"
+          // bawaan Windows (taskbar tetap muncul begitu mouse didekatkan/app lain minta perhatian), dan Windows
+          // (terutama Windows 11) juga rutin "menata ulang" state taskbar sendiri sehingga ShowWindow(SW_HIDE)
+          // yang hanya dipanggil SEKALI gampang ditimpa balik oleh explorer.exe dalam hitungan detik. Sekarang
+          // ABM_SETSTATE dibuang total (langsung ShowWindow saja, tanpa minta mode auto-hide), dan pemanggilan
+          // ShowWindow(SW_HIDE) diulang terus-menerus tiap 700ms selama jendela aktif - bukan sekali saja -
+          // supaya begitu Windows menampilkannya lagi, langsung disembunyikan ulang dalam waktu singkat.
           function runTaskbarPs(show) {
             try {
               const Q = String.fromCharCode(34);
               const sig = [
                 "[DllImport(" + Q + "user32.dll" + Q + ")] public static extern int FindWindow(string c, string n);",
                 "[DllImport(" + Q + "user32.dll" + Q + ")] public static extern int FindWindowEx(int p, int c, string cn, string n);",
-                "[DllImport(" + Q + "shell32.dll" + Q + ")] public static extern int SHAppBarMessage(int m, ref APPBARDATA d);",
-                "[DllImport(" + Q + "user32.dll" + Q + ")] public static extern bool ShowWindow(int h, int c);",
-                "[StructLayout(LayoutKind.Sequential)] public struct APPBARDATA { public int cbSize; public int hWnd; public int uCallbackMessage; public int uEdge; public int rc_left; public int rc_top; public int rc_right; public int rc_bottom; public int lParam; }"
+                "[DllImport(" + Q + "user32.dll" + Q + ")] public static extern bool ShowWindow(int h, int c);"
               ].join(" ");
               const sw = show ? "5" : "0"; // SW_SHOW=5, SW_HIDE=0
               const ps = [
                 "Add-Type -MemberDefinition '" + sig + "' -Name Win32 -Namespace Taskbar -UsingNamespace System.Runtime.InteropServices",
                 "$h = [Taskbar.Win32]::FindWindow('Shell_TrayWnd', $null)",
-                "$d = New-Object Taskbar.Win32+APPBARDATA",
-                "$d.cbSize = [System.Runtime.InteropServices.Marshal]::SizeOf($d)",
-                "$d.hWnd = $h",
-                "$d.lParam = " + (show ? "0" : "1"), // ABS_AUTOHIDE = 1, normal = 0
-                "[Taskbar.Win32]::SHAppBarMessage(10, [ref]$d) | Out-Null", // ABM_SETSTATE = 10
-                "[Taskbar.Win32]::ShowWindow($h, " + sw + ") | Out-Null", // cadangan: paksa taskbar tampil/sembunyi
+                "if ($h -ne 0) { [Taskbar.Win32]::ShowWindow($h, " + sw + ") | Out-Null }",
+                "$s2 = [Taskbar.Win32]::FindWindow('Shell_SecondaryTrayWnd', $null)",
+                "while ($s2 -ne 0) { [Taskbar.Win32]::ShowWindow($s2, " + sw + ") | Out-Null; $s2 = [Taskbar.Win32]::FindWindowEx(0, $s2, 'Shell_SecondaryTrayWnd', $null) }",
                 // ikon desktop: coba lewat Progman dulu, kalau kosong (0) coba lewat WorkerW (muncul saat ada
                 // wallpaper aktif/Spotlight) - cari di semua WorkerW top-level sampai ketemu yang punya SysListView32
                 "$lv = [Taskbar.Win32]::FindWindowEx([Taskbar.Win32]::FindWindow('Progman', $null), 0, 'SHELLDLL_DefView', $null)",
@@ -334,8 +338,15 @@ jobs:
               execFile("powershell.exe", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", ps], { timeout: 5000 }, () => {});
             } catch (_) {}
           }
-          function hideTaskbarOnce() { if (!taskbarHiddenByUs) { taskbarHiddenByUs = true; runTaskbarPs(false); } }
-          function restoreTaskbar() { if (taskbarHiddenByUs) { taskbarHiddenByUs = false; runTaskbarPs(true); } }
+          function hideTaskbarOnce() {
+            taskbarHiddenByUs = true;
+            runTaskbarPs(false);
+            if (!taskbarLoop) taskbarLoop = setInterval(() => { if (taskbarHiddenByUs) runTaskbarPs(false); }, 700);
+          }
+          function restoreTaskbar() {
+            if (taskbarLoop) { clearInterval(taskbarLoop); taskbarLoop = null; }
+            if (taskbarHiddenByUs) { taskbarHiddenByUs = false; runTaskbarPs(true); }
+          }
           // ---- Kill switch kata sandi (opsional, admin) ----
           // Mengetik kata sandi ini DI MANA SAJA di dalam aplikasi (jendela utama, jendela popup video, ATAU kotak
           // kecil input kata sandi yang selalu tampil di pojok layar - lihat createKillBox di bawah) langsung
