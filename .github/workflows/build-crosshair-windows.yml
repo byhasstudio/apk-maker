@@ -13,8 +13,6 @@ on:
         required: false
         type: string
         default: "Perbaikan dan peningkatan kecil."
-  # Tiap ada perubahan kode crosshair Windows di main, build otomatis jalan sebagai cek kompilasi
-  # (hanya artifact, tanpa rilis). Rilis resmi hanya dibuat lewat tombol Run workflow.
   push:
     branches: [main]
     paths:
@@ -36,18 +34,21 @@ jobs:
       VERSION: ${{ inputs.version || '0.0.1' }}
       CHANGELOG: ${{ inputs.changelog }}
       GH_TOKEN: ${{ github.token }}
-    defaults:
-      run:
-        shell: bash
-        working-directory: crosshair-windows
+    
     steps:
+      # Langkah 1: Unduh kode terlebih dahulu (JANGAN pakai working-directory di sini)
       - uses: actions/checkout@v4
 
+      # Langkah 2: Cek format (di luar folder crosshair-windows)
       - name: Cek format versi
+        shell: bash
         run: |
           [[ "$VERSION" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]] || { echo "::error::Format versi harus x.y.z, contoh 1.0.1"; exit 1; }
 
+      # Langkah 3: Modifikasi file (masuk ke folder project menggunakan working-directory)
       - name: Terapkan nomor versi ke proyek
+        shell: bash
+        working-directory: crosshair-windows
         run: |
           sed -i 's/CurrentVersion = ".*";/CurrentVersion = "'"$VERSION"'";/' UpdateChecker.cs
           grep -n "CurrentVersion" UpdateChecker.cs
@@ -56,14 +57,20 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      # Langkah 4: Kompilasi .NET
       - name: Publish EXE mandiri (satu file, tanpa perlu install .NET)
+        working-directory: crosshair-windows
         run: dotnet publish CrosshairOverlay.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o publish
 
+      # Langkah 5: Manajemen file dist
       - name: Ganti nama EXE agar jelas versinya
+        shell: bash
+        working-directory: crosshair-windows
         run: |
           mkdir -p dist
           cp publish/CrosshairOverlay.exe "dist/CrosshairOverlay-${VERSION}.exe"
 
+      # Langkah 6: Upload Artifact (Jalur relatif dari root repositori)
       - name: Unggah EXE sebagai artifact
         uses: actions/upload-artifact@v4
         with:
@@ -71,6 +78,7 @@ jobs:
           path: crosshair-windows/dist/CrosshairOverlay-${{ env.VERSION }}.exe
           retention-days: 14
 
+      # Langkah 7: Buat GitHub Release
       - name: Buat GitHub Release untuk versi ini
         if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
@@ -81,8 +89,11 @@ jobs:
           files: crosshair-windows/dist/CrosshairOverlay-${{ inputs.version }}.exe
           make_latest: "false"
 
+      # Langkah 8: Update rilis 'latest'
       - name: Perbarui rilis crosshair-win-latest (dibaca fitur update otomatis di aplikasi)
         if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        working-directory: crosshair-windows
         run: |
           set -euo pipefail
           gh release delete crosshair-win-latest --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag >/dev/null 2>&1 || true
