@@ -81,7 +81,15 @@ jobs:
           PROJECT_DIR=$(dirname "$CSPROJ_PATH")
           cd "$PROJECT_DIR"
           mkdir -p dist
-          cp publish/CrosshairOverlay.exe "dist/CrosshairOverlay-${VERSION}.exe"
+          
+          # Mencari file .exe apa saja secara otomatis di dalam folder publish
+          EXE_FILE=$(find publish -name "*.exe" -print -quit)
+          if [ -z "$EXE_FILE" ]; then
+            echo "::error::Tidak ada file .exe yang ditemukan di folder publish!"
+            exit 1
+          fi
+          echo "Menemukan file hasil build: $EXE_FILE"
+          cp "$EXE_FILE" "dist/CrosshairOverlay-${VERSION}.exe"
 
       - name: Unggah EXE sebagai artifact
         uses: actions/upload-artifact@v4
