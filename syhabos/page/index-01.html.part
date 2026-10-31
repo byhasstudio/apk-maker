@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e8defc">
+<meta name="win-island" content="1">
+<title>SyhabOS</title>
+<style>
+  :root { --text:#1d1d24; --sub:#6b6b78; --glass:rgba(255,255,255,.58); --line:rgba(255,255,255,.8); --accent:#7c5cff; --accent2:#6c8bff;
+          --field:rgba(255,255,255,.85); --soft:rgba(255,255,255,.55); --btn:rgba(255,255,255,.82); --hair:rgba(0,0,0,.07); --shadow:rgba(90,70,160,.12); }
+  @media (prefers-color-scheme: dark) {
+    :root { --text:#f2f2f7; --sub:#a1a1ad; --glass:rgba(34,34,44,.62); --line:rgba(255,255,255,.1); --field:rgba(255,255,255,.07);
+            --soft:rgba(255,255,255,.05); --btn:rgba(255,255,255,.1); --hair:rgba(255,255,255,.08); --shadow:rgba(0,0,0,.35); }
+    body { background:linear-gradient(160deg,#1c1830 0%,#13202e 50%,#2a1622 100%) fixed !important; }
+    input[type=text] { color:var(--text); border-color:rgba(255,255,255,.12) !important; }
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; }
+  body { min-height:100vh; color:var(--text); font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+         padding:28px 20px 48px; background:linear-gradient(160deg,#e8defc 0%,#d6ecff 45%,#ffe3ee 100%) fixed; }
+  body::before,body::after { content:""; position:fixed; z-index:-1; border-radius:50%; filter:blur(70px); opacity:.6; pointer-events:none; }
+  body::before { width:320px; height:320px; background:#cdb4ff; top:-80px; left:-90px; }
+  body::after { width:340px; height:340px; background:#ffc8dd; bottom:-100px; right:-100px; }
+  main { max-width:1040px; margin:0 auto; }
+  header { display:flex; align-items:center; gap:14px; margin:0 4px 18px; flex-wrap:wrap; }
+  .lang { margin-left:auto; display:flex; align-items:center; gap:6px; font-size:16px; }
+  .lang select { font:inherit; font-size:14px; font-weight:600; color:var(--text); background:var(--field); border:1px solid var(--line); border-radius:12px; padding:8px 10px; outline:none; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.07); }
+  #fxhc select { font:inherit; font-size:14px; color:var(--text); background:var(--field); border:1px solid var(--line); border-radius:10px; padding:7px 8px; outline:none; max-width:46%; }
+  .lang select:focus { border-color:var(--accent); }
+  .lang select option { color:#1d1d24; background:#fff; }
+  .logo { width:46px; height:46px; border-radius:15px; background:#000; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 22px rgba(60,40,120,.3); flex:none; }
+  .logo i { width:26px; height:9px; border-radius:6px; background:#1f1f24; box-shadow:inset 0 0 0 1px rgba(255,255,255,.18); display:block; position:relative; top:-8px; }
+  h1 { font-size:26px; margin:0; letter-spacing:-.4px; }
+  .tag { margin:2px 0 0; color:var(--sub); font-size:14px; }
+  .cols { display:grid; grid-template-columns:1fr; gap:14px; }
+  @media (min-width:900px) { .cols { grid-template-columns:1fr 1fr; align-items:start; } .span { grid-column:1 / -1; } }
+  .col { display:flex; flex-direction:column; gap:14px; min-width:0; }
+  .card { background:var(--glass); border:1px solid var(--line); border-radius:24px; padding:18px;
+          -webkit-backdrop-filter:blur(22px) saturate(160%); backdrop-filter:blur(22px) saturate(160%); box-shadow:0 8px 30px var(--shadow); }
+  .card h2 { font-size:12px; text-transform:uppercase; letter-spacing:.9px; color:var(--sub); margin:0 0 12px; font-weight:700; }
+  button { border:0; border-radius:14px; padding:11px 12px; font:inherit; font-size:14px; font-weight:600; color:var(--text); background:var(--btn);
+           box-shadow:0 2px 8px rgba(0,0,0,.07); cursor:pointer; transition:transform .12s, filter .12s; }
+  button:hover { filter:brightness(1.04); } button:active { transform:scale(.97); }
+  button.primary { width:100%; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-size:15px; padding:13px; }
+  button.on { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; }
+  .btns { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px; }
+  .seg4 { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:8px; } .seg4 button { padding:10px 4px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  input[type=text] { width:100%; border:1px solid rgba(0,0,0,.1); border-radius:12px; padding:10px 12px; font:inherit; font-size:14px; background:var(--field); margin-bottom:8px; outline:none; }
+  input[type=text]:focus { border-color:var(--accent); }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  input[type=checkbox] { width:22px; height:22px; accent-color:var(--accent); flex:none; }
+  .slider { padding:6px 0; } .slider .top { display:flex; justify-content:space-between; margin-bottom:5px; font-size:14px; }
+  .slider .top span:last-child { color:var(--sub); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .num { width:74px; border:1px solid rgba(0,0,0,.12); border-radius:9px; padding:3px 6px; font:inherit; font-size:13px; text-align:right; background:var(--field); color:var(--text); outline:none; }
+  .num:focus { border-color:var(--accent); }
+  #hue { -webkit-appearance:none; appearance:none; height:10px; border-radius:9px; background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00); }
+  #hue::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:#fff; border:3px solid var(--accent); }
+  .swatches { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+  .sw { width:36px; height:36px; border-radius:50%; border:3px solid rgba(255,255,255,.9); box-shadow:0 2px 8px rgba(0,0,0,.18); padding:0; }
+  .sw.sel { outline:3px solid var(--accent); outline-offset:1px; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; font-size:14px; }
+  .row small { display:block; color:var(--sub); font-size:12px; margin-top:1px; }
+  .chip { font-size:12px; font-weight:700; padding:4px 11px; border-radius:99px; background:rgba(229,72,77,.15); color:#e5484d; white-space:nowrap; }
+  .chip.ok { background:rgba(31,163,91,.16); color:#1fa35b; } .chip.mid { background:rgba(240,160,0,.18); color:#b87400; }
+  .note { font-size:12px; color:var(--sub); margin-top:10px; line-height:1.55; }
+  .warn { margin:0 0 14px; padding:12px 14px; border-radius:16px; background:rgba(255,160,0,.16); font-size:13px; line-height:1.5; }
+  .err { color:#e5484d; }
+
+  /* pratinjau */
+  #stage { position:relative; height:250px; border-radius:20px; overflow:hidden; margin-bottom:4px;
+           background:linear-gradient(135deg,#3b2f6b 0%,#27406b 48%,#6b2f55 100%); box-shadow:inset 0 0 0 1px rgba(255,255,255,.12); }
+  #stage::before { content:""; position:absolute; left:0; right:0; bottom:0; height:34px; background:rgba(20,20,28,.55); }
+  #stage::after { content:""; position:absolute; left:50%; bottom:8px; width:130px; height:18px; transform:translateX(-50%); border-radius:9px;
+                  background:repeating-linear-gradient(90deg,rgba(255,255,255,.4) 0 18px,transparent 18px 26px); opacity:.5; }
+  #stage .win { position:absolute; left:10%; right:10%; top:76px; bottom:46px; border-radius:10px; background:rgba(255,255,255,.1); box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); }
+  #stage .win::before { content:""; position:absolute; left:0; right:0; top:0; height:22px; border-radius:10px 10px 0 0; background:rgba(255,255,255,.12); }
+
+  /* daftar aplikasi */
+  #alist, #slist { max-height:300px; overflow:auto; border-radius:14px; background:var(--soft); padding:2px 8px; margin:8px 0; }
+  #alist.off { opacity:.45; pointer-events:none; }
+  #sbox.off { opacity:.45; pointer-events:none; }
+  .app { display:flex; align-items:center; gap:11px; padding:7px 4px; font-size:14px; border-bottom:1px solid var(--hair); cursor:pointer; }
+  .app .ico { width:32px; height:32px; flex:none; border-radius:9px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:15px; overflow:hidden; }
+  .app .ico img { width:100%; height:100%; object-fit:cover; display:block; }
+  .app span.n { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .app em { font-style:normal; font-size:11px; font-weight:700; color:var(--accent); background:rgba(124,92,255,.14); padding:2px 8px; border-radius:99px; }
+  .app input { width:20px; height:20px; }
+  .hrow { display:flex; gap:10px; padding:8px 4px; border-bottom:1px solid var(--hair); cursor:pointer; font-size:13px; }
+  .hrow:hover { background:var(--soft); border-radius:10px; }
+  .hrow time { color:var(--sub); font-variant-numeric:tabular-nums; flex:none; width:44px; }
+  .hrow b { display:block; font-size:13px; } .hrow span { color:var(--sub); display:block; word-break:break-word; }
+  #hlist { max-height:280px; overflow:auto; border-radius:14px; background:var(--soft); padding:2px 8px; }
+  #qbox.off, #cbox.off, #xbox.off, #shbox.off, #nsbox.off, #ssbox.off { opacity:.45; pointer-events:none; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo"><i></i></div>
+    <div><h1>SyhabOS</h1><p class="tag">Notifikasi Windows tampil di pulau hitam di atas layar, plus animasi buka &amp; tutup jendela ala iOS.</p></div>
+    <label class="lang"><span aria-hidden="true">🌐</span><select id="lang" title="Bahasa" aria-label="Bahasa"></select></label>
+  </header>
+
+  <div class="card span" style="margin-bottom:14px">
+    <h2>Pratinjau</h2>
+    <div id="stage"><div class="win"></div></div>
+    <div class="note" style="margin-top:6px">Ini hanya contoh tampilan. Island sungguhan muncul di tengah atas layar utama Windows kamu.</div>
+  </div>
+
+  <div class="cols">
+    <div class="col">
+      <div class="card" id="nat" style="display:none">
+        <h2>Status</h2>
+        <div class="row"><span>Pembantu sistem<small>Program kecil pembaca notifikasi &amp; jendela</small></span><span id="c-help" class="chip" data-nt>-</span></div>
+        <div class="row"><span>Pembaca notifikasi Windows</span><span id="c-notif" class="chip" data-nt>-</span></div>
+        <div class="row"><span>Pemantau jendela (animasi)</span><span id="c-win" class="chip" data-nt>-</span></div>
+        <div class="row" style="padding-bottom:12px"><span>Daftar aplikasi terpasang</span><span id="c-apps" class="chip" data-nt>-</span></div>
+        <button class="primary" id="tg" data-nt onclick="nTog()">...</button>
+        <div class="two" style="margin-top:8px"><button onclick="NI.openWinSettings()">Pengaturan notifikasi Windows</button><button onclick="NI.test(t('Halo dari Windows'),t('Dynamic Island aktif'))">Kirim tes ke island asli</button></div>
+        <div class="note" id="nerr" data-nt></div>
+        <div class="note">Island membaca notifikasi yang masuk ke Windows, jadi notifikasi asli Windows tetap muncul juga. Kalau mau hanya island: matikan banner notifikasi di Pengaturan Windows untuk aplikasi tertentu (island tetap menerimanya selama notifikasinya aktif). Island tidak muncul saat mode Jangan Ganggu / Focus aktif.</div>
+      </div>
+
+      <div class="card">
+        <h2>Notifikasi tes</h2>
+        <div class="btns">
+          <button onclick="send('msg')">💬 Pesan</button>
+          <button onclick="send('music')">♪ Musik</button>
+          <button onclick="send('timer')">⏱ Timer</button>
+        </div>
+        <input type="text" id="ct" placeholder="Judul sendiri (opsional)" maxlength="40">
+        <input type="text" id="cs" placeholder="Isi pesan sendiri (opsional)" maxlength="120">
+        <button class="primary" onclick="send('custom')">Kirim notifikasi</button>
+        <div class="note">Ketuk island untuk menutup, geser ke atas juga menutup. Island tidak menutup sendiri selagi kursor ada di atasnya.</div>
+      </div>
+
+      <div class="card">
+        <h2>Warna</h2>
+        <div class="swatches" id="swatches"></div>
+        <div class="slider"><div class="top"><span>Corak warna</span><span id="v-h"></span></div><input type="range" id="hue" min="0" max="360"></div>
+        <div class="slider"><div class="top"><span>Kepekatan</span><span id="v-s"></span></div><input type="range" id="sat" min="0" max="100"></div>
+        <div class="slider"><div class="top"><span>Terang</span><span id="v-l"></span></div><input type="range" id="lig" min="0" max="100"></div>
+        <div class="slider"><div class="top"><span>Buram / tembus pandang</span><span id="v-op"></span></div><input type="range" id="op" min="40" max="100"></div>
+      </div>
+
+      <div class="card">
+        <h2>Ukuran &amp; posisi</h2>
+        <div class="note" style="margin:0 0 6px">Posisi di layar (selalu di tengah tepi yang dipilih):</div>
+        <div class="seg4"><button id="ed-top" onclick="setEdge('top')">⬆ Atas</button><button id="ed-bottom" onclick="setEdge('bottom')">⬇ Bawah</button><button id="ed-left" onclick="setEdge('left')">⬅ Kiri</button><button id="ed-right" onclick="setEdge('right')">➡ Kanan</button></div>
+        <div class="slider"><div class="top"><span>Jarak dari tepi layar</span><span id="v-top"></span></div><input type="range" id="top" min="-30" max="120"></div>
+        <div class="slider"><div class="top"><span>Geser sepanjang tepi</span><span id="v-cx"></span></div><input type="range" id="cx" min="-300" max="300"></div>
+        <div class="slider"><div class="top"><span>Tinggi pill</span><span id="v-dh"></span></div><input type="range" id="dh" min="-20" max="80"></div>
+        <div class="slider"><div class="top"><span>Lebar pill (kecil)</span><span id="v-cw"></span></div><input type="range" id="cw" min="40" max="400"></div>
+        <div class="slider"><div class="top"><span>Lebar saat melebar</span><span id="v-ew"></span></div><input type="range" id="ew" min="160" max="700"></div>
+        <div class="row" id="pillrow" style="display:none"><span>Selalu tampilkan pill kecil<small>Island tetap di layar, juga di atas aplikasi layar penuh, sampai kamu matikan. Kalau mati, island hanya muncul saat ada notifikasi</small></span><input type="checkbox" id="pill"></div>
+        <button onclick="resetAll()" style="width:100%;margin-top:6px">Kembalikan ke awal</button>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card" id="anm" style="display:none">
+        <h2>Animasi buka &amp; tutup jendela</h2>
+        <div class="row"><span>Animasi halus ala iOS (semua aplikasi)<small>Kartu membesar dari taskbar saat jendela dibuka, mengecil saat ditutup</small></span><input type="checkbox" id="anim"></div>
+        <div class="row"><span>Juga saat minimize &amp; pulihkan<small>Efek tambahan di atas animasi bawaan Windows</small></span><input type="checkbox" id="animmin"></div>
+        <button class="primary" onclick="NI.demoAnim()" style="margin-top:6px">▶ Coba animasi</button>
+        <div class="note">Efek ini digambar di atas animasi bawaan Windows, bukan penggantinya, jadi pada beberapa PC terlihat berlapis. Jendela kecil, menu, dialog, dan popup diabaikan. Efek memantau jendela aplikasi lain, jadi tidak ikut menganimasikan jendela aplikasi ini sendiri.</div>
+      </div>
+
+      <div class="card" id="flt" style="display:none">
+        <h2>Aplikasi &amp; suara</h2>
+        <div class="two" style="margin-bottom:6px">
+          <button id="m0" onclick="fltMode(0)">Semua aplikasi</button>
+          <button id="m1" onclick="fltMode(1)">Pilih sendiri</button>
+        </div>
+        <div class="note" id="acount" data-nt style="margin:0 0 8px"></div>
+        <input type="text" id="asr" placeholder="Cari aplikasi" maxlength="40">
+        <div class="two">
+          <button onclick="fltAll(true)">Pilih semua</button>
+          <button onclick="fltAll(false)">Kosongkan</button>
+        </div>
+        <div id="alist" data-nt></div>
+        <div class="slider"><div class="top"><span>Lama island terbuka</span><span id="v-dur" data-nt></span></div><input type="range" id="dur" min="2" max="20" step="0.5" value="4.5"></div>
+        <div class="row"><span>Klik notifikasi membuka aplikasinya</span><input type="checkbox" id="tap"></div>
+        <div class="row"><span>Suara saat notifikasi masuk<small>Windows juga punya suara sendiri; matikan salah satu kalau dobel</small></span><input type="checkbox" id="snd"></div>
+        <div id="sbox">
+          <div class="slider"><div class="top"><span>Volume suara</span><span id="v-sv"></span></div><input type="range" id="sv" min="10" max="100"></div>
+          <div class="row"><span>Nada: <b id="sname" data-nt>Bawaan Windows</b></span><button onclick="sndList()" style="padding:8px 14px">Pilih nada</button></div>
+          <div id="slist" data-nt style="display:none"></div>
+        </div>
+        <div class="note" data-h="mode_pilih_note">Mode &quot;Pilih sendiri&quot;: hanya aplikasi yang dicentang tampil di island. Aplikasi yang belum ada di daftar muncul otomatis (bertanda <b>baru</b>) setelah pernah mengirim notifikasi.</div>
+      </div>
+
+      <div class="card" id="smt" style="display:none">
+        <h2>Fitur pintar</h2>
+        <div class="row"><span>Cahaya warna aplikasi<small>Island berpendar sesuai warna ikon aplikasi pengirim</small></span><input type="checkbox" id="glow"></div>
+        <div class="row"><span>Peringatan baterai &amp; charger<small>Mengisi daya, dicabut, penuh, lemah (20%), kritis (10%)</small></span><input type="checkbox" id="bat"></div>
+        <div class="row"><span>Pemberitahuan saat menyalin teks<small>Menampilkan cuplikan teks yang baru disalin (Ctrl+C). Isinya hanya tampil sesaat di layar.</small></span><input type="checkbox" id="clip"></div>
+        <div class="row"><span>Tombol pintas<small>Ctrl+Alt+N = jangan ganggu, Ctrl+Alt+I = tutup island</small></span><input type="checkbox" id="hot"></div>
+        <div class="row"><span>Jangan ganggu sekarang<small>Notifikasi tidak ditampilkan di island (tetap masuk riwayat)</small></span><input type="checkbox" id="dnd"></div>
+        <div class="row"><span>Jam tenang otomatis</span><input type="checkbox" id="qon"></div>
+        <div class="two" id="qbox" style="margin-bottom:8px"><label class="note" style="margin:0">Mulai<br><input type="time" class="num" id="qfrom" style="width:100%;text-align:left"></label><label class="note" style="margin:0">Selesai<br><input type="time" class="num" id="qto" style="width:100%;text-align:left"></label></div>
+        <div class="note" style="margin:0 0 6px">Tampil di monitor:</div>
+        <div class="two"><button id="mo0" onclick="setMon('primary')">Monitor utama</button><button id="mo1" onclick="setMon('cursor')">Yang sedang dipakai</button></div>
+      </div>
+
+      <div class="card" id="fx2" style="display:none">
+        <h2>Live activity &amp; alat pintar</h2>
+        <div class="row"><span>Pembantu tambahan<small>Program kecil pembaca media, jaringan, mikrofon, dll</small></span><span id="c-sys" class="chip" data-nt>-</span></div>
+        <div class="row"><span>Jalan otomatis saat Windows menyala<small>Setelah restart atau shutdown, island muncul lagi sendiri tanpa membuka jendela aplikasi</small></span><input type="checkbox" id="o-auto"></div>
+        <div class="row"><span>Aktifkan live activity<small>Pill melebar menampilkan indikator di kiri &amp; kanan; arahkan kursor untuk membuka detailnya</small></span><input type="checkbox" id="o-live"></div>
+        <div class="row"><span>Notifikasi saat aplikasi dibuka<small>Tampil sebentar dengan ikon aplikasi</small></span><input type="checkbox" id="o-appnotif"></div>
+        <div class="row"><span>Titik indikator rekam, mikrofon &amp; kamera<small>Merah = merekam layar, oranye = mikrofon, hijau = kamera, lengkap dengan notifikasi dan nama aplikasinya</small></span><input type="checkbox" id="o-devs"></div>
+        <div class="row"><span>Pengendali media &amp; indikator audio<small>Judul lagu (Spotify, YouTube di browser, VLC), tombol putar/jeda/lanjut, gelombang mini saat kursor diarahkan</small></span><input type="checkbox" id="o-media"></div>
+        <div class="row"><span>Notifikasi saat ada suara / lagu diputar<small>Banner judul lagu yang muncul setiap ada suara (misalnya YouTube). Matikan kalau mengganggu; pengendali media di pill tetap jalan</small></span><input type="checkbox" id="o-mtoast"></div>
+        <div class="row"><span>Kecepatan internet<small>Muncul otomatis saat unduhan besar (di atas 1,5 MB/dtk)</small></span><input type="checkbox" id="o-net"></div>
+        <div class="row"><span>Progres render &amp; ekstrak<small>Dibaca dari persen di judul jendela (WinRAR, 7-Zip, penyalinan File Explorer, Media Encoder, dll)</small></span><input type="checkbox" id="o-prog"></div>
+        <div class="row"><span>FPS &amp; ping saat bermain<small>Muncul hanya saat game aktif (Roblox, Valorant, game Steam/Epic/Riot, dll). Ketuk pill untuk detail. Game tak terdeteksi: tekan Ctrl+Alt+G di game itu</small></span><input type="checkbox" id="o-game"></div>
+        <div class="row"><span>FPS akurat (PresentMon)<small>Membaca frame asli dari game, lengkap dengan 1% low. Perlu izin sekali saja</small></span><span id="c-pm" class="chip" data-nt>-</span><input type="checkbox" id="o-fpsreal"></div>
+        <button onclick="ni('grantFps')">Beri izin FPS (sekali, perlu admin)</button>
+        <div class="row"><span>Kantong seret &amp; lepas<small>Seret file, gambar, atau teks ke tengah atas layar, lalu tarik keluar ke aplikasi lain. Hanya untuk posisi island di atas</small></span><input type="checkbox" id="o-hub"></div>
+        <div class="note" style="margin:6px 0">Monitor CPU / RAM / GPU:</div>
+        <div class="seg4" style="grid-template-columns:repeat(3,1fr)"><button id="r0" onclick="setRmon(0)">Mati</button><button id="r1" onclick="setRmon(1)">Saat lag</button><button id="r2" onclick="setRmon(2)">Selalu</button></div>
+        <div class="note" style="margin-top:0">Saat lag, island membesar dan menampilkan aplikasi pal
