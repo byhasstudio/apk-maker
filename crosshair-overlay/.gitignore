@@ -1,0 +1,6 @@
+/build
+/app/build
+/.gradle
+/local.properties
+/dist
+/app/debug.keystore
