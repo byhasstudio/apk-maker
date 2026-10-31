@@ -1,0 +1,96 @@
+name: Build Dynamic Island EXE (Windows)
+run-name: Build Dynamic Island EXE ${{ inputs.version || 'cek-build' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versi aplikasi, contoh 0.1.0"
+        required: true
+        type: string
+      changelog:
+        description: "Catatan pembaruan untuk rilis"
+        required: false
+        type: string
+        default: "Perbaikan dan peningkatan kecil."
+  push:
+    branches: [main]
+    paths:
+      - "windows-dynamic-island/**"
+      - ".github/workflows/build-dynamic-island-windows.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-dynamic-island-windows
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      VERSION: ${{ inputs.version || '0.0.1' }}
+      CHANGELOG: ${{ inputs.changelog }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Unduh kode repositori
+        uses: actions/checkout@v4
+
+      - name: Unduh tampilan pengaturan (repo dynamicisland_windows)
+        uses: actions/checkout@v4
+        with:
+          repository: byhasstudio/dynamicisland_windows
+          path: island-ui
+
+      - name: Salin tampilan pengaturan ke proyek
+        run: |
+          test -s island-ui/index.html || { echo "::error::index.html di repo dynamicisland_windows kosong atau tidak ada"; exit 1; }
+          cp island-ui/index.html windows-dynamic-island/Assets/settings.html
+          wc -c windows-dynamic-island/Assets/settings.html
+
+      - name: Cek format versi
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]] || { echo "::error::Format versi harus x.y.z, contoh 0.1.0"; exit 1; }
+
+      - name: Terapkan nomor versi ke proyek
+        run: |
+          sed -i 's/Version = ".*";/Version = "'"$VERSION"'";/' windows-dynamic-island/AppInfo.cs
+          grep -n "Version" windows-dynamic-island/AppInfo.cs
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publish EXE mandiri (satu file, tanpa perlu install .NET)
+        working-directory: windows-dynamic-island
+        run: |
+          dotnet publish DynamicIsland.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+
+      - name: Ganti nama EXE agar jelas versinya
+        working-directory: windows-dynamic-island
+        run: |
+          test -f publish/DynamicIsland.exe || { echo "::error::DynamicIsland.exe tidak ditemukan di folder publish"; ls -la publish; exit 1; }
+          mkdir -p dist
+          cp publish/DynamicIsland.exe "dist/DynamicIsland-${VERSION}.exe"
+
+      - name: Unggah EXE sebagai artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dynamic-island-windows-exe
+          path: windows-dynamic-island/dist/DynamicIsland-${{ env.VERSION }}.exe
+          retention-days: 14
+
+      - name: Buat GitHub Release untuk versi ini
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dynamicisland-win-v${{ inputs.version }}
+          name: Dynamic Island Windows v${{ inputs.version }}
+          body: ${{ inputs.changelog }}
+          files: windows-dynamic-island/dist/DynamicIsland-${{ inputs.version }}.exe
+          make_latest: "false"
