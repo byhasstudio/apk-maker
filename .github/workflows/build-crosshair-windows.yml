@@ -36,49 +36,60 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     
     steps:
-      # Langkah 1: Unduh kode terlebih dahulu (JANGAN pakai working-directory di sini)
-      - uses: actions/checkout@v4
+      - name: Unduh kode repositori
+        uses: actions/checkout@v4
 
-      # Langkah 2: Cek format (di luar folder crosshair-windows)
       - name: Cek format versi
         shell: bash
         run: |
           [[ "$VERSION" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]] || { echo "::error::Format versi harus x.y.z, contoh 1.0.1"; exit 1; }
 
-      # Langkah 3: Modifikasi file (masuk ke folder project menggunakan working-directory)
       - name: Terapkan nomor versi ke proyek
         shell: bash
-        working-directory: crosshair-windows
         run: |
-          sed -i 's/CurrentVersion = ".*";/CurrentVersion = "'"$VERSION"'";/' UpdateChecker.cs
-          grep -n "CurrentVersion" UpdateChecker.cs
+          FILE_PATH=$(find . -name "UpdateChecker.cs" -print -quit)
+          if [ -z "$FILE_PATH" ]; then
+            echo "::error::File UpdateChecker.cs tidak ditemukan di repositori!"
+            exit 1
+          fi
+          echo "Mengubah file versi di: $FILE_PATH"
+          sed -i 's/CurrentVersion = ".*";/CurrentVersion = "'"$VERSION"'";/' "$FILE_PATH"
+          grep -n "CurrentVersion" "$FILE_PATH"
 
-      - uses: actions/setup-dotnet@v4
+      - name: Setup .NET Environment
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
 
-      # Langkah 4: Kompilasi .NET
       - name: Publish EXE mandiri (satu file, tanpa perlu install .NET)
-        working-directory: crosshair-windows
-        run: dotnet publish CrosshairOverlay.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o publish
+        shell: bash
+        run: |
+          CSPROJ_PATH=$(find . -name "*.csproj" -print -quit)
+          if [ -z "$CSPROJ_PATH" ]; then
+            echo "::error::File .csproj tidak ditemukan!"
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$CSPROJ_PATH")
+          echo "Membangun proyek di: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          dotnet publish $(basename "$CSPROJ_PATH") -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o publish
 
-      # Langkah 5: Manajemen file dist
       - name: Ganti nama EXE agar jelas versinya
         shell: bash
-        working-directory: crosshair-windows
         run: |
+          CSPROJ_PATH=$(find . -name "*.csproj" -print -quit)
+          PROJECT_DIR=$(dirname "$CSPROJ_PATH")
+          cd "$PROJECT_DIR"
           mkdir -p dist
           cp publish/CrosshairOverlay.exe "dist/CrosshairOverlay-${VERSION}.exe"
 
-      # Langkah 6: Upload Artifact (Jalur relatif dari root repositori)
       - name: Unggah EXE sebagai artifact
         uses: actions/upload-artifact@v4
         with:
           name: crosshair-overlay-windows-exe
-          path: crosshair-windows/dist/CrosshairOverlay-${{ env.VERSION }}.exe
+          path: "**/dist/CrosshairOverlay-${{ env.VERSION }}.exe"
           retention-days: 14
 
-      # Langkah 7: Buat GitHub Release
       - name: Buat GitHub Release untuk versi ini
         if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
@@ -86,15 +97,16 @@ jobs:
           tag_name: crosshair-win-v${{ inputs.version }}
           name: Crosshair Overlay Windows v${{ inputs.version }}
           body: ${{ inputs.changelog }}
-          files: crosshair-windows/dist/CrosshairOverlay-${{ inputs.version }}.exe
+          files: "**/dist/CrosshairOverlay-${{ inputs.version }}.exe"
           make_latest: "false"
 
-      # Langkah 8: Update rilis 'latest'
       - name: Perbarui rilis crosshair-win-latest (dibaca fitur update otomatis di aplikasi)
         if: github.event_name == 'workflow_dispatch'
         shell: bash
-        working-directory: crosshair-windows
         run: |
           set -euo pipefail
+          CSPROJ_PATH=$(find . -name "*.csproj" -print -quit)
+          PROJECT_DIR=$(dirname "$CSPROJ_PATH")
+          cd "$PROJECT_DIR"
           gh release delete crosshair-win-latest --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag >/dev/null 2>&1 || true
           gh release create crosshair-win-latest "dist/CrosshairOverlay-${VERSION}.exe" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Crosshair Overlay Windows (terbaru: v${VERSION})" --notes "${CHANGELOG:-Pembaruan tersedia.}" --latest=false
