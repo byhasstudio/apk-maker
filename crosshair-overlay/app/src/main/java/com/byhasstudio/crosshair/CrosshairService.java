@@ -27,6 +27,7 @@ import android.widget.Toast;
  * Berjalan sebagai foreground service dan START_STICKY, jadi tetap tampil permanen sampai
  * dimatikan lewat saklar di aplikasi atau tombol "Matikan" di notifikasi. Jendelanya tidak bisa
  * disentuh (sentuhan tembus ke aplikasi di bawahnya), kecuali saat mode geser posisi.
+ * Pengecekan update dilakukan oleh MainActivity setiap aplikasi dibuka, bukan oleh service ini.
  */
 public class CrosshairService extends Service {
   public static final String PREFS = "crosshair";
@@ -38,10 +39,7 @@ public class CrosshairService extends Service {
   public static volatile boolean editing = false;
 
   private static final String CH_SERVICE = "crosshair_service";
-  private static final String CH_UPDATE = "crosshair_update";
   private static final int ID_SERVICE = 1;
-  private static final int ID_UPDATE = 2;
-  private static final long CHECK_EVERY_MS = 6L * 60L * 60L * 1000L;
   private static final long LOCK_AFTER_DRAG_MS = 4000L;
   private static final long LOCK_IDLE_MS = 20000L;
   private static final int BASE_FLAGS = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -60,27 +58,6 @@ public class CrosshairService extends Service {
 
   private final Runnable lockRun = new Runnable() {
     @Override public void run() { setEdit(false); }
-  };
-
-  private final Runnable updateRun = new Runnable() {
-    @Override public void run() {
-      if (prefs().getBoolean("autoupd", true)) {
-        new Thread(new Runnable() {
-          @Override public void run() {
-            try {
-              final UpdateChecker.Info info = UpdateChecker.check(CrosshairService.this);
-              if (info != null) {
-                main.post(new Runnable() {
-                  @Override public void run() { notifyUpdate(info); }
-                });
-              }
-            } catch (Exception ignored) {
-            }
-          }
-        }).start();
-      }
-      main.postDelayed(this, CHECK_EVERY_MS);
-    }
   };
 
   private final View.OnTouchListener drag = new View.OnTouchListener() {
@@ -144,7 +121,6 @@ public class CrosshairService extends Service {
     }
     running = true;
     editing = false;
-    main.postDelayed(updateRun, 60000L);
   }
 
   @Override public int onStartCommand(Intent i, int flags, int startId) {
@@ -187,7 +163,6 @@ public class CrosshairService extends Service {
   private void startFg() {
     NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
     nm.createNotificationChannel(new NotificationChannel(CH_SERVICE, "Crosshair aktif", NotificationManager.IMPORTANCE_MIN));
-    nm.createNotificationChannel(new NotificationChannel(CH_UPDATE, "Pembaruan aplikasi", NotificationManager.IMPORTANCE_DEFAULT));
     Notification n = buildNotification();
     if (Build.VERSION.SDK_INT >= 34) {
       startForeground(ID_SERVICE, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
@@ -213,26 +188,6 @@ public class CrosshairService extends Service {
         .addAction(0, editing ? "Kunci posisi" : "Atur posisi", svc(1, ACTION_EDIT))
         .addAction(0, "Matikan", svc(2, ACTION_STOP))
         .build();
-  }
-
-  private void notifyUpdate(UpdateChecker.Info info) {
-    SharedPreferences p = prefs();
-    if (!p.getBoolean("autoupd", true)) return;
-    if (info.version.equals(p.getString("notified", ""))) return;
-    p.edit().putString("notified", info.version).apply();
-    Intent in = new Intent(this, MainActivity.class)
-        .putExtra(MainActivity.EXTRA_UPDATE, true)
-        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-    PendingIntent pi = PendingIntent.getActivity(this, 3, in, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-    Notification n = new Notification.Builder(this, CH_UPDATE)
-        .setSmallIcon(R.drawable.ic_stat)
-        .setContentTitle("Pembaruan tersedia: v" + info.version)
-        .setContentText("Ketuk untuk memperbarui Crosshair")
-        .setContentIntent(pi)
-        .setAutoCancel(true)
-        .build();
-    NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-    nm.notify(ID_UPDATE, n);
   }
 
   /* ---------- jendela overlay ---------- */

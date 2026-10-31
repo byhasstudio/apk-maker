@@ -71,6 +71,7 @@ public class MainActivity extends Activity {
   private boolean checking = false;
   private File pendingApk;
   private AlertDialog dlProgress;
+  private AlertDialog updateDialog;
 
   private final Fmt posFmt = v -> v == 500 ? "tengah" : String.format(Locale.US, "%+.1f%%", (v - 500) / 10f);
   private final Runnable statusRun = this::refreshStatus;
@@ -91,7 +92,6 @@ public class MainActivity extends Activity {
     getWindow().setNavigationBarColor(BG);
     buildUi();
     askNotifOnce();
-    if (p.getBoolean("autoupd", true) || getIntent().getBooleanExtra(EXTRA_UPDATE, false)) checkUpdate(false);
   }
 
   @Override protected void onNewIntent(Intent i) {
@@ -112,16 +112,20 @@ public class MainActivity extends Activity {
     building = false;
     refreshStatus();
     ui.postDelayed(statusRun, 600);
+    boolean hadPending = pendingApk != null;
     if (pendingApk != null && canInstall()) {
       File f = pendingApk;
       pendingApk = null;
       installApk(f);
     }
+    // Cek pembaruan setiap aplikasi dibuka (onResume jalan tiap layar ini tampil, bukan cuma saat pertama dibuat)
+    if (!hadPending && p.getBoolean("autoupd", true)) checkUpdate(false);
   }
 
   @Override protected void onDestroy() {
     ui.removeCallbacksAndMessages(null);
     if (dlProgress != null && dlProgress.isShowing()) dlProgress.dismiss();
+    if (updateDialog != null && updateDialog.isShowing()) updateDialog.dismiss();
     super.onDestroy();
   }
 
@@ -323,7 +327,7 @@ public class MainActivity extends Activity {
     // pembaruan
     LinearLayout c4 = card(root, "Pembaruan");
     c4.addView(text("Versi terpasang: v" + UpdateChecker.currentVersion(this), 13, MUT), top(4));
-    check(c4, "Cek pembaruan otomatis (saat aplikasi dibuka dan tiap beberapa jam)", p.getBoolean("autoupd", true), "autoupd");
+    check(c4, "Cek pembaruan otomatis setiap aplikasi dibuka", p.getBoolean("autoupd", true), "autoupd");
     c4.addView(btn("Cek pembaruan sekarang", x -> checkUpdate(true)), top(8));
 
     building = false;
@@ -525,9 +529,11 @@ public class MainActivity extends Activity {
   }
 
   private void showUpdateDialog(final UpdateChecker.Info info) {
+    if (updateDialog != null && updateDialog.isShowing()) return;
+    if (dlProgress != null && dlProgress.isShowing()) return;
     String log = info.changelog;
     if (log.length() > 700) log = log.substring(0, 700) + "...";
-    new AlertDialog.Builder(this)
+    updateDialog = new AlertDialog.Builder(this)
         .setTitle("Pembaruan tersedia: v" + info.version)
         .setMessage("Versi kamu: v" + UpdateChecker.currentVersion(this) + "\n\n" + log)
         .setPositiveButton("Update sekarang", (d, w) -> startDownload(info))

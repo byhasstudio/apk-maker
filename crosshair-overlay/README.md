@@ -36,9 +36,11 @@ cek kompilasi (hanya artifact, tanpa rilis).
 
 - Tiap workflow dijalankan lewat tombol **Run workflow**, selain rilis `crosshair-v<versi>`, workflow
   juga memperbarui rilis penunjuk **`crosshair-latest`** yang berisi APK terbaru.
-- Aplikasi mengecek rilis itu **saat dibuka** dan **tiap 6 jam di latar belakang** (selagi crosshair
-  aktif). Kalau ada versi lebih baru: muncul notifikasi / pop-up berisi catatan perubahan, lalu
-  **Update sekarang** mengunduh APK dan membuka pemasang Android.
+- Aplikasi mengecek rilis itu **setiap kali aplikasi dibuka** (tiap layar pengaturan tampil, bukan
+  per jam). Tidak ada pengecekan berkala di latar belakang. Kalau ada versi lebih baru: muncul
+  pop-up berisi catatan perubahan, lalu **Update sekarang** mengunduh APK dan membuka pemasang
+  Android. Pengecekan otomatis bisa dimatikan lewat kotak centang di kartu **Pembaruan**, dan tombol
+  **Cek pembaruan sekarang** tetap tersedia.
 - **Naikkan nomor versi tiap rilis**, kalau tidak aplikasi di HP tidak menganggapnya sebagai update.
 - Android tidak mengizinkan aplikasi hasil sideload memasang dirinya sendiri tanpa persetujuan, jadi
   langkah terakhir (ketuk **Update/Install**) tetap perlu satu sentuhan. Pertama kali, Android juga
@@ -54,7 +56,7 @@ cek kompilasi (hanya artifact, tanpa rilis).
 |------|-----------|
 | `SYSTEM_ALERT_WINDOW` | menampilkan crosshair di atas aplikasi lain |
 | `FOREGROUND_SERVICE` (+ `SPECIAL_USE`) | menjaga crosshair tetap hidup |
-| `POST_NOTIFICATIONS` | notifikasi kontrol dan info update |
+| `POST_NOTIFICATIONS` | notifikasi kontrol crosshair |
 | `RECEIVE_BOOT_COMPLETED` | menyalakan lagi crosshair setelah HP restart |
 | `INTERNET` | cek dan unduh update dari GitHub |
 | `REQUEST_INSTALL_PACKAGES` | membuka pemasang untuk update |
