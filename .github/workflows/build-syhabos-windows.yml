@@ -1,0 +1,209 @@
+name: Build SyhabOS (Windows)
+run-name: Build SyhabOS ${{ inputs.version }}
+
+# Membangun EXE SyhabOS lengkap (Dynamic Island + Dock, Launchpad, Spotlight, Menu bar, dst.)
+# sama persis dengan yang dihasilkan alur "Build EXE" dengan modul Windows aktif.
+# Halaman pengaturan diambil dari repo ini (syhabos/index.html), bukan dari upload situs.
+# Tidak butuh Worker/secret apa pun. Jalankan manual: Actions > Build SyhabOS (Windows) > Run workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versi aplikasi, contoh 1.0.71"
+        required: true
+        type: string
+      app_name:
+        description: "Nama aplikasi"
+        required: false
+        type: string
+        default: "SyhabOS"
+      changelog:
+        description: "Catatan rilis"
+        required: false
+        type: string
+        default: "Build SyhabOS dari repositori."
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-syhabos-windows
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ inputs.version }}
+      APP_NAME: ${{ inputs.app_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cek input dan berkas sumber
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || { echo "::error::Format versi harus x.y.z, contoh 1.0.71"; exit 1; }
+          [[ "$APP_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._\ -]{1,29}$ ]] || { echo "::error::Nama aplikasi 2-30 karakter (huruf, angka, spasi, titik, garis)"; exit 1; }
+          test -f builder/make-icon.js || { echo "::error::builder/make-icon.js tidak ada"; exit 1; }
+          test -f syhabos/main.js || { echo "::error::syhabos/main.js tidak ada"; exit 1; }
+          if [ ! -s syhabos/index.html ] && ! ls syhabos/page/*.part >/dev/null 2>&1; then
+            echo "::error::Halaman pengaturan tidak ada. Taruh file syhabos/index.html (atau pecahan syhabos/page/*.part)."; exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Siapkan proyek Electron
+        run: |
+          set -euo pipefail
+          mkdir app && cd app
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --save-dev electron@31 electron-builder@24 sharp
+          cp ../builder/make-icon.js .
+          mkdir www build
+
+      - name: Pasang halaman pengaturan dan main.js
+        run: |
+          set -euo pipefail
+          if [ -s syhabos/index.html ]; then
+            cp syhabos/index.html app/www/index.html
+          else
+            cat $(ls syhabos/page/*.part | sort) > app/www/index.html
+          fi
+          cp syhabos/main.js app/main.js
+          grep -q 'name="win-island"' app/www/index.html || { echo "::error::Halaman pengaturan tidak valid (penanda win-island tidak ada)"; exit 1; }
+          grep -q '</html>' app/www/index.html || { echo "::error::Halaman pengaturan terpotong (tidak ada </html>)"; exit 1; }
+          wc -c app/www/index.html app/main.js
+
+      - name: Pasang modul Windows (island dan animasi)
+        run: |
+          set -euo pipefail
+          cd app
+          mkdir -p fx/bin
+          cat ../builder/fx-pack-*.txt | tr -d '\r' | awk '/^=====FXFILE:.*=====$/ { if (out) close(out); out = "fx/" substr($0, 13, length($0) - 17); printf "" > out; next } out { print > out }'
+          CSC="$(cygpath -u "${WINDIR:-C:\\Windows}")/Microsoft.NET/Framework64/v4.0.30319/csc.exe"
+          test -f "$CSC" || { echo "::error::csc.exe tidak ditemukan di runner"; exit 1; }
+          export MSYS_NO_PATHCONV=1
+          ls -la fx; test -s fx/fxhelper.cs || { echo "::error::fx/fxhelper.cs tidak ada"; exit 1; }
+          (cd fx && "$CSC" -nologo -target:exe -optimize+ -platform:anycpu -warn:0 -out:fxhelper.exe -r:System.Drawing.dll -r:System.Xml.dll fxhelper.cs) || { echo "::error::kompilasi fxhelper.cs gagal"; exit 1; }
+          mv fx/fxhelper.exe fx/bin/fxhelper.exe
+          if (cd fx && "$CSC" -nologo -target:exe -optimize+ -platform:anycpu -warn:0 -out:fxsys.exe -r:System.Drawing.dll -r:System.dll fxsys.cs); then
+            mv fx/fxsys.exe fx/bin/fxsys.exe
+            echo "fxsys.exe OK"
+          else
+            echo "::error::fxsys.cs gagal dikompilasi. Tanpa fxsys.exe, FPS/ping, media, jaringan, game, dll tidak akan muncul."
+            exit 1
+          fi
+          if (cd fx && "$CSC" -nologo -target:exe -optimize+ -platform:anycpu -warn:0 -out:fxdock.exe fxdock.cs); then
+            mv fx/fxdock.exe fx/bin/fxdock.exe
+            echo "fxdock.exe OK"
+          else
+            echo "::warning::fxdock.cs gagal dikompilasi. Dock macOS tidak akan aktif di EXE ini."
+            head -c 16 /dev/zero > fx/bin/fxdock.exe
+          fi
+          if curl -fsSL --retry 3 -o fx/bin/PresentMon.exe "https://github.com/GameTechDev/PresentMon/releases/download/v1.10.0/PresentMon-1.10.0-x64.exe" && [ "$(wc -c < fx/bin/PresentMon.exe)" -gt 100000 ]; then
+            echo "PresentMon OK"
+          else
+            echo "::warning::PresentMon gagal diunduh - FPS memakai perkiraan DWM"
+            head -c 4096 /dev/zero > fx/bin/PresentMon.exe
+          fi
+          test -f fx/bin/fxhelper.exe || { echo "::error::fxhelper.exe gagal dibuat"; exit 1; }
+
+      - name: Buat ikon dan konfigurasi
+        run: |
+          set -euo pipefail
+          cd app
+          HAS_ICON=false node make-icon.js
+          cp assets/icon-only.png build/icon.png
+          cp build/icon.png icon.png
+          node - <<'JS'
+          const fs = require("fs");
+          const e = process.env;
+          const name = (e.APP_NAME || "SyhabOS").trim();
+          fs.writeFileSync("app-config.json", JSON.stringify({ name, url: "", version: e.VERSION || "", tray: true, fx: true, jobId: "", api: "", popupMp4: false, popupCfg: "", hideTaskbar: false }));
+          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          Object.assign(pkg, {
+            name: "app", version: e.VERSION || "1.0.0", main: "main.js", description: name, author: name,
+            build: {
+              appId: "com.syhabos.app", productName: name,
+              directories: { output: "dist", buildResources: "build" },
+              files: ["main.js", "app-config.json", "icon.png", "www/**/*", "fx/**/*", "!fx/bin", "!fx/**/*.cs"],
+              extraResources: [{ from: "fx/bin/fxhelper.exe", to: "fxhelper.exe" }, { from: "fx/bin/fxsys.exe", to: "fxsys.exe" }, { from: "fx/bin/fxdock.exe", to: "fxdock.exe" }, { from: "fx/bin/PresentMon.exe", to: "PresentMon.exe" }],
+              win: { target: "nsis", icon: "build/icon.png" },
+              nsis: { oneClick: false, perMachine: false, allowToChangeInstallationDirectory: true, runAfterFinish: true, createDesktopShortcut: true, createStartMenuShortcut: true },
+              artifactName: "app.${ext}"
+            }
+          });
+          fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
+          const kill = (n, f) => "  nsExec::Exec 'taskkill /F /IM " + n + (f || "") + "'\n  Pop $0\n";
+          const nsh =
+            "!macro killOthers\n" +
+            "  System::Call 'kernel32::GetCurrentProcessId() i .R9'\n" +
+            kill('\"${APP_EXECUTABLE_FILENAME}\"', ' /FI \"PID ne $R9\"') + "  Sleep 3000\n" +
+            kill("fxdock.exe") + kill("fxhelper.exe") + kill("fxsys.exe") + kill("PresentMon.exe") + "  Sleep 500\n!macroend\n" +
+            "!macro customInit\n  !insertmacro killOthers\n!macroend\n" +
+            "!macro customCheckAppRunning\n  !insertmacro killOthers\n!macroend\n" +
+            "!macro customUnInit\n  !insertmacro killOthers\n!macroend\n";
+          fs.writeFileSync("build/installer.nsh", nsh);
+          JS
+          node - <<'JS2'
+          const fs = require("fs"), path = require("path");
+          const root = path.join(process.cwd(), "node_modules", "app-builder-lib", "templates", "nsis");
+          function walk(d, out) {
+            for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+              const f = path.join(d, e.name);
+              if (e.isDirectory()) walk(f, out); else if (/\.nsh$/i.test(e.name)) out.push(f);
+            }
+            return out;
+          }
+          let patched = 0;
+          for (const f of walk(root, [])) {
+            const t = fs.readFileSync(f, "utf8");
+            if (!/!macro\s+CHECK_APP_RUNNING\b/.test(t)) continue;
+            fs.writeFileSync(f, t + "\n!ifmacrodef CHECK_APP_RUNNING\n!macroundef CHECK_APP_RUNNING\n!endif\n!macro CHECK_APP_RUNNING\n  !insertmacro killOthers\n!macroend\n");
+            patched++;
+          }
+          console.log("CHECK_APP_RUNNING dipatch di " + patched + " berkas");
+          JS2
+
+      - name: Bangun EXE
+        run: |
+          set -euo pipefail
+          cd app
+          npx electron-builder --win nsis --x64 --publish never
+          test -f dist/app.exe
+
+      - name: Ganti nama installer
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cp app/dist/app.exe "out/SyhabOS-Setup-${VERSION}.exe"
+          ls -la out
+
+      - name: Unggah sebagai artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: syhabos-windows-exe
+          path: out/SyhabOS-Setup-${{ inputs.version }}.exe
+          retention-days: 14
+
+      - name: Terbitkan Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANGELOG: ${{ inputs.changelog }}
+        run: |
+          set -euo pipefail
+          TAG="syhabos-v${VERSION}"
+          gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag >/dev/null 2>&1 || true
+          gh release create "$TAG" "out/SyhabOS-Setup-${VERSION}.exe" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "SyhabOS v${VERSION}" \
+            --notes "${CHANGELOG:-Build SyhabOS dari repositori.}" \
+            --latest=false
+          echo "Unduh: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/SyhabOS-Setup-${VERSION}.exe"
