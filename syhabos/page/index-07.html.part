@@ -1,0 +1,217 @@
+f) {
+  $('fx2').style.display = 'block';
+  var D = { fpsreal: true, auto: true, live: true, appnotif: true, devs: true, media: true, mtoast: true, net: true, prog: true, game: true, hub: true, curs: false };
+  Object.keys(D).forEach(function (k) {
+    var c = $('o-' + k); c.checked = f[k] === undefined ? D[k] : !!f[k];
+    c.onchange = function () { ni('setOpt', k, this.checked); if (k === 'curs') $('cbox').classList.toggle('off', !this.checked); };
+  });
+  var r = f.rmon === undefined ? 1 : f.rmon | 0; [0, 1, 2].forEach(function (i) { $('r' + i).classList.toggle('on', i === r); });
+  var st = f.cstyle || 'ring'; ['arrow', 'ring', 'dot', 'cross'].forEach(function (k) { $('cs-' + k).classList.toggle('on', k === st); });
+  $('o-ccolor').value = f.ccolor || '#ffffff'; $('o-csize').value = f.csize || 36; $('v-csize').textContent = $('o-csize').value + ' px';
+  $('o-ccolor').oninput = function () { ni('setOpt', 'ccolor', this.value); };
+  $('o-csize').oninput = function () { $('v-csize').textContent = this.value + ' px'; ni('setOpt', 'csize', +this.value); };
+  $('cbox').classList.toggle('off', !$('o-curs').checked);
+}
+
+function setXs(v) { ['cross', 'dot', 'circle', 'plus'].forEach(function (k) { $('xs-' + k).classList.toggle('on', k === v); }); ni('setOpt', 'xhstyle', v); }
+function fx6Init(f) {
+  $('fx6').style.display = 'block';
+  var dflt = { dock: false, lp: true, dbadge: true, dadapt: true, snapz: true };
+  Object.keys(dflt).forEach(function (k) {
+    var c = $('o-' + k); c.checked = f[k] === undefined ? dflt[k] : !!f[k];
+    c.onchange = function () { ni('setOpt', k, this.checked); };
+  });
+  $('lpopen').onclick = function () { ni('openLaunchpad'); };
+}
+function fx5Init(f) {
+  $('fx5').style.display = 'block';
+  var dflt = { spot: true, spotfiles: true };
+  Object.keys(dflt).forEach(function (k) {
+    var c = $('o-' + k); c.checked = f[k] === undefined ? dflt[k] : !!f[k];
+    c.onchange = function () { ni('setOpt', k, this.checked); if (k === 'spot') $('spbox').classList.toggle('off', !this.checked); };
+  });
+  $('spbox').classList.toggle('off', !$('o-spot').checked);
+  $('spopen').onclick = function () { ni('openSpot'); };
+  function warn(g) { $('spwarn').style.display = (g.spot !== false && g.spotkey === false) ? 'flex' : 'none'; }
+  warn(f);
+  setInterval(function () { try { warn(JSON.parse(ni('getFilter') || '{}')); } catch (e) {} }, 3000);
+}
+function fx4Init(f) {
+  $('fx4').style.display = 'block';
+  var dflt = { cc: true, mb: false, mbres: true, mb24: true, mbdate: true, mbsec: false };
+  Object.keys(dflt).forEach(function (k) {
+    var c = $('o-' + k); c.checked = f[k] === undefined ? dflt[k] : !!f[k];
+    c.onchange = function () { ni('setOpt', k, this.checked); if (k === 'mb') $('mbbox').classList.toggle('off', !this.checked); };
+  });
+  $('mbbox').classList.toggle('off', !$('o-mb').checked);
+  $('ccopen').onclick = function () { ni('openCc'); };
+  $('fxmc').style.display = 'block';
+  $('o-mc').checked = f.mc === undefined ? true : !!f.mc;
+  $('o-mc').onchange = function () { ni('setOpt', 'mc', this.checked); };
+  $('mcopen').onclick = function () { ni('openMc'); };
+  $('fxgm').style.display = 'block';
+  $('o-gmode').checked = f.gmode === undefined ? true : !!f.gmode;
+  $('o-gmode').onchange = function () { ni('setOpt', 'gmode', this.checked); };
+  setInterval(gmSt, 2000);
+  $('fxhc').style.display = 'block';
+  [['', 'Tidak ada'], ['lp', 'Launchpad'], ['mc', 'Mission Control'], ['cc', 'Control Center'], ['spot', 'Spotlight'], ['nc', 'Pusat Notifikasi'], ['sw', 'Pengalih Aplikasi'], ['shot', 'Tangkapan Layar'], ['qn', 'Catatan Cepat'], ['ss', 'Screen Saver'], ['lock', 'Kunci Layar'], ['dsleep', 'Tidurkan Layar']];
+  ['hc_tl', 'hc_tr', 'hc_bl', 'hc_br'].forEach(function (k) {
+    var sl = $(k);
+    [['', 'Tidak ada'], ['lp', 'Launchpad'], ['mc', 'Mission Control'], ['cc', 'Control Center'], ['spot', 'Spotlight'], ['nc', 'Pusat Notifikasi'], ['sw', 'Pengalih Aplikasi'], ['shot', 'Tangkapan Layar'], ['qn', 'Catatan Cepat'], ['ss', 'Screen Saver'], ['lock', 'Kunci Layar'], ['dsleep', 'Tidurkan Layar']].forEach(function (o) { var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; sl.appendChild(op); });
+    sl.value = f[k] || '';
+    sl.onchange = function () { ni('setOpt', k, this.value); };
+  });
+  var hid = !!f.mbhide;
+  function mbBtn() { $('mbtoggle').textContent = t(hid ? 'Munculkan menu bar' : 'Sembunyikan menu bar'); $('mbtoggle').classList.toggle('on', hid); }
+  window.mbBtnRefresh = mbBtn;
+  $('mbtoggle').onclick = function () { hid = !hid; ni('setOpt', 'mbhide', hid); mbBtn(); };
+  mbBtn();
+  setInterval(function () { try { var g = JSON.parse(ni('getFilter') || '{}'); if (!!g.mbhide !== hid) { hid = !!g.mbhide; mbBtn(); } } catch (e) {} }, 1500);
+}
+function setSs(v) { ['drift', 'clock', 'text'].forEach(function (k) { $('ss-' + k).classList.toggle('on', k === v); }); ni('setOpt', 'ssstyle', v); }
+function fx7Init(f) {
+  $('fx7').style.display = 'block';
+  var dflt = { asw: true, shot: true, shotthumb: true, shotsnd: true, shotclip: false, fq: true, ns: false, nssch: true, ss: false, qn: true };
+  Object.keys(dflt).forEach(function (k) {
+    var c = $('o-' + k); c.checked = f[k] === undefined ? dflt[k] : !!f[k];
+    c.onchange = function () {
+      ni('setOpt', k, this.checked);
+      if (k === 'shot') $('shbox').classList.toggle('off', !this.checked);
+      if (k === 'ns') $('nsbox').classList.toggle('off', !this.checked);
+      if (k === 'ss') $('ssbox').classList.toggle('off', !this.checked);
+    };
+  });
+  $('shbox').classList.toggle('off', !$('o-shot').checked);
+  $('nsbox').classList.toggle('off', !$('o-ns').checked);
+  $('ssbox').classList.toggle('off', !$('o-ss').checked);
+  var nsw = $('o-nsw'); nsw.value = f.nsw == null ? 40 : f.nsw; $('v-nsw').textContent = nsw.value + '%';
+  nsw.oninput = function () { $('v-nsw').textContent = this.value + '%'; ni('setOpt', 'nsw', +this.value); };
+  var ssm = $('o-ssmin'); ssm.value = f.ssmin == null ? 5 : f.ssmin; $('v-ssmin').textContent = t('{n} mnt', { n: ssm.value });
+  ssm.oninput = function () { $('v-ssmin').textContent = t('{n} mnt', { n: this.value }); ni('setOpt', 'ssmin', +this.value); };
+  $('nsfrom').value = f.nsfrom || '21:00'; $('nsto').value = f.nsto || '07:00';
+  $('nsfrom').onchange = function () { if (this.value) ni('setOpt', 'nsfrom', this.value); };
+  $('nsto').onchange = function () { if (this.value) ni('setOpt', 'nsto', this.value); };
+  var st = f.ssstyle || 'drift'; ['drift', 'clock', 'text'].forEach(function (k) { $('ss-' + k).classList.toggle('on', k === st); });
+  $('o-sstext').value = f.sstext || ''; $('o-sstext').onchange = function () { ni('setOpt', 'sstext', this.value); };
+  $('swopen').onclick = function () { ni('openSwitcher'); };
+  $('fqopen').onclick = function () { ni('openForceQuit'); };
+  $('shfull').onclick = function () { ni('shotFull'); };
+  $('sharea').onclick = function () { ni('shotArea'); };
+  $('shbar').onclick = function () { ni('shotBar'); };
+  $('ssnow').onclick = function () { ni('startSaver'); };
+  $('qnopen').onclick = function () { ni('openNote'); };
+}
+function fx3Init(f) {
+  $('fx3').style.display = 'block';
+  ['xh', 'xhgame', 'cal'].forEach(function (k) { var c = $('o-' + k); c.checked = f[k] === undefined ? (k === 'cal') : !!f[k]; c.onchange = function () { ni('setOpt', k, this.checked); if (k === 'xh') $('xbox').classList.toggle('off', !this.checked); }; });
+  $('xbox').classList.toggle('off', !$('o-xh').checked);
+  var st = f.xhstyle || 'cross'; ['cross', 'dot', 'circle', 'plus'].forEach(function (k) { $('xs-' + k).classList.toggle('on', k === st); });
+  $('o-xhcolor').value = f.xhcolor || '#00ff66'; $('o-xhcolor').oninput = function () { ni('setOpt', 'xhcolor', this.value); };
+  [['xhsize', 14, ' px'], ['xhthick', 2, ' px'], ['xhgap', 4, ' px'], ['xhop', 90, '%']].forEach(function (a) {
+    var r = $('o-' + a[0]); r.value = f[a[0]] == null ? a[1] : f[a[0]]; $('v-' + a[0]).textContent = r.value + a[2];
+    r.oninput = function () { $('v-' + a[0]).textContent = this.value + a[2]; ni('setOpt', a[0], +this.value); };
+  });
+  var ci = $('o-city'); ci.value = f.city || ''; ci.onchange = function () { ni('setOpt', 'city', this.value); };
+}
+
+function nativeInit() {
+  $('nat').style.display = 'block'; $('anm').style.display = 'block'; $('flt').style.display = 'block'; $('pillrow').style.display = 'flex';
+  var f = {}; try { f = JSON.parse(ni('getFilter') || '{}'); } catch (e) {}
+  FLT.mode = f.mode | 0;
+  (f.apps || []).forEach(function (p) { FLT.apps[p] = 1; });
+  $('anim').checked = f.anim === true; $('animmin').checked = f.animmin === true;
+  $('snd').checked = f.snd === true; $('tap').checked = f.tapopen !== false;
+  $('dur').value = (f.dur || 4500) / 1000; $('v-dur').textContent = t('{n} dtk', { n: $('dur').value });
+  SND.uri = f.suri || ''; SND.def = !f.sname; $('sname').textContent = f.sname || t('Bawaan Windows'); $('sv').value = f.svol || 100;
+  if (typeof f.pill === 'boolean') { cfg.pill = f.pill; syncUi(); }
+  if (f.edge) { cfg.edge = f.edge; paint(); }
+  $('anim').onchange = function () { ni('setAnim', this.checked); poll(); };
+  $('animmin').onchange = function () { ni('setAnimMin', this.checked); };
+  $('snd').onchange = function () { ni('setSound', this.checked); sndUi(); };
+  $('tap').onchange = function () { ni('setTapOpen', this.checked); };
+  $('dur').oninput = function () { $('v-dur').textContent = t('{n} dtk', { n: this.value }); ni('setDuration', Math.round(+this.value * 1000)); };
+  $('sv').oninput = function () { ni('setSoundVol', +this.value); sndUi(); };
+  $('sv').onchange = function () { ni('previewSound', SND.uri); };
+  $('asr').oninput = function () {
+    var q = this.value.trim().toLowerCase();
+    fltRows(function (r) { r.style.display = (!q || r.dataset.n.indexOf(q) >= 0) ? '' : 'none'; });
+  };
+  sndUi(); fltMode(FLT.mode);
+  smartInit(f); fx2Init(f); fx3Init(f); fx4Init(f); fx5Init(f); fx6Init(f); fx7Init(f);
+  poll(); setInterval(poll, 1500);
+}
+
+syncUi(); paint();
+if (IS_WIN) nativeInit();
+else {
+  var d = document.createElement('div'); d.className = 'warn';
+  WARN_ID = 'Fitur Windows (membaca notifikasi, animasi jendela, pilih aplikasi) tidak aktif: halaman ini tidak berjalan di dalam EXE Dynamic Island, atau EXE dibuat tanpa izin island. Pratinjau di atas tetap bisa dicoba.'; d.id = 'warnmsg'; d.setAttribute('data-nt', ''); d.textContent = t(WARN_ID);
+  var h = document.querySelector('header'); h.parentNode.insertBefore(d, h.nextSibling);
+}
+
+/* ---- terapkan bahasa ke halaman ---- */
+var SKIP = '[data-nt],[data-h],[data-t]';
+function i18nApply() {
+  document.documentElement.lang = LANG;
+  document.title = t('SyhabOS');
+  var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null), list = [], n;
+  while ((n = w.nextNode())) list.push(n);
+  list.forEach(function (n) {
+    var p = n.parentNode;
+    if (!p || p.nodeName === 'SCRIPT' || p.nodeName === 'STYLE' || (p.closest && p.closest(SKIP))) return;
+    if (n._o === undefined) { if (!n.nodeValue.trim()) return; n._o = n.nodeValue; }
+    var o = n._o, lead = o.match(/^\s*/)[0], trail = o.match(/\s*$/)[0];
+    n.nodeValue = lead + t(o.trim()) + trail;
+  });
+  document.querySelectorAll('[placeholder],[title],[aria-label]').forEach(function (e) {
+    ['placeholder', 'title', 'aria-label'].forEach(function (a) {
+      if (!e.hasAttribute(a)) return;
+      e._oa = e._oa || {};
+      if (e._oa[a] === undefined) e._oa[a] = e.getAttribute(a);
+      e.setAttribute(a, t(e._oa[a]));
+    });
+  });
+  document.querySelectorAll('[data-t]').forEach(function (e) {
+    if (e._ot === undefined) e._ot = e.textContent;
+    e.textContent = LANG === 'id' ? e._ot : t(e.getAttribute('data-t'));
+  });
+  document.querySelectorAll('[data-h]').forEach(function (e) {
+    if (e._oh === undefined) e._oh = e.innerHTML;
+    e.innerHTML = LANG === 'id' ? e._oh : t(e.getAttribute('data-h'));
+  });
+}
+/* ---- teks yang dibuat JavaScript ikut diganti ---- */
+function gmSt() {
+  var g = {};
+  try { if (IS_WIN) g = JSON.parse(ni('getFilter') || '{}'); } catch (e) {}
+  $('gmst').textContent = t(g.gm ? 'Status: AKTIF (game terdeteksi)' : 'Status: menunggu game');
+}
+function i18nDyn() {
+  var wm = $('warnmsg'); if (wm) wm.textContent = t(WARN_ID);
+  gmSt();
+  if (window.mbBtnRefresh) window.mbBtnRefresh();
+  if (IS_WIN) {
+    if (SND.def) $('sname').textContent = t('Bawaan Windows');
+    $('v-dur').textContent = t('{n} dtk', { n: $('dur').value });
+    $('acount').textContent = acountTxt();
+    Array.prototype.forEach.call(document.querySelectorAll('#alist em'), function (em) { em.textContent = t('baru'); });
+    histKey = ''; renderHist();
+    poll();
+  }
+}
+(function () {
+  var sel = $('lang');
+  LANGS.forEach(function (l) { var o = document.createElement('option'); o.value = l[0]; o.textContent = l[1]; sel.appendChild(o); });
+  sel.value = LANG;
+  sel.onchange = function () {
+    LANG = this.value;
+    try { localStorage.setItem('di_win_lang', LANG); } catch (e) {}
+    i18nApply(); i18nDyn(); ni('setOpt', 'lang', LANG);
+  };
+  i18nApply(); i18nDyn();
+  if (IS_WIN) ni('setOpt', 'lang', LANG);
+})();
+setTimeout(function () { send('msg'); }, 700);
+</script>
+</body>
+</html>
