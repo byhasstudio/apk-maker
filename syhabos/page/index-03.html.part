@@ -1,0 +1,164 @@
+nction springTo(w, h, opening) {
+      S.tw = w; S.th = h;
+      if (opening) { S.kw = 230; S.dw = 16; S.kh = 270; S.dh = 18; } else { S.kw = 420; S.dw = 29; S.kh = 420; S.dh = 29; }
+      if (!S.run) { S.run = true; S.last = 0; requestAnimationFrame(frame); }
+    }
+
+    function frame(t) {
+      if (!S.run) return;
+      var dt = S.last ? Math.min((t - S.last) / 1000, 1 / 30) : 1 / 60; S.last = t;
+      for (var i = 0; i < 4; i++) {
+        var d = dt / 4;
+        S.vw += (-S.kw * (S.w - S.tw) - S.dw * S.vw) * d; S.w += S.vw * d;
+        S.vh += (-S.kh * (S.h - S.th) - S.dh * S.vh) * d; S.h += S.vh * d;
+      }
+      var done = Math.abs(S.w - S.tw) < 0.4 && Math.abs(S.h - S.th) < 0.4 && Math.abs(S.vw) < 3 && Math.abs(S.vh) < 3;
+      if (done) {
+        S.w = S.tw; S.h = S.th; S.vw = 0; S.vh = 0; S.run = false;
+        if (openingFx) { openingFx = false; ct.style.opacity = 1; ct.style.scale = 1; }
+      }
+      applySize(S.w, S.h);
+      progress();
+      if (done) { if (!open && !C.always) { isl.classList.remove('on'); if (o.onIdle) o.onIdle(); } return; }
+      requestAnimationFrame(frame);
+    }
+
+    function progress() {
+      if (!openingFx) return;
+      var span = S.th - ph();
+      var p = span <= 0 ? 1 : (S.h - ph()) / span;
+      var t = clamp((p - 0.30) / 0.45, 0, 1), a = t * t * (3 - 2 * t);
+      ct.style.opacity = a; ct.style.scale = 0.9 + 0.1 * a;
+    }
+
+    function arm() {
+      clearTimeout(timer);
+      if (hover || !open) return;
+      timer = setTimeout(collapse, clamp(+C.dur || 4500, 2000, 20000));
+    }
+
+    function expandFresh() {
+      rebuild();
+      var h = contentH();
+      open = true; openingFx = true;
+      if (!S.w) { S.w = pw(); S.h = ph(); applySize(S.w, S.h); }
+      isl.classList.add('on');
+      ct.style.opacity = 0; ct.style.scale = 0.9;
+      for (var i = 0; i < ct.children.length; i++) rowIn(ct.children[i], 120 + i * 60, false);
+      springTo(eW(), h, true);
+      arm();
+    }
+
+    function pulse() {
+      isl.classList.remove('rel');
+      isl.style.scale = 1.035;
+      setTimeout(function () { isl.classList.add('rel'); isl.style.scale = 1; }, 110);
+    }
+
+    function collapse() {
+      clearTimeout(timer);
+      if (!open) return;
+      open = false; openingFx = false; glowRgb = null; style();
+      if (ct.animate) { ct.style.opacity = 0; } else ct.style.opacity = 0;
+      springTo(pw(), ph(), false);
+      if (o.onCollapse) o.onCollapse();
+    }
+
+    function tint(src) {
+      if (!src || !C.glow) { glowRgb = null; style(); return; }
+      var im = new Image();
+      im.onload = function () {
+        try {
+          var s = 20, cv = document.createElement('canvas'); cv.width = cv.height = s;
+          var cx = cv.getContext('2d'); cx.drawImage(im, 0, 0, s, s);
+          var d = cx.getImageData(0, 0, s, s).data, r = 0, g = 0, b = 0, n = 0;
+          for (var i = 0; i < d.length; i += 4) {
+            if (d[i + 3] < 200) continue;
+            var mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+            if (mx - mn < 40) continue;            // abaikan abu-abu/putih/hitam, ambil warna yang berwarna
+            r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
+          }
+          glowRgb = n > 3 ? [Math.round(r / n), Math.round(g / n), Math.round(b / n)] : null;
+        } catch (x) { glowRgb = null; }
+        style();
+      };
+      im.onerror = function () { glowRgb = null; style(); };
+      im.src = src;
+    }
+
+    function show(e) {
+      tint(e.icon || e.img);
+      if (!open) entries = [];
+      entries.push(e);
+      while (entries.length > 3) entries.shift();
+      if (o.sound) { try { o.sound(e); } catch (x) {} }
+      if (!open) { expandFresh(); return; }
+      if (openingFx) { openingFx = false; ct.style.opacity = 1; ct.style.scale = 1; }
+      rebuild();
+      springTo(eW(), contentH(), true);
+      rowIn(ct.lastChild, 60, true);
+      pulse();
+      arm();
+    }
+
+    /* ---------- sentuhan ---------- */
+    isl.addEventListener('pointerdown', function (ev) {
+      downY = ev.clientY;
+      isl.classList.remove('rel'); isl.style.scale = 0.965;
+      try { isl.setPointerCapture(ev.pointerId); } catch (x) {}
+    });
+    function release() { isl.classList.add('rel'); isl.style.scale = 1; }
+    isl.addEventListener('pointercancel', release);
+    isl.addEventListener('pointerup', function (ev) {
+      release();
+      if (downY - ev.clientY > 18) { collapse(); return; }
+      var rc = isl.getBoundingClientRect();
+      if (ev.clientX < rc.left || ev.clientX > rc.right || ev.clientY < rc.top || ev.clientY > rc.bottom) return;
+      if (!open) { if (o.onPill) o.onPill(); return; }
+      var el = document.elementFromPoint(ev.clientX, ev.clientY), row = el && el.closest ? el.closest('.fxr') : null, idx = -1;
+      if (row) for (var i = 0; i < ct.children.length; i++) if (ct.children[i] === row) idx = i;
+      if (idx < 0) idx = entries.length - 1;
+      if (o.onTap) o.onTap(entries[idx], idx);
+      collapse();
+    });
+    isl.addEventListener('mouseenter', function () { hover = true; clearTimeout(timer); });
+    isl.addEventListener('mouseleave', function () { hover = false; arm(); });
+
+    /* ---------- konfigurasi ---------- */
+    function config(c) {
+      for (var k in c) if (c.hasOwnProperty(k)) C[k] = c[k];
+      style();
+      if (!open && !S.run) {
+        S.w = pw(); S.h = ph(); applySize(S.w, S.h);
+        if (C.always) isl.classList.add('on'); else if (!S.run) isl.classList.remove('on');
+      } else if (open) {
+        rebuild(); springTo(eW(), contentH(), true);
+      }
+    }
+    style(); S.w = pw(); S.h = ph(); applySize(S.w, S.h);
+
+    return {
+      config: config, show: show, collapse: collapse,
+      isOpen: function () { return open; },
+      rect: function () { return isl.classList.contains('on') ? isl.getBoundingClientRect() : null; },
+      el: isl
+    };
+  };
+})(window);
+</script>
+<script>
+var $ = function (id) { return document.getElementById(id); };
+var DEF = { hue:0, sat:0, lig:0, op:100, top:0, cw:110, ew:340, cx:0, dh:0, pill:true, edge:"top" };
+var PRESETS = ['#CDB4FF','#B5EAD7','#FFD3B6','#A0D8F1','#FFC8DD','#FFF1A8','#D9D9E8','#000000'];
+var cfg = Object.assign({}, DEF);
+try { Object.assign(cfg, JSON.parse(localStorage.getItem('di_win_cfg') || '{}')); } catch (e) {}
+function save() { try { localStorage.setItem('di_win_cfg', JSON.stringify(cfg)); } catch (e) {} }
+
+var NI = window.WinIsland || window.AndroidIsland || null;
+var IS_WIN = !!(NI && NI.platform === 'windows');
+function ni(fn) { try { if (NI && typeof NI[fn] === 'function') return NI[fn].apply(NI, Array.prototype.slice.call(arguments, 1)); } catch (e) {} }
+
+/* ===== bahasa / language ===== */
+var LANGS = [['id','Bahasa Indonesia'],['en','English'],['ms','Bahasa Melayu'],['ja','\u65e5\u672c\u8a9e'],['zh','\u7b80\u4f53\u4e2d\u6587'],['es','Espa\u00f1ol']];
+var LI = { en:0, ms:1, ja:2, zh:3, es:4 };
+var TR = {"Fitur macOS tambahan":["Extra macOS features","Ciri macOS tambahan","macOS 追加機能","额外的 macOS 功能","Funciones extra de macOS"],"Pengalih Aplikasi (Ctrl+Alt+S)":["Application Switcher (Ctrl+Alt+S)","Penukar Aplikasi (Ctrl+Alt+S)","アプリスイッチャー (Ctrl+Alt+S)","应用切换器 (Ctrl+Alt+S)","Selector de aplicaciones (Ctrl+Alt+S)"],"Buka Pengalih Aplikasi sekarang":["Open Application Switcher now","Buka Penukar Aplikasi sekarang","今すぐアプリスイッチャーを開く","立即打开应用切换器","Abrir el selector de aplicaciones ahora"],"Screenshot ala macOS":["macOS-style screenshots","Tangkapan skrin gaya macOS","macOS 風スクリーンショット","macOS 风格截屏","Capturas al estilo macOS"],"Thumbnail mengambang":["Floating thumbnail","Imej kecil terapung","フローティングサムネイル","悬浮缩略图","Miniatura flotante"],"Suara rana kamera":["Camera shutter sound","Bunyi pengatup kamera","シャッター音","相机快门声","Sonido de obturador"],"Salin juga ke papan klip":["Also copy to clipboard","Salin juga ke papan keratan","クリップボードにもコピー","同时复制到剪贴板","Copiar también al portapapeles"],"Seluruh layar":["Entire screen","Seluruh skrin","画面全体","整个屏幕","Pantalla completa"],"Area":["Selection","Kawasan","範囲","区域","Selección"],"Toolbar":["Toolbar","Bar alat","ツールバー","工具栏","Barra"],"Paksa Keluar Aplikasi (Ctrl+Alt+Esc)":["Force Quit Applications (Ctrl+Alt+Esc)","Paksa Keluar Aplikasi (Ctrl+Alt+Esc)","アプリを強制終了 (Ctrl+Alt+Esc)","强制退出应用程序 (Ctrl+Alt+Esc)","Forzar salida de aplicaciones (Ctrl+Alt+Esc)"],"Buka Paksa Keluar sekarang":["Open Force Quit now","Buka Paksa Keluar sekarang","今すぐ強制終了を開く","立即打开强制退出","Abrir Forzar salida ahora"],"Night Shift (Ctrl+Alt+W)":["Night Shift (Ctrl+Alt+W)","Night Shift (Ctrl+Alt+W)","Night Shift (Ctrl+Alt+W)","夜览 (Ctrl+Alt+W)","Night Shift (Ctrl+Alt+W)"],"Kehangatan":["Warmth","Kehangatan","暖かさ","色温","Calidez"],"Pakai jadwal":["Use schedule","Guna jadual","スケジュールを使う","使用计划","Usar horario"],"Mulai Screen Saver sekarang":["Start Screen Saver now","Mulakan Screen Saver sekarang","今すぐスクリーンセーバーを開始","立即启动屏幕保护程序","Iniciar el salvapantallas ahora"],"Mulai setelah":["Start after","Mula selepas","開始までの時間","启动等待时间","Iniciar tras"],"{n} mnt":["{n} min","{n} min","{n}分","{n} 分钟","{n} min"],"Teks pesan":["Message text","Teks mesej","メッセージテキスト","消息文字","Texto del mensaje"],"Buka Catatan Cepat sekarang":["Open Quick Note now","Buka Nota Pantas sekarang","今すぐクイックメモを開く","立即打开快速备忘录","Abrir Nota rápida ahora"],"Catatan Cepat (Ctrl+Alt+Q)":["Quick Note (Ctrl+Alt+Q)","Nota Pantas (Ctrl+Alt+Q)","クイックメモ (Ctrl+Alt+Q)","快速备忘录 (Ctrl+Alt+Q)","Nota rápida (Ctrl+Alt+Q)"],"Pusat Notifikasi":["Notification Center","Pusat Pemberitahuan","通知センター","通知中心","Centro de notificaciones"],"Tidurkan Layar":["Sleep Display","Tidurkan Skrin","ディスプレイをスリープ","让显示器休眠","Suspender pantalla"],"Pengalih Aplikasi":["Application Switcher","Penukar Aplikasi","アプリスイッチャー","应用切换器","Selector de aplicaciones"],"Tangkapan Layar":["Screenshot","Tangkapan Skrin","スクリーンショット","截屏","Captura de pantalla"],"Catatan Cepat":["Quick Note","Nota Pantas","クイックメモ","快速备忘录","Nota rápida"],"Kunci Layar":["Lock Screen","Kunci Skrin","画面をロック","锁定屏幕","Bloquear pantalla"],"Screen Saver":["Screen Saver","Screen Saver","スクリーンセーバー","屏幕保护程序","Salvapantallas"],"Badge notifikasi di Dock":["Notification badges in the Dock","Lencana pemberitahuan dalam Dock","Dock の通知バッジ","程序坞通知角标","Insignias de notificación en el Dock"],"Angka merah di ikon aplikasi yang mengirim notifikasi; hilang saat aplikasinya dibuka":["A red number on the icon of apps that send notifications; it disappears when you open the app","Nombor merah pada ikon aplikasi yang menghantar pemberitahuan; hilang apabila aplikasi dibuka","通知を送ったアプリのアイコンに赤い数字を表示します。アプリを開くと消えます","在发送通知的应用图标上显示红色数字；打开应用后消失","Un número rojo en el icono de las aplicaciones que envían notificaciones; desaparece al abrir la aplicación"],"Semua jendela yang terbuka dikecilkan jadi satu layar untuk dipilih. Pintasan: Ctrl+Alt+↑. Klik jendela untuk membukanya, tombol × untuk menutupnya, Esc untuk keluar":["All open windows shrink into a single screen to pick from. Shortcut: Ctrl+Alt+↑. Click a window to open it, the × button to close it, Esc to exit","Semua tetingkap yang dibuka dikecilkan menjadi satu skrin untuk dipilih. Pintasan: Ctrl+Alt+↑. Klik tetingkap untuk membukanya, butang × untuk menutupnya, Esc untuk keluar","開いているすべてのウィンドウを 1 つの画面に縮小して選べます。ショートカット: Ctrl+Alt+↑。ウィンドウをクリックで開く、×で閉じる、Escで終了","所有已打开的窗口会缩小到同一屏幕中供你选择。快捷键：Ctrl+Alt+↑。点击窗口即可打开，点击 × 关闭，按 Esc 退出","Todas las ventanas abiertas se reducen en una sola pantalla para elegir. Atajo: Ctrl+Alt+↑. Haz clic en una ventana para abrirla, en × para cerrarla y Esc para salir"],"Buka Mission Control sekarang":["Open Mission Control now","Buka Mission Control sekarang","今すぐ Mission Control を開く","立即打开 Mission Control","Abrir Mission Control ahora"],"Notifikasi Windows tampil di pulau hitam di atas layar, plus animasi buka & tutup jendela ala iOS.":["Windows notifications appear in a black island at the top of the screen, plus iOS-style window open & close animations.","Pemberitahuan Windows dipaparkan dalam pulau hitam di atas skrin, serta animasi buka & tutup tetingkap ala iOS.","Windows の通知が画面上部の黒いアイランドに表示されます。iOS 風のウィンドウ開閉アニメーションにも対応。","Windows 通知会显示在屏幕顶部的黑色“岛”中，并带有 iOS 风格的窗口打开与关闭动画。","Las notificaciones de Windows aparecen en una isla negra en la parte superior de la pantalla, con animaciones de apertura y cierre de ventanas al estilo iOS."],"Bahasa":["Language","Bahasa","言語","语言","Idioma"],"Pratinjau":["Preview","Pratonton","プレビュー","预览","Vista previa"],"Ini hanya contoh tampilan. Island sungguhan muncul di tengah atas layar utama Windows kamu.":["This is just a sample preview. The real island appears at the top center of your main Windows screen.","Ini hanya contoh paparan. Island sebenar muncul di tengah atas skrin utama Windows anda.","これは表示例です。実際のアイランドは Windows のメイン画面の上部中央に表示されます。","这只是示例预览。真正的岛会出现在 Windows 主屏幕的顶部中央。","Esto es solo una vista de ejemplo. La isla real aparece en el centro superior de la pantalla principal de Windows."],"Status":["Status","Status","ステータス","状态","Estado"],"Pembantu sistem":["System helper","Pembantu sistem","システムヘルパー","系统辅助程序","Ayudante del sistema"],"Program kecil pembaca notifikasi & jendela":["Small program that reads notifications & windows","Program kecil pembaca pemberitahuan & tetingkap","通知とウィンドウを読み取る小さなプログラム","读取通知和窗口的小程序","Pequeño programa que lee notificaciones y ventanas"],"Pembaca notifikasi Windows":["Windows notification reader","Pembaca pemberitahuan Windows","Windows 通知リーダー","Windows 通知读取器","Lector de notificaciones de Windows"],"Pemantau jendela (animasi)":["Window monitor (animation)","Pemantau tetingkap (animasi)","ウィンドウ監視（アニメーション）","窗口监视器（动画）","Monitor de ventanas (animación)"],"Daftar aplikasi terpasang":["Installed apps list","Senarai aplikasi dipasang","インストール済みアプリの一覧","已安装应用列表","Lista de aplicaciones instaladas"],"Pengaturan notifikasi Windows":["Windows notification settings","Tetapan pemberitahuan Windows","Windows の通知設定","Windows 通知设置","Ajustes de notificaciones de Windows"],"Kirim tes ke island asli":["Send test to the real island","Hantar ujian ke island sebenar","実際のアイランドにテスト送信","向真实的岛发送测试","Enviar prueba a la isla real"],"Island membaca notifikasi yang masuk ke Windows, jadi notifikasi asli Windows tetap muncul juga. Kalau mau hanya island: matikan banner notifikasi di Pengaturan Windows untuk aplikasi tertentu (island tetap menerimanya selama notifikasinya aktif). Island tidak muncul saat mode Jangan Ganggu / Focus aktif.":["The island reads notifications that arrive in Windows, so the original Windows notifications still appear too. If you want the island only: turn off notification banners in Windows Settings for specific apps (the island still receives them as long as the notifications are enabled). The island does not appear while Do Not Disturb / Focus mode is on.","Island membaca pemberitahuan yang masuk ke Windows, jadi pemberitahuan asal Windows tetap muncul juga. Jika mahu island sahaja: matikan sepanduk pemberitahuan dalam Tetapan Windows untuk aplikasi tertentu (island tetap menerimanya selagi pemberitahuan diaktifkan). Island tidak muncul semasa mod Jangan Ganggu / Focus aktif.","アイランドは Windows に届いた通知を読み取るため、Windows 本来の通知も引き続き表示されます。アイランドだけにしたい場合は、Windows の設定で特定のアプリの通知バナーをオフにしてください（通知が有効である限り、アイランドは受信できます）。サイレント（集中モード）がオンの間はアイランドは表示されません。","岛会读取发送到 Windows 的通知，因此 Windows 原有的通知仍会显示。如果只想使用岛：请在 Windows 设置中关闭特定应用的通知横幅（只要通知保持开启，岛仍能收到）。开启“勿扰 / 专注”模式时，岛不会显示。","La isla lee las notificaciones que llegan a Windows, por lo que las notificaciones originales de Windows también siguen apareciendo. Si solo quieres la isla: desactiva los avisos de notificación en Configuración de Windows para aplicaciones concretas (la isla las sigue recibiendo mientras las notificaciones estén activas). La isla no aparece cuando el modo No molestar / Asistente de concentración está activo."],"Notifikasi tes":["Test notification","Pemberitahuan ujian","テスト通知","测试通知","Notificación de prueba"],"💬 Pesan":["💬 Message","💬 Mesej","💬 メッセージ","💬 消息","💬 Mensaje"],"♪ Musik":["♪ Music","♪ Muzik","♪ 音楽","♪ 音乐","♪ Música"],"⏱ Timer":["⏱ Timer","⏱ Pemasa","⏱ タイマー","⏱ 计时器","⏱ Temporizador"],"Judul sendiri (opsional)":["Your own title (optional)","Tajuk sendiri (pilihan)","自分のタイトル（任意）","自定义标题（可选）","Título propio (opcional)"],"Isi pesan sendiri (opsional)":["Your own message (optional)","Mesej sendiri (pilihan)","自分のメッセージ（任意）","自定义内容（可选）","Mensaje propio (opcional)"],"Kirim notifikasi":["Send notification","Hantar pemberitahuan","通知を送信","发送通知","Enviar notificación"],"Ketuk island untuk menutup, geser ke atas juga menutup. Island tidak menutup sendiri selagi kursor ada di atasnya.":["Tap the island to close it; swiping up also closes it. The island does not close by itself while the cursor is over it.","Ketik island untuk menutup, leret ke atas juga menutup. Island tidak menutup sendiri selagi kursor berada di atasnya.","アイランドをタップすると閉じ、上にスワイプしても閉じます。カーソルが乗っている間は自動で閉じません。","点按岛即可关闭，向上滑动也可关闭。光标停在岛上时，它不会自动关闭。","Toca la isla para cerrarla; deslizar hacia arriba también la cierra. La isla no se cierra sola mientras el cursor esté encima."],"Warna":["Color","Warna","色","颜色","Color"],"Corak warna":["Hue","Corak warna","色相","色相","Tono"],"Kepekatan":["Saturation","Ketepuan","彩度","饱和度","Saturación"],"Terang":["Brightness","Kecerahan","明るさ","亮度","Brillo"],"Buram / tembus pandang":["Opacity","Kelegapan","不透明度","不透明度","Opacidad"],"Ukuran & posisi":["Size & position","Saiz & kedudukan","サイズと位置","大小与位置","Tamaño y posición"],"Posisi di layar (selalu di tengah tepi yang dipilih):":["Position on screen (always centered on the chosen edge):","Kedudukan pada skrin (sentiasa di tengah tepi yang dipilih):","画面上の位置（選んだ辺の中央に固定）:","屏幕位置（始终位于所选边缘的中央）：","Posición en pantalla (siempre centrada en el borde elegido):"],"⬆ Atas":["⬆ Top","⬆ Atas","⬆ 上","⬆ 上","⬆ Arriba"],"⬇ Bawah":["⬇ Bottom","⬇ Bawah","⬇ 下","⬇ 下","⬇ Abajo"],"⬅ Kiri":["⬅ Left","⬅ Kiri","⬅ 左","⬅ 左","⬅ Izquierda"],"➡ Kanan":["➡ Right","➡ Kanan","➡ 右","➡ 右","➡ Derecha"],"Jarak dari tepi layar":["Distance from screen edge","Jarak dari tepi skrin","画面端からの距離","距屏幕边缘的距离","Distancia al borde de la pantalla"],"Geser sepanjang tepi":["Slide along the edge","Gelongsor sepanjang tepi","辺に沿って移動","沿边缘移动","Deslizar a lo largo del borde"],"Tinggi pill":["Pill height","Ketinggian pill","ピルの高さ","胶囊高度","Alto de la píldora"],"Lebar pill (kecil)":["Pill width (small)","Lebar pill (kecil)","ピルの幅（小）","胶囊宽度（小）","Ancho de la píldora (pequeña)"],"Lebar saat melebar":["Expanded width","Lebar semasa dikembangkan","展開時の幅","展开时的宽度","Ancho al expandirse"],"Selalu tampilkan pill kecil":["Always show the small pill","Sentiasa papar pill kecil","小さなピルを常に表示","始终显示小胶囊","Mostrar siempre la píldora pequeña"],"Island tetap di layar, juga di atas aplikasi layar penuh, sampai kamu matikan. Kalau mati, island hanya muncul saat ada notifikasi":["The island stays on screen, even over fullscreen apps, until you turn it off. When off, the island only appears when there is a notification","Island kekal di skrin, juga di atas aplikasi skrin penuh, sehingga anda mematikannya. Jika dimatikan, island hanya muncul apabila ada pemberitahuan","オフにするまで、全画面アプリの上でもアイランドは画面に残ります。オフにする
