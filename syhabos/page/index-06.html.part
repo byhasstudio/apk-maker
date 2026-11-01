@@ -1,0 +1,225 @@
+ionar en segundo plano y se apaga el monitor de FPS PresentMon. Vuelve a la normalidad sola al salir del juego."], "Status: menunggu game": ["Status: waiting for a game", "Status: menunggu permainan", "ステータス: ゲームを待機中", "状态：等待游戏", "Estado: esperando un juego"], "Status: AKTIF (game terdeteksi)": ["Status: ACTIVE (game detected)", "Status: AKTIF (permainan dikesan)", "ステータス: 有効（ゲームを検出）", "状态：已启用（检测到游戏）", "Estado: ACTIVO (juego detectado)"], "Deretan ikon aplikasi di tengah layar seperti Cmd+Tab. Tekan pintasannya lagi atau Tab untuk berpindah, Enter untuk memilih, Q untuk keluar dari aplikasi, H untuk menyembunyikan": ["A row of app icons in the middle of the screen, like Cmd+Tab. Press the shortcut again or Tab to move, Enter to select, Q to quit the app, H to hide it", "Barisan ikon aplikasi di tengah skrin seperti Cmd+Tab. Tekan pintasannya sekali lagi atau Tab untuk beralih, Enter untuk memilih, Q untuk keluar daripada aplikasi, H untuk menyembunyikan", "Cmd+Tab のように、画面中央にアプリのアイコンが並びます。ショートカットをもう一度押すか Tab で移動、Enter で選択、Q でアプリを終了、H で非表示にします", "屏幕中央会出现一排应用图标，类似 Cmd+Tab。再次按快捷键或按 Tab 切换，Enter 选择，Q 退出应用，H 隐藏应用", "Una fila de iconos de aplicaciones en el centro de la pantalla, como Cmd+Tab. Pulsa de nuevo el atajo o Tab para moverte, Enter para elegir, Q para salir de la aplicación y H para ocultarla"], "Ctrl+Shift+3 seluruh layar, Ctrl+Shift+4 area terpilih, Ctrl+Shift+5 toolbar dengan timer. Hasil disimpan ke Desktop dan thumbnail kecil muncul di pojok kanan bawah (klik untuk membuka, geser ke kanan untuk menutup)": ["Ctrl+Shift+3 entire screen, Ctrl+Shift+4 selected area, Ctrl+Shift+5 toolbar with timer. Results are saved to the Desktop and a small thumbnail appears in the bottom-right corner (click to open, swipe right to dismiss)", "Ctrl+Shift+3 seluruh skrin, Ctrl+Shift+4 kawasan dipilih, Ctrl+Shift+5 bar alat dengan pemasa. Hasil disimpan ke Desktop dan imej kecil muncul di penjuru kanan bawah (klik untuk membuka, leret ke kanan untuk menutup)", "Ctrl+Shift+3 で画面全体、Ctrl+Shift+4 で選択範囲、Ctrl+Shift+5 でタイマー付きツールバー。結果はデスクトップに保存され、右下に小さなサムネイルが表示されます（クリックで開く、右にスワイプで閉じる）", "Ctrl+Shift+3 截取整个屏幕，Ctrl+Shift+4 截取所选区域，Ctrl+Shift+5 打开带计时器的工具栏。结果保存到桌面，右下角会出现小缩略图（点击打开，向右滑动关闭）", "Ctrl+Shift+3 pantalla completa, Ctrl+Shift+4 área seleccionada, Ctrl+Shift+5 barra de herramientas con temporizador. Los resultados se guardan en el Escritorio y aparece una miniatura en la esquina inferior derecha (haz clic para abrir, desliza a la derecha para cerrar)"], "Selain disimpan ke Desktop, gambar langsung bisa ditempel (Ctrl+V)": ["Besides being saved to the Desktop, the image can be pasted right away (Ctrl+V)", "Selain disimpan ke Desktop, imej boleh terus ditampal (Ctrl+V)", "デスクトップへの保存に加えて、そのまま貼り付けられます（Ctrl+V）", "除了保存到桌面，图片还可以直接粘贴（Ctrl+V）", "Además de guardarse en el Escritorio, la imagen se puede pegar al instante (Ctrl+V)"], "Jendela daftar aplikasi dengan tombol Paksa Keluar; aplikasi yang macet ditandai merah. Juga terbuka dari menu Apple di menu bar": ["A window listing apps with a Force Quit button; frozen apps are marked in red. Also opens from the Apple menu in the menu bar", "Tetingkap senarai aplikasi dengan butang Paksa Keluar; aplikasi yang tersekat ditanda merah. Juga boleh dibuka daripada menu Apple di bar menu", "Force Quit ボタン付きのアプリ一覧ウィンドウ。応答しないアプリは赤く表示されます。メニューバーの Apple メニューからも開けます", "带有“强制退出”按钮的应用列表窗口；卡住的应用会标为红色。也可从菜单栏的 Apple 菜单打开", "Una ventana con la lista de aplicaciones y un botón de Forzar salida; las aplicaciones bloqueadas se marcan en rojo. También se abre desde el menú Apple de la barra de menús"], "Menghangatkan warna layar dengan lapisan oranye tipis supaya lebih nyaman di malam hari. Ini lapisan di atas layar, bukan pengaturan warna kartu grafis, dan otomatis hilang saat game layar penuh": ["Warms the screen colors with a thin orange overlay so it's more comfortable at night. This is a layer on top of the screen, not a graphics card color setting, and it disappears automatically during full-screen games", "Menghangatkan warna skrin dengan lapisan oren nipis supaya lebih selesa pada waktu malam. Ini lapisan di atas skrin, bukan tetapan warna kad grafik, dan hilang secara automatik semasa permainan skrin penuh", "薄いオレンジのオーバーレイで画面の色を暖かくし、夜でも見やすくします。画面の上に重ねる仕組みで、グラフィックスカードの色設定ではなく、全画面ゲーム中は自動的に消えます", "用一层薄薄的橙色覆盖层让屏幕颜色变暖，夜间更舒适。这是叠加在屏幕上的图层，不是显卡的色彩设置，全屏游戏时会自动消失", "Calienta los colores de la pantalla con una fina capa naranja para mayor comodidad por la noche. Es una capa sobre la pantalla, no un ajuste de color de la tarjeta gráfica, y desaparece automáticamente en juegos a pantalla completa"], "Mati = menyala terus selama Night Shift aktif": ["Off = stays on as long as Night Shift is active", "Mati = sentiasa menyala selagi Night Shift aktif", "オフ＝Night Shift が有効な間はずっとオン", "关＝只要 Night Shift 启用就一直开启", "Desactivado = permanece encendido mientras Night Shift esté activo"], "Layar penuh saat komputer tidak disentuh. Gerakkan mouse atau tekan tombol apa saja untuk kembali. Tidak aktif saat game layar penuh atau ada suara diputar (butuh Dynamic Island aktif untuk deteksi suara)": ["Full screen when the computer is untouched. Move the mouse or press any key to return. Inactive during full-screen games or while sound is playing (needs Dynamic Island on to detect sound)", "Skrin penuh apabila komputer tidak disentuh. Gerakkan tetikus atau tekan sebarang kekunci untuk kembali. Tidak aktif semasa permainan skrin penuh atau ada bunyi dimainkan (perlukan Dynamic Island aktif untuk mengesan bunyi)", "パソコンを操作していないとき全画面で表示されます。マウスを動かすか任意のキーを押すと戻ります。全画面ゲーム中や音が再生されている間は動作しません（音の検出には Dynamic Island がオンである必要があります）", "电脑闲置时全屏显示。移动鼠标或按任意键即可返回。全屏游戏或正在播放声音时不会启动（检测声音需要开启 Dynamic Island）", "Pantalla completa cuando no se toca el ordenador. Mueve el ratón o pulsa cualquier tecla para volver. No se activa durante juegos a pantalla completa ni mientras suena audio (necesita Dynamic Island activo para detectar el sonido)"], "Dipakai gaya Pesan": ["Used by the Messages style", "Digunakan gaya Mesej", "メッセージスタイルで使用", "用于“信息”样式", "Usado por el estilo Mensajes"], "Catatan kecil di pojok kanan bawah yang tersimpan otomatis. Esc untuk menutup": ["A small note in the bottom-right corner that saves automatically. Esc to close", "Nota kecil di penjuru kanan bawah yang disimpan secara automatik. Esc untuk menutup", "右下に表示される小さなメモで、自動保存されます。Esc で閉じます", "右下角的小便笺，会自动保存。按 Esc 关闭", "Una nota pequeña en la esquina inferior derecha que se guarda automáticamente. Esc para cerrar"], "Hot corners": ["Hot corners", "Sudut aktif", "ホットコーナー", "触发角", "Esquinas activas"], "Pojok kiri atas": ["Top-left corner", "Penjuru kiri atas", "左上の角", "左上角", "Esquina superior izquierda"], "Arahkan kursor ke pojok layar dan tahan sebentar untuk memicu aksi": ["Move the cursor to a screen corner and hold briefly to trigger an action", "Halakan kursor ke penjuru skrin dan tahan seketika untuk mencetuskan tindakan", "カーソルを画面の隅に動かして少しそのままにすると、アクションが実行されます", "将光标移到屏幕角落并稍等片刻即可触发操作", "Mueve el cursor a una esquina de la pantalla y mantenlo un momento para activar una acción"], "Pojok kanan atas": ["Top-right corner", "Penjuru kanan atas", "右上の角", "右上角", "Esquina superior derecha"], "Pojok kiri bawah": ["Bottom-left corner", "Penjuru kiri bawah", "左下の角", "左下角", "Esquina inferior izquierda"], "Pojok kanan bawah": ["Bottom-right corner", "Penjuru kanan bawah", "右下の角", "右下角", "Esquina inferior derecha"]};
+var LANG = 'id', WARN_ID = '';
+try { var _sl = localStorage.getItem('di_win_lang'); if (_sl === 'id' || LI[_sl] !== undefined) LANG = _sl; } catch (e) {}
+function t(k, v) {
+  var r = k;
+  if (LANG !== 'id' && TR[k]) r = TR[k][LI[LANG]] || TR[k][0] || k;
+  if (v) for (var n in v) r = r.split('{' + n + '}').join(v[n]);
+  return r;
+}
+
+/* ---- warna ---- */
+function hslToRgb(h, s, l) {
+  s /= 100; l /= 100; var a = s * Math.min(l, 1 - l);
+  function f(n) { var k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1))))); }
+  return [f(0), f(8), f(4)];
+}
+function hexToHsl(hex) {
+  var r = parseInt(hex.substr(1, 2), 16) / 255, g = parseInt(hex.substr(3, 2), 16) / 255, b = parseInt(hex.substr(5, 2), 16) / 255;
+  var mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, s = 0, d = mx - mn;
+  if (d) { s = d / (1 - Math.abs(2 * l - 1));
+    if (mx == r) h = ((g - b) / d) % 6; else if (mx == g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360; }
+  return { hue: h, sat: s * 100, lig: l * 100 };
+}
+function hexOf(c) { return '#' + c.map(function (v) { return v.toString(16).padStart(2, '0'); }).join('').toUpperCase(); }
+
+/* ---- pratinjau ---- */
+var pv = makeIsland($('stage'), { onPill: function () { send('msg'); } });
+function pvConfig() {
+  pv.config({ bg: hexOf(hslToRgb(cfg.hue, cfg.sat, cfg.lig)), op: cfg.op, cw: cfg.cw, ew: cfg.ew, dh: cfg.dh, top: Math.max(0, 12 + cfg.top), always: true, dur: 4500, edge: cfg.edge });
+  ['top','bottom','left','right'].forEach(function (e) { var b = $('ed-' + e); if (b) b.classList.toggle('on', cfg.edge === e); });
+}
+function paint() {
+  var rgb = hslToRgb(cfg.hue, cfg.sat, cfg.lig), cur = hexOf(rgb);
+  document.querySelectorAll('.sw').forEach(function (e) { e.classList.toggle('sel', e.dataset.c === cur); });
+  pvConfig();
+  ni('setStyle', cur, cfg.op, cfg.top, cfg.cw, cfg.ew, cfg.cx, cfg.dh);
+}
+var KEYS = ['hue','sat','lig','op','top','cw','ew','cx','dh'];
+var LIM = { hue:[0,360], sat:[0,100], lig:[0,100], op:[40,100], top:[-30,120], cx:[-300,300], dh:[-20,80], cw:[40,400], ew:[160,700] };
+var UNIT = { hue:'°', sat:'%', lig:'%', op:'%', top:' px', cx:' px', dh:' px', cw:' px', ew:' px' };
+function lim(k, v) { v = Number(v); if (!isFinite(v)) v = DEF[k]; return Math.max(LIM[k][0], Math.min(LIM[k][1], v)); }
+KEYS.forEach(function (k) { cfg[k] = lim(k, cfg[k]); });
+// kolom angka: ketik ukuran sendiri (tanpa harus menggeser slider)
+KEYS.forEach(function (k) {
+  var sp = $('v-' + (k === 'hue' ? 'h' : k === 'sat' ? 's' : k === 'lig' ? 'l' : k));
+  sp.textContent = '';
+  var n = document.createElement('input'); n.type = 'number'; n.className = 'num'; n.id = 'n-' + k;
+  n.min = LIM[k][0]; n.max = LIM[k][1]; n.step = 1; n.inputMode = 'numeric';
+  sp.appendChild(n); sp.appendChild(document.createTextNode(UNIT[k]));
+  n.addEventListener('input', function () {
+    if (n.value === '' || n.value === '-') return;
+    cfg[k] = lim(k, n.value); $(k).value = cfg[k]; paint(); save();
+  });
+  n.addEventListener('change', function () { cfg[k] = lim(k, n.value); syncUi(); paint(); save(); });
+});
+function syncUi() {
+  KEYS.forEach(function (k) {
+    $(k).value = cfg[k];
+    var n = $('n-' + k); if (document.activeElement !== n) n.value = Math.round(cfg[k]);
+  });
+  $('pill').checked = !!cfg.pill;
+}
+KEYS.forEach(function (k) {
+  $(k).addEventListener('input', function () { cfg[k] = +$(k).value; syncUi(); paint(); save(); });
+});
+PRESETS.forEach(function (c) {
+  var b = document.createElement('button'); b.className = 'sw'; b.style.background = c; b.dataset.c = c; b.title = c;
+  b.onclick = function () { var h = hexToHsl(c); cfg.hue = h.hue; cfg.sat = h.sat; cfg.lig = h.lig; syncUi(); paint(); save(); };
+  $('swatches').appendChild(b);
+});
+$('pill').onchange = function () { cfg.pill = this.checked; save(); ni('setPillAlways', cfg.pill); };
+function setEdge(e) { cfg.edge = e; paint(); save(); ni('setEdge', e); }
+function resetAll() { cfg = Object.assign({}, DEF); syncUi(); paint(); save(); ni('setPillAlways', true); ni('setEdge', 'top'); }
+
+/* ---- notifikasi tes ---- */
+var SAMPLES = {
+  msg:   { t:'Pesan baru', s:'Hai! Island-nya jalan mulus 🎉', a:'Pesan' },
+  music: { t:'♪ Sedang diputar', s:'Lagu favoritmu · Artis', a:'Musik' },
+  timer: { t:'⏱ Timer selesai', s:'Waktunya istirahat sebentar', a:'Jam' }
+};
+function send(type) {
+  var n = SAMPLES[type];
+  if (type === 'custom') n = { t: $('ct').value.trim() || t('Notifikasi'), s: $('cs').value.trim() || t('Notifikasi tes'), a: t('Tes') };
+  else n = { t: t(n.t), s: t(n.s), a: t(n.a) };
+  pv.show({ title: n.t, text: n.s, app: n.a });
+  ni('test', n.t, n.s);
+}
+
+/* ---- bagian khusus Windows ---- */
+function chip(id, ok, label, mid) { var e = $(id); e.textContent = label || (ok ? 'OK' : t('Belum')); e.className = 'chip' + (ok ? ' ok' : (mid ? ' mid' : '')); }
+var lastInfo = {};
+function poll() {
+  if (!IS_WIN) return;
+  try {
+    var i = JSON.parse(ni('getInfo') || '{}'); lastInfo = i;
+    var st = JSON.parse(ni('getState') || '{}');
+    chip('c-help', i.helper, i.helper ? t('Siap') : t('Tidak ada'));
+    var ok = i.notif && i.notif.ok;
+    chip('c-notif', ok, ok ? t('Aktif') : (i.enabled ? t('Menunggu') : t('Mati')), i.enabled && !ok);
+    chip('c-win', i.anim, i.anim ? t('Aktif') : t('Mati'));
+    if (i.sys) chip('c-sys', i.sys.ok, i.sys.ok ? t('Aktif') : (i.sys.exists ? t('Menunggu') : t('Tidak ada')), i.sys.exists && !i.sys.ok);
+    if (i.pm) chip('c-pm', i.pm.ok, i.pm.ok ? t('Aktif') : (i.pm.exists ? t('Siaga') : t('Tidak ada')), i.pm.exists && !i.pm.ok);
+    chip('c-apps', i.appsReady, i.appsReady ? t('{n} aplikasi', { n: i.nApps }) : t('Memuat…'), !i.appsReady);
+    $('tg').textContent = st.running ? t('Matikan Dynamic Island') : t('Nyalakan Dynamic Island');
+    $('nerr').innerHTML = (i.enabled && i.notif && i.notif.err) ? '<span class="err">' + t('Pembaca notifikasi: ') + String(i.notif.err).replace(/[<>&]/g, '') + '</span>' : '';
+    if (i.appsReady && !appsBuilt) buildApps();
+  } catch (e) {}
+}
+function nTog() {
+  try { var st = JSON.parse(ni('getState') || '{}'); if (st.running) ni('stop'); else ni('start'); } catch (e) {}
+  setTimeout(poll, 500);
+}
+
+/* daftar aplikasi */
+var FLT = { mode: 0, apps: {} }, appsBuilt = false;
+function fltSave() { ni('setFilter', FLT.mode, JSON.stringify(Object.keys(FLT.apps))); }
+function fltMode(m) {
+  FLT.mode = m;
+  $('m0').classList.toggle('on', m === 0); $('m1').classList.toggle('on', m === 1);
+  $('alist').classList.toggle('off', m === 0);
+  $('acount').textContent = acountTxt();
+  fltSave();
+}
+function acountTxt() { return FLT.mode === 1 ? t('{n} aplikasi dipilih', { n: Object.keys(FLT.apps).length }) : t('Semua aplikasi ditampilkan di island'); }
+function fltRows(fn) { Array.prototype.forEach.call($('alist').children, fn); }
+function fltAll(on) {
+  fltRows(function (r) {
+    if (r.style.display === 'none') return;
+    r.querySelector('input').checked = on;
+    if (on) FLT.apps[r.dataset.p] = 1; else delete FLT.apps[r.dataset.p];
+  });
+  fltMode(FLT.mode);
+}
+function hueOf(s) { var h = 0; s = String(s || ''); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
+function buildApps() {
+  appsBuilt = true;
+  var list = []; try { list = JSON.parse(ni('getApps') || '[]'); } catch (e) {}
+  var io = ('IntersectionObserver' in window) ? new IntersectionObserver(function (es) {
+    es.forEach(function (en) {
+      if (!en.isIntersecting) return;
+      var box = en.target; io.unobserve(box);
+      var p = box.dataset.p;
+      if (typeof NI.getIconAsync !== 'function') return;
+      NI.getIconAsync(p).then(function (src) {
+        if (!src) return;
+        var im = document.createElement('img'); im.src = src; box.querySelector('.ico').textContent = ''; box.querySelector('.ico').style.background = 'none'; box.querySelector('.ico').appendChild(im);
+      }).catch(function () {});
+    });
+  }, { root: $('alist'), rootMargin: '100px' }) : null;
+  var host = $('alist'); host.textContent = '';
+  list.forEach(function (a) {
+    var r = document.createElement('label'); r.className = 'app'; r.dataset.p = a.p; r.dataset.n = a.n.toLowerCase();
+    var ic = document.createElement('div'); ic.className = 'ico'; ic.textContent = (a.n.charAt(0) || '?').toUpperCase();
+    var h = hueOf(a.n); ic.style.background = 'linear-gradient(135deg,hsl(' + h + ',70%,62%),hsl(' + ((h + 28) % 360) + ',60%,44%))';
+    var sp = document.createElement('span'); sp.className = 'n'; sp.textContent = a.n;
+    var c = document.createElement('input'); c.type = 'checkbox'; c.checked = !!FLT.apps[a.p];
+    c.onchange = function () { if (c.checked) FLT.apps[a.p] = 1; else delete FLT.apps[a.p]; fltMode(FLT.mode); };
+    r.appendChild(ic); r.appendChild(sp);
+    if (a.s) { var nw = document.createElement('em'); nw.textContent = t('baru'); r.appendChild(nw); }
+    r.appendChild(c); host.appendChild(r);
+    if (io) io.observe(r);
+  });
+  var q = $('asr').value.trim().toLowerCase();
+  if (q) fltRows(function (r) { r.style.display = r.dataset.n.indexOf(q) >= 0 ? '' : 'none'; });
+  fltMode(FLT.mode);
+}
+
+/* suara */
+var SND = { uri: '', loaded: false, def: true };
+function sndUi() { $('v-sv').textContent = $('sv').value + '%'; $('sbox').classList.toggle('off', !$('snd').checked); }
+function sndList() {
+  var b = $('slist'), show = b.style.display === 'none';
+  b.style.display = show ? 'block' : 'none';
+  if (!show || SND.loaded) return;
+  SND.loaded = true;
+  var list = []; try { list = JSON.parse(ni('getSounds') || '[]'); } catch (e) {}
+  list.forEach(function (x) {
+    var r = document.createElement('label'); r.className = 'app';
+    var sp = document.createElement('span'); sp.className = 'n'; sp.textContent = x.t;
+    var c = document.createElement('input'); c.type = 'radio'; c.name = 'sndr'; c.checked = (x.u === SND.uri);
+    c.onchange = function () { SND.uri = x.u; SND.def = false; $('sname').textContent = x.t; ni('setSoundUri', x.u); ni('previewSound', x.u); };
+    r.appendChild(sp); r.appendChild(c); b.appendChild(r);
+  });
+}
+
+
+/* fitur pintar */
+function setMon(m) { $('mo0').classList.toggle('on', m === 'primary'); $('mo1').classList.toggle('on', m === 'cursor'); ni('setMonitor', m); }
+var histKey = '';
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
+function renderHist() {
+  var l = []; try { l = JSON.parse(ni('getHistory') || '[]'); } catch (e) {}
+  var key = l.length + ':' + (l[0] ? l[0].t : 0);
+  if (key === histKey) return;
+  histKey = key;
+  var h = $('hlist');
+  if (!l.length) { h.innerHTML = '<div class="note" style="padding:10px 4px;margin:0">' + t('Belum ada notifikasi.') + '</div>'; return; }
+  h.innerHTML = l.map(function (x, i) {
+    var d = new Date(x.t), t = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    return '<div class="hrow" data-i="' + i + '"><time>' + t + '</time><div><b>' + esc(x.title) + ' <small style="color:var(--sub);font-weight:400">· ' + esc(x.app) + '</small></b><span>' + esc(x.text) + '</span></div></div>';
+  }).join('');
+  Array.prototype.forEach.call(h.children, function (r) { r.onclick = function () { ni('reshow', +r.dataset.i); }; });
+}
+function smartInit(f) {
+  $('smt').style.display = 'block'; $('hst').style.display = 'block';
+  $('glow').checked = f.glow !== false; $('bat').checked = f.bat !== false; $('clip').checked = f.clip === true;
+  $('hot').checked = f.hot !== false; $('dnd').checked = f.dnd === true; $('qon').checked = f.qon === true;
+  $('qfrom').value = f.qfrom || '22:00'; $('qto').value = f.qto || '07:00'; $('histon').checked = f.hist !== false;
+  setMon(f.mon === 'cursor' ? 'cursor' : 'primary');
+  function q() { $('qbox').classList.toggle('off', !$('qon').checked); ni('setQuiet', $('qon').checked, $('qfrom').value, $('qto').value); }
+  $('glow').onchange = function () { ni('setGlow', this.checked); };
+  $('bat').onchange = function () { ni('setBat', this.checked); };
+  $('clip').onchange = function () { ni('setClip', this.checked); };
+  $('hot').onchange = function () { ni('setHotkeys', this.checked); };
+  $('dnd').onchange = function () { ni('setDnd', this.checked); };
+  $('histon').onchange = function () { ni('setHistOn', this.checked); };
+  $('qon').onchange = q; $('qfrom').onchange = q; $('qto').onchange = q;
+  $('qbox').classList.toggle('off', !$('qon').checked);
+  renderHist(); setInterval(renderHist, 3000);
+}
+
+function setRmon(v) { [0, 1, 2].forEach(function (i) { $('r' + i).classList.toggle('on', i === v); }); ni('setOpt', 'rmon', v); }
+function setCs(v) { ['arrow', 'ring', 'dot', 'cross'].forEach(function (k) { $('cs-' + k).classList.toggle('on', k === v); }); ni('setOpt', 'cstyle', v); }
+function fx2Init(
