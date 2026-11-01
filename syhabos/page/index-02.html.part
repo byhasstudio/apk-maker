@@ -1,0 +1,272 @@
+ing berat memori dengan tombol End Task.</div>
+        <div class="row" style="margin-top:8px"><span>Kursor kustom<small>Mengganti kursor panah &amp; tangan Windows. Kembali normal saat aplikasi ditutup</small></span><input type="checkbox" id="o-curs"></div>
+        <div id="cbox">
+          <div class="seg4"><button id="cs-arrow" onclick="setCs('arrow')">Panah</button><button id="cs-ring" onclick="setCs('ring')">Cincin</button><button id="cs-dot" onclick="setCs('dot')">Titik</button><button id="cs-cross" onclick="setCs('cross')">Bidik</button></div>
+          <div class="row"><span>Warna kursor</span><input type="color" id="o-ccolor" value="#ffffff" style="width:46px;height:30px;border:0;background:none"></div>
+          <div class="slider"><div class="top"><span>Ukuran kursor</span><span id="v-csize"></span></div><input type="range" id="o-csize" min="20" max="64" value="36"></div>
+        </div>
+      </div>
+
+      <div class="card" id="fx6" style="display:none">
+        <h2>Launchpad</h2>
+        <div class="row"><span>Dock<small>Diperlukan: ikon Launchpad muncul di Dock (di sebelah ikon Start)</small></span><input type="checkbox" id="o-dock"></div>
+        <div class="row"><span>Ikon Launchpad di Dock<small>Klik ikonnya untuk menampilkan grid semua aplikasi layar penuh</small></span><input type="checkbox" id="o-lp"></div>
+        <div class="row"><span>Badge notifikasi di Dock<small>Angka merah di ikon aplikasi yang mengirim notifikasi; hilang saat aplikasinya dibuka</small></span><input type="checkbox" id="o-dbadge"></div>
+        <div class="row"><span>Adaptive Dock<small>Dock menyesuaikan kebiasaanmu: aplikasi yang sering dipakai diurutkan paling depan, dan sampai 3 aplikasi favorit yang sedang tidak jalan muncul sebagai saran</small></span><input type="checkbox" id="o-dadapt"></div>
+        <div class="row"><span>Zona tata letak jendela<small>Saat kamu menyeret jendela, deretan zona bernomor 1–8 muncul di sisi kanan layar (penuh, kiri, kanan, tengah, empat sudut). Lepas jendela di zona untuk menempatkannya. Butuh Dock aktif</small></span><input type="checkbox" id="o-snapz"></div>
+        <button id="lpopen" style="width:100%;margin:6px 0 4px">Buka Launchpad sekarang</button>
+      </div>
+
+      <div class="card" id="fx5" style="display:none">
+        <h2>Spotlight</h2>
+        <div class="row"><span>Spotlight (Ctrl+Space)<small>Kotak pencarian di tengah layar: buka aplikasi, cari file, dan kalkulator cepat (contoh: 12*(3+4))</small></span><input type="checkbox" id="o-spot"></div>
+        <div id="spbox">
+          <div class="row"><span>Cari file &amp; folder<small>Desktop, Dokumen, Unduhan, Gambar, Musik, dan Video</small></span><input type="checkbox" id="o-spotfiles"></div>
+          <button id="spopen" style="width:100%;margin:6px 0 4px">Buka Spotlight sekarang</button>
+          <div id="spwarn" class="row" style="display:none;color:#ff9f0a"><span>Ctrl+Space sedang dipakai aplikasi lain (misalnya pengalih bahasa/IME), jadi pintasan tidak aktif. Gunakan tombol di atas.</span></div>
+        </div>
+      </div>
+
+      <div class="card" id="fx4" style="display:none">
+        <h2>Menu bar</h2>
+        <div class="row"><span>Menu bar di atas layar<small>Bar tipis ala macOS: nama aplikasi aktif, jam, baterai, Wi-Fi, dan volume (scroll di ikon volume untuk mengatur, klik untuk bisukan)</small></span><input type="checkbox" id="o-mb"></div>
+        <div id="mbbox">
+          <button id="mbtoggle" data-nt style="width:100%;margin:6px 0 4px">Sembunyikan menu bar</button>
+          <div class="row"><span>Control Center<small>Ikon di menu bar membuka panel cepat: Wi-Fi, mode gelap, jangan ganggu, kecerahan, dan volume</small></span><input type="checkbox" id="o-cc"></div>
+          <button id="ccopen" style="width:100%;margin:2px 0 4px">Buka Control Center sekarang</button>
+          <div class="row"><span>Sisakan ruang di atas layar<small>Jendela maksimal tidak menutupi menu bar</small></span><input type="checkbox" id="o-mbres"></div>
+          <div class="row"><span>Format 24 jam</span><input type="checkbox" id="o-mb24"></div>
+          <div class="row"><span>Tampilkan tanggal</span><input type="checkbox" id="o-mbdate"></div>
+          <div class="row"><span>Tampilkan detik</span><input type="checkbox" id="o-mbsec"></div>
+        </div>
+      </div>
+
+      <div class="card" id="fxmc" style="display:none">
+        <h2>Mission Control</h2>
+        <div class="row"><span>Mission Control<small>Semua jendela yang terbuka dikecilkan jadi satu layar untuk dipilih. Pintasan: Ctrl+Alt+↑. Klik jendela untuk membukanya, tombol × untuk menutupnya, Esc untuk keluar</small></span><input type="checkbox" id="o-mc"></div>
+        <button id="mcopen" style="width:100%;margin:2px 0 4px">Buka Mission Control sekarang</button>
+      </div>
+
+      <div class="card" id="fxgm" style="display:none">
+        <h2>Game mode</h2>
+        <div class="row"><span>Game mode otomatis<small>Saat game terdeteksi (layar penuh, atau ditandai dengan Ctrl+Alt+G), aplikasi ini otomatis menjadi ringan: prioritas CPU diturunkan, prioritas game dinaikkan, Dock/menu bar/Spotlight berhenti bekerja di belakang, dan pemantau FPS PresentMon dimatikan. Kembali normal sendiri setelah keluar dari game.</small></span><input type="checkbox" id="o-gmode"></div>
+        <div class="row"><span><small id="gmst" data-nt>Status: menunggu game</small></span></div>
+      </div>
+
+      <div class="card" id="fx7" style="display:none">
+        <h2>Fitur macOS tambahan</h2>
+        <div class="row"><span>Pengalih Aplikasi (Ctrl+Alt+S)<small>Deretan ikon aplikasi di tengah layar seperti Cmd+Tab. Tekan pintasannya lagi atau Tab untuk berpindah, Enter untuk memilih, Q untuk keluar dari aplikasi, H untuk menyembunyikan</small></span><input type="checkbox" id="o-asw"></div>
+        <button id="swopen" style="width:100%;margin:2px 0 8px">Buka Pengalih Aplikasi sekarang</button>
+
+        <div class="row"><span>Screenshot ala macOS<small>Ctrl+Shift+3 seluruh layar, Ctrl+Shift+4 area terpilih, Ctrl+Shift+5 toolbar dengan timer. Hasil disimpan ke Desktop dan thumbnail kecil muncul di pojok kanan bawah (klik untuk membuka, geser ke kanan untuk menutup)</small></span><input type="checkbox" id="o-shot"></div>
+        <div id="shbox">
+          <div class="row"><span>Thumbnail mengambang</span><input type="checkbox" id="o-shotthumb"></div>
+          <div class="row"><span>Suara rana kamera</span><input type="checkbox" id="o-shotsnd"></div>
+          <div class="row"><span>Salin juga ke papan klip<small>Selain disimpan ke Desktop, gambar langsung bisa ditempel (Ctrl+V)</small></span><input type="checkbox" id="o-shotclip"></div>
+          <div class="seg4" style="grid-template-columns:repeat(3,1fr);margin:2px 0 8px"><button id="shfull">Seluruh layar</button><button id="sharea">Area</button><button id="shbar">Toolbar</button></div>
+        </div>
+
+        <div class="row"><span>Paksa Keluar Aplikasi (Ctrl+Alt+Esc)<small>Jendela daftar aplikasi dengan tombol Paksa Keluar; aplikasi yang macet ditandai merah. Juga terbuka dari menu Apple di menu bar</small></span><input type="checkbox" id="o-fq"></div>
+        <button id="fqopen" style="width:100%;margin:2px 0 8px">Buka Paksa Keluar sekarang</button>
+
+        <div class="row"><span>Night Shift (Ctrl+Alt+W)<small>Menghangatkan warna layar dengan lapisan oranye tipis supaya lebih nyaman di malam hari. Ini lapisan di atas layar, bukan pengaturan warna kartu grafis, dan otomatis hilang saat game layar penuh</small></span><input type="checkbox" id="o-ns"></div>
+        <div id="nsbox">
+          <div class="slider"><div class="top"><span>Kehangatan</span><span id="v-nsw"></span></div><input type="range" id="o-nsw" min="5" max="80" value="40"></div>
+          <div class="row"><span>Pakai jadwal<small>Mati = menyala terus selama Night Shift aktif</small></span><input type="checkbox" id="o-nssch"></div>
+          <div class="two" style="margin-bottom:8px"><label class="note" style="margin:0">Mulai<br><input type="time" class="num" id="nsfrom" style="width:100%;text-align:left"></label><label class="note" style="margin:0">Selesai<br><input type="time" class="num" id="nsto" style="width:100%;text-align:left"></label></div>
+        </div>
+
+        <div class="row"><span>Screen Saver<small>Layar penuh saat komputer tidak disentuh. Gerakkan mouse atau tekan tombol apa saja untuk kembali. Tidak aktif saat game layar penuh atau ada suara diputar (butuh Dynamic Island aktif untuk deteksi suara)</small></span><input type="checkbox" id="o-ss"></div>
+        <div id="ssbox">
+          <div class="slider"><div class="top"><span>Mulai setelah</span><span id="v-ssmin"></span></div><input type="range" id="o-ssmin" min="1" max="60" value="5"></div>
+          <div class="seg4" style="grid-template-columns:repeat(3,1fr)"><button id="ss-drift" onclick="setSs('drift')">Drift</button><button id="ss-clock" onclick="setSs('clock')">Jam</button><button id="ss-text" onclick="setSs('text')">Pesan</button></div>
+          <div class="row"><span>Teks pesan<small>Dipakai gaya Pesan</small></span><input type="text" id="o-sstext" maxlength="80" placeholder="mis. Halo!" style="width:150px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:9px;padding:6px 8px;color:inherit;font:inherit"></div>
+        </div>
+        <button id="ssnow" style="width:100%;margin:2px 0 8px">Mulai Screen Saver sekarang</button>
+
+        <div class="row"><span>Catatan Cepat (Ctrl+Alt+Q)<small>Catatan kecil di pojok kanan bawah yang tersimpan otomatis. Esc untuk menutup</small></span><input type="checkbox" id="o-qn"></div>
+        <button id="qnopen" style="width:100%;margin:2px 0 4px">Buka Catatan Cepat sekarang</button>
+      </div>
+
+      <div class="card" id="fxhc" style="display:none">
+        <h2>Hot corners</h2>
+        <div class="row"><span>Pojok kiri atas<small>Arahkan kursor ke pojok layar dan tahan sebentar untuk memicu aksi</small></span><select id="hc_tl"></select></div>
+        <div class="row"><span>Pojok kanan atas</span><select id="hc_tr"></select></div>
+        <div class="row"><span>Pojok kiri bawah</span><select id="hc_bl"></select></div>
+        <div class="row"><span>Pojok kanan bawah</span><select id="hc_br"></select></div>
+      </div>
+
+      <div class="card" id="fx3" style="display:none">
+        <h2>Crosshair, kalender &amp; cuaca</h2>
+        <div class="row"><span>Crosshair di tengah layar<small>Garis bidik di tengah layar (Ctrl+Alt+X untuk nyala/mati cepat)</small></span><input type="checkbox" id="o-xh"></div>
+        <div id="xbox">
+          <div class="row"><span>Hanya saat game layar penuh</span><input type="checkbox" id="o-xhgame"></div>
+          <div class="seg4"><button id="xs-cross" onclick="setXs('cross')">Silang</button><button id="xs-dot" onclick="setXs('dot')">Titik</button><button id="xs-circle" onclick="setXs('circle')">Lingkaran</button><button id="xs-plus" onclick="setXs('plus')">Silang + titik</button></div>
+          <div class="row"><span>Warna</span><input type="color" id="o-xhcolor" value="#00ff66" style="width:46px;height:30px;border:0;background:none"></div>
+          <div class="slider"><div class="top"><span>Ukuran</span><span id="v-xhsize"></span></div><input type="range" id="o-xhsize" min="4" max="56" value="14"></div>
+          <div class="slider"><div class="top"><span>Ketebalan</span><span id="v-xhthick"></span></div><input type="range" id="o-xhthick" min="1" max="8" value="2"></div>
+          <div class="slider"><div class="top"><span>Celah tengah</span><span id="v-xhgap"></span></div><input type="range" id="o-xhgap" min="0" max="30" value="4"></div>
+          <div class="slider"><div class="top"><span data-t="Kepekatan garis">Kepekatan</span><span id="v-xhop"></span></div><input type="range" id="o-xhop" min="20" max="100" value="90"></div>
+        </div>
+        <div class="row" style="margin-top:8px"><span>Kalender &amp; cuaca<small>Ketuk pill (saat selalu tampil) atau tekan Ctrl+Alt+C</small></span><input type="checkbox" id="o-cal"></div>
+        <div class="row"><span>Kota untuk cuaca<small>Isi nama kota agar akurat. Kosong = perkiraan dari IP (bisa meleset)</small></span><input type="text" id="o-city" maxlength="60" placeholder="mis. Tangerang" style="width:150px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);border-radius:8px;color:inherit;padding:6px 8px"></div>
+        <button class="btn" onclick="ni('openCal')">Buka kalender sekarang</button>
+      </div>
+
+      <div class="card" id="hst" style="display:none">
+        <h2>Riwayat notifikasi</h2>
+        <div class="row" style="padding-top:0"><span>Simpan riwayat<small>Disimpan hanya di PC ini, maksimal 40 terakhir</small></span><input type="checkbox" id="histon"></div>
+        <div id="hlist" data-nt></div>
+        <button onclick="NI.clearHistory(); histKey=''; renderHist()" style="width:100%;margin-top:8px">Hapus riwayat</button>
+        <div class="note">Klik satu baris untuk menampilkannya lagi di island.</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+/* ===== inti Dynamic Island (dipakai island.html dan pratinjau di halaman pengaturan) ===== */
+(function (g) {
+  var CSS = [
+    '.fxi{position:absolute;left:50%;transform:translate3d(-50%,0,0);will-change:width,height,opacity,scale;contain:layout style;backface-visibility:hidden;overflow:hidden;box-sizing:border-box;opacity:0;pointer-events:none;scale:1;transform-origin:50% 0;transition:opacity .16s ease,scale .12s ease-out;user-select:none;-webkit-user-select:none;cursor:default;font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif}',
+    '.fxi.on{opacity:1;pointer-events:auto}',
+    '.fxi.rel{transition:opacity .16s ease,scale .3s cubic-bezier(.3,1.9,.5,1)}',
+    '.fxi-ct{position:absolute;top:0;left:50%;transform:translate3d(-50%,0,0);will-change:opacity,scale;box-sizing:border-box;padding:10px 18px;opacity:0;transform-origin:50% 0}',
+    '.fxr{display:flex;align-items:center;padding:8px 0}',
+    '.fxa{position:relative;width:48px;height:48px;flex:none}',
+    '.fxa .pic{position:absolute;left:0;top:0;width:44px;height:44px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:#fff}',
+    '.fxa .pic img{width:100%;height:100%;object-fit:cover;display:block}',
+    '.fxa .bd{position:absolute;right:0;bottom:0;width:22px;height:22px}',
+    '.fxa .bd>div{position:absolute;left:2px;top:2px;right:2px;bottom:2px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;overflow:hidden}',
+    '.fxa .bd img{width:100%;height:100%;object-fit:cover;display:block}',
+    '.fxt{flex:1;min-width:0;margin-left:12px}',
+    '.fxl{display:flex;align-items:center}',
+    '.fxl b{flex:1;min-width:0;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.fxl i{font-style:normal;font-size:12px;margin-left:8px;flex:none}',
+    '.fxx{font-size:14px;line-height:1.28;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;word-break:break-word}',
+    '.fxx.one{-webkit-line-clamp:1}'
+  ].join('');
+
+  var SQ = (function () {
+    var p = [], n = 5, N = 72;
+    for (var i = 0; i < N; i++) {
+      var t = 2 * Math.PI * i / N, c = Math.cos(t), s = Math.sin(t);
+      var x = 50 + (c < 0 ? -1 : 1) * Math.pow(Math.abs(c), 2 / n) * 50;
+      var y = 50 + (s < 0 ? -1 : 1) * Math.pow(Math.abs(s), 2 / n) * 50;
+      p.push(x.toFixed(2) + '% ' + y.toFixed(2) + '%');
+    }
+    return 'polygon(' + p.join(',') + ')';
+  })();
+
+  function hueOf(s) { var h = 0; s = String(s || ''); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
+  function letter(s) { s = String(s || '?').trim(); return (s.charAt(0) || '?').toUpperCase(); }
+  function grad(h) { return 'linear-gradient(135deg,hsl(' + h + ',72%,64%),hsl(' + ((h + 28) % 360) + ',62%,44%))'; }
+  function hexRgb(hex) { hex = String(hex || '#000000').replace('#', ''); if (hex.length === 3) hex = hex.replace(/(.)/g, '$1$1'); return [parseInt(hex.substr(0, 2), 16) || 0, parseInt(hex.substr(2, 2), 16) || 0, parseInt(hex.substr(4, 2), 16) || 0]; }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  g.makeIsland = function (host, o) {
+    o = o || {};
+    var C = { bg: '#000000', op: 100, cw: 110, ew: 340, dh: 0, top: 8, always: false, dur: 4500, edge: 'top' };
+    var entries = [], open = false, openingFx = false, hover = false, timer = null;
+    var S = { w: 0, h: 0, vw: 0, vh: 0, tw: 0, th: 0, run: false, last: 0, kw: 420, dw: 29, kh: 420, dh: 29 };
+    var tc = '#fff', sc = '#b0b0b8', dc = '#8e8e93', ring = '#000';
+    var downY = 0, glowRgb = null;
+
+    var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
+    var isl = document.createElement('div'); isl.className = 'fxi';
+    var ct = document.createElement('div'); ct.className = 'fxi-ct';
+    isl.appendChild(ct); host.appendChild(isl);
+
+    function cH() { return Math.max(20, 32 + (+C.dh || 0)); }
+    function cW() { return Math.max(40, +C.cw || 110); }
+    function eW() { return Math.max(160, Math.min(+C.ew || 340, (host.clientWidth || 400) - 24)); }
+    function side() { return C.edge === 'left' || C.edge === 'right'; }
+    function pw() { return side() ? cH() : cW(); }   // lebar pill kecil (di tepi kiri/kanan pill berdiri tegak)
+    function ph() { return side() ? cW() : cH(); }
+    function rad(h, w) { return Math.min(h / 2, (w || 9999) / 2, 42); }
+
+    function style() {
+      var rgb = hexRgb(C.bg), a = clamp(+C.op || 100, 40, 100) / 100;
+      var lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
+      var light = lum > 0.6;
+      isl.style.background = 'rgba(' + rgb.join(',') + ',' + a + ')';
+      var gl = (C.glow && glowRgb && open) ? '0 0 26px 2px rgba(' + glowRgb.join(',') + ',.55),' : '';
+      isl.style.boxShadow = (lum > 0.12 ? 'inset 0 0 0 1px rgba(255,255,255,.3),' : '') + gl + '0 10px 24px rgba(0,0,0,.34),0 2px 6px rgba(0,0,0,.22)';
+      var m = Math.max(0, +C.top || 0) + 'px', e = C.edge || 'top', st = isl.style;
+      st.top = st.bottom = st.left = st.right = 'auto';
+      if (e === 'bottom') { st.bottom = m; st.left = '50%'; st.transform = 'translate3d(-50%,0,0)'; st.transformOrigin = '50% 100%'; }
+      else if (e === 'left') { st.left = m; st.top = '50%'; st.transform = 'translate3d(0,-50%,0)'; st.transformOrigin = '0 50%'; }
+      else if (e === 'right') { st.right = m; st.top = '50%'; st.transform = 'translate3d(0,-50%,0)'; st.transformOrigin = '100% 50%'; }
+      else { st.top = m; st.left = '50%'; st.transform = 'translate3d(-50%,0,0)'; st.transformOrigin = '50% 0'; }
+      ring = 'rgb(' + rgb.join(',') + ')';
+      tc = light ? '#1c1c1e' : '#ffffff';
+      sc = light ? '#55555c' : '#b0b0b8';
+      dc = light ? '#77777e' : '#8e8e93';
+    }
+
+    function applySize(w, h) {
+      isl.style.width = Math.max(1, w) + 'px';
+      isl.style.height = Math.max(1, h) + 'px';
+      isl.style.borderRadius = rad(h, w) + 'px';
+    }
+
+    /* ---------- baris notifikasi ---------- */
+    function squircle(el) { el.style.clipPath = SQ; el.style.webkitClipPath = SQ; }
+
+    function makeRow(e, single) {
+      var r = document.createElement('div'); r.className = 'fxr';
+      var a = document.createElement('div'); a.className = 'fxa';
+      var pic = document.createElement('div'); pic.className = 'pic';
+      var h = hueOf(e.app || e.title);
+      if (e.img) {
+        pic.style.borderRadius = '50%';
+        var im = document.createElement('img'); im.src = e.img; im.draggable = false; pic.appendChild(im);
+      } else if (e.icon) {
+        squircle(pic);
+        var im2 = document.createElement('img'); im2.src = e.icon; im2.draggable = false; pic.appendChild(im2);
+      } else {
+        squircle(pic); pic.style.background = grad(h); pic.textContent = letter(e.app || e.title);
+      }
+      a.appendChild(pic);
+      if (e.img && (e.icon || e.app)) {
+        var bd = document.createElement('div'); bd.className = 'bd'; bd.style.background = ring; squircle(bd);
+        var bi = document.createElement('div'); squircle(bi);
+        if (e.icon) { var bimg = document.createElement('img'); bimg.src = e.icon; bi.appendChild(bimg); }
+        else { bi.style.background = grad(h); bi.textContent = letter(e.app); }
+        bd.appendChild(bi); a.appendChild(bd);
+      }
+      var t = document.createElement('div'); t.className = 'fxt';
+      var l = document.createElement('div'); l.className = 'fxl';
+      var b = document.createElement('b'); b.style.color = tc; b.textContent = e.title || '';
+      var tm = document.createElement('i'); tm.style.color = dc; tm.textContent = e.time || 'sekarang';
+      l.appendChild(b); l.appendChild(tm); t.appendChild(l);
+      if (e.text) {
+        var x = document.createElement('div'); x.className = 'fxx' + (single ? '' : ' one'); x.style.color = sc; x.textContent = e.text; t.appendChild(x);
+      }
+      r.appendChild(a); r.appendChild(t);
+      return r;
+    }
+
+    function rebuild() {
+      ct.textContent = '';
+      var single = entries.length === 1;
+      for (var i = 0; i < entries.length; i++) ct.appendChild(makeRow(entries[i], single));
+      ct.style.width = eW() + 'px';
+    }
+
+    function contentH() {
+      ct.style.width = eW() + 'px';
+      return Math.max(64, ct.offsetHeight);
+    }
+
+    function rowIn(r, delay, fade) {
+      if (!r || !r.animate) return;
+      r.animate([{ transform: 'translateY(10px)', opacity: fade ? 0 : 1 }, { transform: 'none', opacity: 1 }],
+        { duration: 340, delay: delay, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'backwards' });
+      var av = r.firstChild;
+      if (av && av.animate) av.animate([{ transform: 'scale(.6)' }, { transform: 'scale(1)' }],
+        { duration: 420, delay: delay + 40, easing: 'cubic-bezier(.3,1.7,.5,1)', fill: 'backwards' });
+    }
+
+    /* ---------- pegas ---------- */
+    fu
